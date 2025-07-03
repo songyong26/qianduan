@@ -358,6 +358,30 @@ class VotingApp {
     initializeUI() {
         var self = this;
         
+        // 登录按钮事件监听器
+        var loginBtn = document.getElementById('loginBtn');
+        if (loginBtn) {
+            // 移除可能存在的onclick属性，使用addEventListener
+            loginBtn.removeAttribute('onclick');
+            loginBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                try {
+                    console.log('登录按钮被点击，调用handleLogin方法');
+                    self.handleLogin();
+                } catch (error) {
+                    console.error('登录事件处理失败:', error);
+                    if (typeof showCustomAlert === 'function') {
+                        showCustomAlert('登录功能出现错误，请刷新页面重试', '登录错误', '❌');
+                    } else {
+                        alert('登录功能出现错误，请刷新页面重试');
+                    }
+                }
+            });
+            console.log('登录按钮事件监听器已设置');
+        } else {
+            console.error('未找到登录按钮元素');
+        }
+        
         // 创建项目表单提交
         var createForm = document.getElementById('createProjectForm');
         if (createForm) {
@@ -398,6 +422,9 @@ class VotingApp {
         
         // 创建登录状态显示区域
         this.createLoginStatusDisplay();
+        
+        // 更新登录按钮状态
+        this.updateLoginButton();
     }
     
     // 创建登录状态显示区域
