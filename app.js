@@ -357,16 +357,39 @@ class VotingApp {
     // 初始化UI事件 - Pi浏览器兼容版本
     initializeUI() {
         var self = this;
+        console.log('开始初始化UI...');
+        
+        // 等待DOM完全加载
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                self.setupLoginButton();
+            });
+        } else {
+            this.setupLoginButton();
+        }
+    }
+    
+    setupLoginButton() {
+        var self = this;
+        console.log('设置登录按钮事件监听器...');
         
         // 登录按钮事件监听器
         var loginBtn = document.getElementById('loginBtn');
+        console.log('查找登录按钮元素:', loginBtn);
+        
         if (loginBtn) {
             // 移除可能存在的onclick属性，使用addEventListener
             loginBtn.removeAttribute('onclick');
+            
+            // 移除之前可能存在的事件监听器
+            loginBtn.onclick = null;
+            
             loginBtn.addEventListener('click', function(e) {
                 e.preventDefault();
+                e.stopPropagation();
+                console.log('=== 登录按钮被点击 ===');
                 try {
-                    console.log('登录按钮被点击，调用handleLogin方法');
+                    console.log('调用handleLogin方法...');
                     self.handleLogin();
                 } catch (error) {
                     console.error('登录事件处理失败:', error);
@@ -377,10 +400,26 @@ class VotingApp {
                     }
                 }
             });
-            console.log('登录按钮事件监听器已设置');
+            
+            // 测试按钮是否可点击
+            console.log('登录按钮事件监听器已设置，按钮状态:', {
+                disabled: loginBtn.disabled,
+                style: loginBtn.style.cssText,
+                className: loginBtn.className
+            });
         } else {
-            console.error('未找到登录按钮元素');
+            console.error('未找到登录按钮元素，DOM状态:', document.readyState);
+            // 延迟重试
+            setTimeout(function() {
+                self.setupLoginButton();
+            }, 1000);
         }
+        
+        this.setupOtherUIElements();
+    }
+    
+    setupOtherUIElements() {
+        var self = this;
         
         // 创建项目表单提交
         var createForm = document.getElementById('createProjectForm');
@@ -425,6 +464,52 @@ class VotingApp {
         
         // 更新登录按钮状态
         this.updateLoginButton();
+        
+        // 添加测试函数到全局作用域
+        window.testLoginButton = function() {
+            console.log('测试登录按钮功能...');
+            var loginBtn = document.getElementById('loginBtn');
+            if (loginBtn) {
+                console.log('登录按钮存在，模拟点击...');
+                loginBtn.click();
+            } else {
+                console.error('登录按钮不存在');
+            }
+        };
+        
+        console.log('UI初始化完成，可以在控制台运行 testLoginButton() 来测试登录按钮');
+        
+        // 添加全局调试函数
+        window.debugLoginButton = function() {
+            console.log('=== 登录按钮调试信息 ===');
+            var loginBtn = document.getElementById('loginBtn');
+            if (loginBtn) {
+                console.log('按钮元素:', loginBtn);
+                console.log('按钮位置:', loginBtn.getBoundingClientRect());
+                console.log('按钮样式:', window.getComputedStyle(loginBtn));
+                console.log('按钮事件监听器数量:', loginBtn.getEventListeners ? loginBtn.getEventListeners() : '无法获取');
+                console.log('按钮父元素:', loginBtn.parentElement);
+                console.log('按钮是否可见:', loginBtn.offsetParent !== null);
+                console.log('按钮是否禁用:', loginBtn.disabled);
+                
+                // 测试点击
+                console.log('模拟点击测试...');
+                var event = new MouseEvent('click', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window
+                });
+                loginBtn.dispatchEvent(event);
+            } else {
+                console.error('登录按钮不存在');
+            }
+        };
+        
+        // 5秒后自动运行调试
+        setTimeout(function() {
+            console.log('自动运行登录按钮调试...');
+            window.debugLoginButton();
+        }, 5000);
     }
     
     // 创建登录状态显示区域
