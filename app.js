@@ -124,8 +124,7 @@ class VotingApp {
         
         // 移除了调试面板初始化
         
-        // 开始初始化
-        this.init();
+        // 不在构造函数中自动初始化，由外部调用
     }
     
     // 移除了调试面板初始化方法
@@ -1781,16 +1780,20 @@ window.addEventListener('unhandledrejection', (event) => {
 function initializeApp() {
     console.log('开始初始化应用');
     
+    // 防止重复初始化
+    if (window.app && window.app instanceof VotingApp) {
+        console.log('应用已经初始化，跳过重复初始化');
+        return;
+    }
+    
     try {
-        app = new VotingApp();
-        console.log('VotingApp 实例创建成功:', !!app);
+        window.app = new VotingApp();
+        console.log('VotingApp 实例创建成功:', !!window.app);
         
-        // 确保app对象在全局可用
-        window.app = app;
-        console.log('app 对象已设置到 window.app');
-        
-        // 调用初始化方法（同步版本）
-        app.init().catch(function(error) {
+        // 调用初始化方法
+        window.app.init().then(function() {
+            console.log('应用初始化完成');
+        }).catch(function(error) {
             console.error('应用初始化失败:', error);
             if (typeof showCustomAlert === 'function') {
                 showCustomAlert('应用初始化失败，请刷新页面重试', '初始化错误', '❌');
@@ -1799,7 +1802,6 @@ function initializeApp() {
             }
         });
         
-        console.log('应用初始化完成');
     } catch (error) {
         console.error('应用初始化失败:', error);
         if (typeof showCustomAlert === 'function') {
@@ -2027,8 +2029,8 @@ function switchTab(tabName) {
     }
     
     // 刷新"我的项目"内容
-    if (app) {
-        app.renderMyProjects();
+    if (window.app) {
+        window.app.renderMyProjects();
     }
 }
 
@@ -2056,7 +2058,7 @@ function selectVoteOption(option) {
     
     if (votePointsInput && maxPointsDisplay && remainingPointsInfo) {
         // 更新最大值为剩余积分和用户积分的较小值
-        const maxAllowed = Math.min(remainingPoints, app.userPoints);
+        const maxAllowed = Math.min(remainingPoints, window.app.userPoints);
         votePointsInput.max = maxAllowed;
         maxPointsDisplay.textContent = maxAllowed;
         
@@ -2071,7 +2073,7 @@ function selectVoteOption(option) {
             remainingPointsInfo.style.color = '#ff6b6b';
             votePointsInput.disabled = true;
         } else {
-            remainingPointsInfo.textContent = `该选项剩余可投积分: ${remainingPoints}，您的积分: ${app.userPoints}`;
+            remainingPointsInfo.textContent = `该选项剩余可投积分: ${remainingPoints}，您的积分: ${window.app.userPoints}`;
             remainingPointsInfo.style.color = 'rgba(255,255,255,0.7)';
             votePointsInput.disabled = false;
         }
@@ -2095,17 +2097,17 @@ function submitVote(projectId) {
     }
     
     // 移除了调试日志调用
-    app.handleVote(projectId, selectedVoteOption, votePoints);
+    window.app.handleVote(projectId, selectedVoteOption, votePoints);
     selectedVoteOption = null;
 }
 
 function showPublishResultModal(projectId) {
-    if (!app.currentUser) {
+    if (!window.app.currentUser) {
         showCustomAlert('请先登录', '登录提示', '🔐');
         return;
     }
     
-    app.showPublishResult(projectId);
+    window.app.showPublishResult(projectId);
 }
 
 async function publishResult(projectId, result) {
@@ -2114,13 +2116,13 @@ async function publishResult(projectId, result) {
     const confirmed = await showCustomConfirm(`确认公布结果为"${resultText}"吗？\n\n注意：结果一旦公布将无法修改，请仔细确认。`, '确认公布结果', '⚠️');
     
     if (confirmed) {
-        app.publishProjectResult(projectId, result);
+        window.app.publishProjectResult(projectId, result);
     }
 }
 
 // 显示充值模态框
 function showRechargeModal() {
-    if (!app.currentUser) {
+    if (!window.app.currentUser) {
         showCustomAlert('请先登录Pi Network账户', '登录提示', '🔐');
         return;
     }
@@ -2200,7 +2202,7 @@ function fallbackCopyTextToClipboard(text) {
 function handleRechargeSubmit(e) {
     e.preventDefault();
     
-    if (!app.currentUser) {
+    if (!window.app.currentUser) {
         showCustomAlert('请先登录Pi Network账户', '登录提示', '🔐');
         return;
     }
@@ -2236,7 +2238,7 @@ function handleRechargeSubmit(e) {
         memo: `投票平台充值 - ${amountNum} Pi`,
         metadata: {
             type: 'recharge',
-            userId: app.currentUser.uid,
+            userId: window.app.currentUser.uid,
             timestamp: Date.now()
         }
     };
@@ -2253,7 +2255,7 @@ function handleRechargeSubmit(e) {
             const pointsToAdd = Math.floor(amountNum * 1); // 1 Pi = 1 积分，向下取整
             
             // 如果在线，尝试向后端发送充值记录
-            if (app.isOnline) {
+            if (window.app.isOnline) {
                 try {
                     const rechargeData = {
                         amount: amountNum,
@@ -2267,10 +2269,10 @@ function handleRechargeSubmit(e) {
                     
                     if (response.success) {
                         // 后端处理成功，更新本地数据
-                        app.userPoints = response.data.newBalance;
-                        app.addPointsHistory('recharge', pointsToAdd, `Pi Network充值 ${amountNum} Pi`);
-                        app.saveLocalData();
-                        app.updateUserPointsDisplay();
+                        window.app.userPoints = response.data.newBalance;
+                    window.app.addPointsHistory('recharge', pointsToAdd, `Pi Network充值 ${amountNum} Pi`);
+                    window.app.saveLocalData();
+                    window.app.updateUserPointsDisplay();
                         
                         showCustomAlert(
                             `充值成功！\n充值金额: ${amountNum} Pi\n获得积分: ${pointsToAdd}\n交易ID: ${txid}`,
@@ -2290,10 +2292,10 @@ function handleRechargeSubmit(e) {
             }
             
             // 离线模式或后端请求失败时的本地处理
-            app.userPoints += pointsToAdd;
-            app.addPointsHistory('recharge', pointsToAdd, `Pi Network充值 ${amountNum} Pi`);
-            app.saveLocalData();
-            app.updateUserPointsDisplay();
+            window.app.userPoints += pointsToAdd;
+             window.app.addPointsHistory('recharge', pointsToAdd, `Pi Network充值 ${amountNum} Pi`);
+             window.app.saveLocalData();
+             window.app.updateUserPointsDisplay();
             
             showCustomAlert(
                 `充值成功！\n充值金额: ${amountNum} Pi\n获得积分: ${pointsToAdd}\n交易ID: ${txid}`,
@@ -2339,13 +2341,13 @@ function handleRechargeSubmit(e) {
 
 // 显示提现模态框
 function showWithdrawModal() {
-    if (!app.currentUser) {
+    if (!window.app.currentUser) {
         showCustomAlert('请先登录', '登录提示', '🔐');
         return;
     }
     
     // 计算并显示可提现余额
-    const availablePoints = app.userPoints - app.frozenPoints;
+    const availablePoints = window.app.userPoints - window.app.frozenPoints;
     const availableBalanceElement = document.getElementById('availableBalance');
     if (availableBalanceElement) {
         availableBalanceElement.textContent = availablePoints;
@@ -2354,7 +2356,7 @@ function showWithdrawModal() {
     // 显示冻结积分信息
     const frozenPointsElement = document.getElementById('frozenPointsInfo');
     if (frozenPointsElement) {
-        frozenPointsElement.textContent = `冻结积分：${app.frozenPoints} (暂时不可提现)`;
+        frozenPointsElement.textContent = `冻结积分：${window.app.frozenPoints} (暂时不可提现)`;
     }
     
     // 设置提币数量输入框的最大值
@@ -2388,25 +2390,25 @@ function showWithdrawModal() {
 }
 
 function showPointsDetailModal() {
-    if (!app.currentUser) {
+    if (!window.app.currentUser) {
         showCustomAlert('请先登录', '登录提示', '🔐');
         return;
     }
-    app.showPointsDetail();
+    window.app.showPointsDetail();
 }
 
 // 显示投票模态框
 function showVoteModal(projectId) {
-    if (!app.currentUser) {
+    if (!window.app.currentUser) {
         showCustomAlert('请先登录', '登录提示', '🔐');
         return;
     }
     
-    const project = app.projects.find(p => p.id === projectId);
+    const project = window.app.projects.find(p => p.id === projectId);
     if (!project) return;
     
     // 检查项目是否被删除
-    const isDeleted = app.hiddenProjects.some(hiddenKey => {
+    const isDeleted = window.app.hiddenProjects.some(hiddenKey => {
         const projectIdFromKey = hiddenKey.split('_')[1];
         return projectIdFromKey === project.id && hiddenKey.startsWith(project.creatorId + '_');
     });
@@ -2426,7 +2428,7 @@ function showVoteModal(projectId) {
     const content = document.getElementById('voteContent');
     
     // 判断当前用户是否为项目发起人
-    const isCreator = app.currentUser && project.creatorId === app.currentUser.uid;
+    const isCreator = window.app.currentUser && project.creatorId === window.app.currentUser.uid;
     
     // 计算参与人数
     const participantCount = [...new Set(project.voteDetails?.map(vote => vote.voter) || [])].length;
@@ -2498,18 +2500,18 @@ window.addEventListener('error', (event) => {
 
 // 删除项目
 async function deleteProject(projectId) {
-    if (!app.currentUser) {
+    if (!window.app.currentUser) {
         showCustomAlert('请先登录', '登录提示', '🔐');
         return;
     }
     
-    const project = app.projects.find(p => p.id === projectId);
+    const project = window.app.projects.find(p => p.id === projectId);
     if (!project) {
         showCustomAlert('项目不存在', '错误', '❌');
         return;
     }
     
-    if (project.creatorId !== app.currentUser.uid) {
+    if (project.creatorId !== window.app.currentUser.uid) {
         showCustomAlert('只有项目创建者可以删除项目', '权限不足', '🚫');
         return;
     }
@@ -2534,7 +2536,7 @@ async function deleteProject(projectId) {
     }
     
     // 如果在线，尝试向后端发送删除请求
-    if (app.isOnline) {
+    if (window.app.isOnline) {
         try {
             const response = await apiClient.delete(`/api/projects/${projectId}`);
             
@@ -2559,8 +2561,8 @@ function deleteProjectLocally(project) {
     // 已公布结果的项目，积分已经在公布结果时处理过了
     if (!project.resultPublished) {
         const frozenPoints = project.frozenPoints || 0;
-            app.frozenPoints -= frozenPoints;
-            app.addPointsHistory('project_delete', 0, `删除项目解冻积分 - ${project.title} (解冻${frozenPoints}积分)`);
+            window.app.frozenPoints -= frozenPoints;
+            window.app.addPointsHistory('project_delete', 0, `删除项目解冻积分 - ${project.title} (解冻${frozenPoints}积分)`);
     }
     
     // 检查项目是否有人参与投票
@@ -2568,35 +2570,35 @@ function deleteProjectLocally(project) {
     
     // 无论是否有人参与，删除项目都应该从projects数组中完全移除
     // 这样可以确保删除的项目不会在\"所有项目\"中展示给其他用户
-    app.projects = app.projects.filter(p => p.id !== project.id);
+    window.app.projects = window.app.projects.filter(p => p.id !== project.id);
     
     // 同时清理可能存在的隐藏项目记录
-    app.hiddenProjects = app.hiddenProjects.filter(hiddenKey => {
+    window.app.hiddenProjects = window.app.hiddenProjects.filter(hiddenKey => {
         const projectIdFromKey = hiddenKey.split('_')[1];
         return projectIdFromKey !== project.id;
     });
     
     // 保存数据并更新显示
-    app.saveLocalData();
-    app.updateUserPointsDisplay();
-    app.renderProjects();
+    window.app.saveLocalData();
+    window.app.updateUserPointsDisplay();
+    window.app.renderProjects();
     
     if (project.resultPublished) {
         showCustomAlert('项目删除成功！', '删除成功', '🗑️');
     } else {
         const frozenPoints = project.frozenPoints || 0;
-        showCustomAlert(`项目删除成功！已返还${frozenPoints}积分，当前积分：${app.userPoints}`, '删除成功', '🗑️');
+        showCustomAlert(`项目删除成功！已返还${frozenPoints}积分，当前积分：${window.app.userPoints}`, '删除成功', '🗑️');
     }
 }
 
 // 删除参与的项目（从我的参与列表中移除）
 async function deleteParticipatedProject(projectId) {
-    if (!app.currentUser) {
+    if (!window.app.currentUser) {
         showCustomAlert('请先登录', '登录提示', '🔐');
         return;
     }
 
-    const project = app.projects.find(p => p.id === projectId);
+    const project = window.app.projects.find(p => p.id === projectId);
     if (!project) {
         showCustomAlert('项目不存在', '错误', '❌');
         return;
@@ -2615,37 +2617,37 @@ async function deleteParticipatedProject(projectId) {
     }
 
     // 将项目添加到当前用户的隐藏列表中
-    const hiddenProjectKey = `${app.currentUser.uid}_${projectId}`;
-    if (!app.hiddenProjects.includes(hiddenProjectKey)) {
-        app.hiddenProjects.push(hiddenProjectKey);
+    const hiddenProjectKey = `${window.app.currentUser.uid}_${projectId}`;
+    if (!window.app.hiddenProjects.includes(hiddenProjectKey)) {
+        window.app.hiddenProjects.push(hiddenProjectKey);
     }
     
-    app.saveLocalData();
-    app.renderProjects();
+    window.app.saveLocalData();
+    window.app.renderProjects();
     
     showCustomAlert('项目已从参与列表中删除', '删除成功', '🗑️');
 }
 
 // 编辑项目
 function editProject(projectId) {
-    if (!app.currentUser) {
+    if (!window.app.currentUser) {
         showCustomAlert('请先登录', '登录提示', '🔐');
         return;
     }
     
-    const project = app.projects.find(p => p.id === projectId);
+    const project = window.app.projects.find(p => p.id === projectId);
     if (!project) {
         showCustomAlert('项目不存在', '错误', '❌');
         return;
     }
     
-    if (project.creatorId !== app.currentUser.uid) {
+    if (project.creatorId !== window.app.currentUser.uid) {
         showCustomAlert('只有项目创建者可以编辑项目', '权限不足', '🚫');
         return;
     }
     
     // 检查项目是否被删除
-    const isDeleted = app.hiddenProjects.some(hiddenKey => {
+    const isDeleted = window.app.hiddenProjects.some(hiddenKey => {
         const projectIdFromKey = hiddenKey.split('_')[1];
         return projectIdFromKey === project.id && hiddenKey.startsWith(project.creatorId + '_');
     });
@@ -2687,7 +2689,7 @@ function editProject(projectId) {
     }
     
     // 存储正在编辑的项目ID
-    app.editingProjectId = projectId;
+    window.app.editingProjectId = projectId;
     
     // 检查是否需要显示公布结果按钮
     const hasVotes = (project.voteDetails || []).length > 0;
@@ -2727,12 +2729,12 @@ function editProject(projectId) {
 
 // 取消编辑项目
 function cancelEdit() {
-    if (!app.editingProjectId) {
+    if (!window.app.editingProjectId) {
         return;
     }
     
     // 清除编辑状态
-    app.editingProjectId = null;
+    window.app.editingProjectId = null;
     
     // 重置表单
     const form = document.getElementById('createProjectForm');
@@ -2768,24 +2770,24 @@ function cancelEdit() {
 
 // 暂停项目
 async function pauseProject(projectId) {
-    if (!app.currentUser) {
+    if (!window.app.currentUser) {
         showCustomAlert('请先登录', '登录提示', '🔐');
         return;
     }
     
-    const project = app.projects.find(p => p.id === projectId);
+    const project = window.app.projects.find(p => p.id === projectId);
     if (!project) {
         showCustomAlert('项目不存在', '错误', '❌');
         return;
     }
     
-    if (project.creatorId !== app.currentUser.uid) {
+    if (project.creatorId !== window.app.currentUser.uid) {
         showCustomAlert('只有项目创建者可以暂停项目', '权限不足', '🚫');
         return;
     }
     
     // 检查项目是否被删除
-    const isDeleted = app.hiddenProjects.some(hiddenKey => {
+    const isDeleted = window.app.hiddenProjects.some(hiddenKey => {
         const projectIdFromKey = hiddenKey.split('_')[1];
         return projectIdFromKey === project.id && hiddenKey.startsWith(project.creatorId + '_');
     });
@@ -2803,15 +2805,15 @@ async function pauseProject(projectId) {
     const confirmed = await showCustomConfirm(`确定要暂停项目\"${project.title}\"吗？暂停后其他用户将无法投票。`, '确认暂停项目', '⏸️');
     if (confirmed) {
         // 如果在线，尝试向后端发送暂停请求
-        if (app.isOnline) {
+        if (window.app.isOnline) {
             try {
                 const response = await apiClient.put(`/api/projects/${projectId}/pause`);
                 
                 if (response.success) {
                     // 后端处理成功，更新本地数据
                     project.isPaused = true;
-                    app.saveLocalData();
-                    app.renderProjects();
+                    window.app.saveLocalData();
+                    window.app.renderProjects();
                     showCustomAlert('项目已暂停', '暂停成功', '⏸️');
                     return;
                 }
@@ -2823,32 +2825,32 @@ async function pauseProject(projectId) {
         
         // 离线模式或后端请求失败时的本地处理
         project.isPaused = true;
-        app.saveLocalData();
-        app.renderProjects();
+        window.app.saveLocalData();
+        window.app.renderProjects();
         showCustomAlert('项目已暂停', '暂停成功', '⏸️');
     }
 }
 
 // 重启项目
 async function restartProject(projectId) {
-    if (!app.currentUser) {
+    if (!window.app.currentUser) {
         showCustomAlert('请先登录', '登录提示', '🔐');
         return;
     }
     
-    const project = app.projects.find(p => p.id === projectId);
+    const project = window.app.projects.find(p => p.id === projectId);
     if (!project) {
         showCustomAlert('项目不存在', '错误', '❌');
         return;
     }
     
-    if (project.creatorId !== app.currentUser.uid) {
+    if (project.creatorId !== window.app.currentUser.uid) {
         showCustomAlert('只有项目创建者可以重启项目', '权限不足', '🚫');
         return;
     }
     
     // 检查项目是否被删除
-    const isDeleted = app.hiddenProjects.some(hiddenKey => {
+    const isDeleted = window.app.hiddenProjects.some(hiddenKey => {
         const projectIdFromKey = hiddenKey.split('_')[1];
         return projectIdFromKey === project.id && hiddenKey.startsWith(project.creatorId + '_');
     });
@@ -2866,15 +2868,15 @@ async function restartProject(projectId) {
     const confirmed = await showCustomConfirm(`确定要重启项目\"${project.title}\"吗？重启后其他用户可以继续投票。`, '确认重启项目', '▶️');
     if (confirmed) {
         // 如果在线，尝试向后端发送重启请求
-        if (app.isOnline) {
+        if (window.app.isOnline) {
             try {
                 const response = await apiClient.put(`/api/projects/${projectId}/restart`);
                 
                 if (response.success) {
                     // 后端处理成功，更新本地数据
                     project.isPaused = false;
-                    app.saveLocalData();
-                    app.renderProjects();
+                    window.app.saveLocalData();
+                    window.app.renderProjects();
                     showCustomAlert('项目已重启', '重启成功', '▶️');
                     return;
                 }
@@ -2886,11 +2888,10 @@ async function restartProject(projectId) {
         
         // 离线模式或后端请求失败时的本地处理
         project.isPaused = false;
-        app.saveLocalData();
-        app.renderProjects();
+        window.app.saveLocalData();
+        window.app.renderProjects();
         showCustomAlert('项目已重启', '重启成功', '▶️');
     }
 }
 
-// 导出给全局使用
-window.app = app;
+// app对象已在initializeApp函数中设置到window.app
