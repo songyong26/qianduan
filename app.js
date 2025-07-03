@@ -55,41 +55,54 @@ function closeCustomConfirm(result) {
 let piSDK = null;
 let isPiSDKReady = false;
 
-// 等待Pi SDK加载完成
+// 等待Pi SDK加载完成 - Pi浏览器兼容版本
 function waitForPiSDK() {
     console.log('waitForPiSDK 被调用');
-    return new Promise((resolve, reject) => {
+    
+    return new Promise(function(resolve, reject) {
         console.log('检查 window.Pi:', !!window.Pi);
-        if (window.Pi && typeof window.Pi.init === 'function') {
+        
+        if (window.Pi && typeof window.Pi === 'object' && typeof window.Pi.init === 'function') {
             console.log('Pi SDK 立即可用');
             piSDK = window.Pi;
             isPiSDKReady = true;
             resolve(piSDK);
         } else {
             console.log('Pi SDK 未立即可用，等待加载...');
-            let attempts = 0;
-            const maxAttempts = 15; // 增加到15次尝试
-            const checkInterval = 500; // 每500毫秒检查一次
+            var attempts = 0;
+            var maxAttempts = 20; // 增加到20次尝试
+            var checkInterval = 500; // 每500毫秒检查一次
             
-            const checkPiSDK = () => {
+            function checkPiSDK() {
                 attempts++;
-                console.log(`第${attempts}次检查 window.Pi:`, !!window.Pi);
+                console.log('第' + attempts + '次检查 window.Pi:', !!window.Pi);
                 
-                if (window.Pi && typeof window.Pi.init === 'function') {
-                    console.log('Pi SDK 加载成功');
-                    piSDK = window.Pi;
-                    isPiSDKReady = true;
-                    resolve(piSDK);
-                } else if (attempts >= maxAttempts) {
-                    console.warn('Pi SDK 加载超时，应用将在离线模式下运行');
-                    // 不再拒绝Promise，而是解析为null，让应用继续运行
-                    piSDK = null;
-                    isPiSDKReady = false;
-                    resolve(null);
-                } else {
-                    setTimeout(checkPiSDK, checkInterval);
+                try {
+                    if (window.Pi && typeof window.Pi === 'object' && typeof window.Pi.init === 'function') {
+                        console.log('Pi SDK 加载成功');
+                        piSDK = window.Pi;
+                        isPiSDKReady = true;
+                        resolve(piSDK);
+                    } else if (attempts >= maxAttempts) {
+                        console.warn('Pi SDK 加载超时，应用将在离线模式下运行');
+                        // 不再拒绝Promise，而是解析为null，让应用继续运行
+                        piSDK = null;
+                        isPiSDKReady = false;
+                        resolve(null);
+                    } else {
+                        setTimeout(checkPiSDK, checkInterval);
+                    }
+                } catch (error) {
+                    console.error('检查Pi SDK时发生错误:', error);
+                    if (attempts >= maxAttempts) {
+                        piSDK = null;
+                        isPiSDKReady = false;
+                        resolve(null);
+                    } else {
+                        setTimeout(checkPiSDK, checkInterval);
+                    }
                 }
-            };
+            }
             
             setTimeout(checkPiSDK, checkInterval);
         }
@@ -317,26 +330,44 @@ class VotingApp {
         }
     }
 
-    // 初始化UI事件
+    // 初始化UI事件 - Pi浏览器兼容版本
     initializeUI() {
+        var self = this;
+        
         // 创建项目表单提交
-        const createForm = document.getElementById('createProjectForm');
+        var createForm = document.getElementById('createProjectForm');
         if (createForm) {
-            createForm.addEventListener('submit', (e) => this.handleCreateProject(e));
+            createForm.addEventListener('submit', function(e) {
+                try {
+                    self.handleCreateProject(e);
+                } catch (error) {
+                    console.error('创建项目事件处理失败:', error);
+                }
+            });
         }
 
         // 提现表单提交
-        const withdrawForm = document.getElementById('withdrawForm');
+        var withdrawForm = document.getElementById('withdrawForm');
         if (withdrawForm) {
-            withdrawForm.addEventListener('submit', (e) => this.handleWithdraw(e));
+            withdrawForm.addEventListener('submit', function(e) {
+                try {
+                    self.handleWithdraw(e);
+                } catch (error) {
+                    console.error('提现事件处理失败:', error);
+                }
+            });
         }
 
         // 设置最小截止时间为当前时间
-        const endTimeInput = document.getElementById('endTime');
+        var endTimeInput = document.getElementById('endTime');
         if (endTimeInput) {
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            endTimeInput.min = now.toISOString().slice(0, 16);
+            try {
+                var now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                endTimeInput.min = now.toISOString().slice(0, 16);
+            } catch (error) {
+                console.error('设置时间输入框失败:', error);
+            }
         }
 
         // 项目标题输入框不再限制输入，只在提交时验证
@@ -404,169 +435,275 @@ class VotingApp {
         }
     }
 
-    // 处理登录/退出
-    async handleLogin() {
-        this.showLoginStatus('开始处理登录请求...');
-        // 移除了调试日志调用
+    // 处理登录/退出 - Pi浏览器兼容版本
+    handleLogin() {
+        var self = this;
         
         try {
+            if (typeof self.showLoginStatus === 'function') {
+                self.showLoginStatus('开始处理登录请求...');
+            }
+            
             if (this.currentUser) {
                 // 退出登录
-                // 移除了调试日志调用
-                this.showLoginStatus('正在退出登录...', 'info');
-                
-                // 如果在线，通知后端退出登录
-                if (this.isOnline) {
-                    try {
-                        await apiClient.post('/api/auth/logout');
-                    } catch (logoutError) {
-                        console.warn('后端退出登录失败:', logoutError.message);
-                    }
+                if (typeof self.showLoginStatus === 'function') {
+                    self.showLoginStatus('正在退出登录...', 'info');
                 }
                 
                 // 清除本地数据
-                // 移除了调试日志调用
                 this.currentUser = null;
                 this.userPoints = 0;
                 this.frozenPoints = 0;
                 this.pointsHistory = [];
-                apiClient.setToken(null);
-                localStorage.removeItem('current_user');
                 
-                this.updateLoginButton();
-                this.updateUserPointsDisplay();
-                this.renderProjects();
-                this.showLoginStatus('已成功退出登录', 'success');
-                // 移除了调试日志调用
-                showCustomAlert('已退出登录', '退出成功', '✅');
+                try {
+                    localStorage.removeItem('current_user');
+                } catch (storageError) {
+                    console.warn('清除本地存储失败:', storageError);
+                }
+                
+                if (typeof this.updateLoginButton === 'function') {
+                    this.updateLoginButton();
+                }
+                if (typeof this.updateUserPointsDisplay === 'function') {
+                    this.updateUserPointsDisplay();
+                }
+                if (typeof this.renderProjects === 'function') {
+                    this.renderProjects();
+                }
+                
+                if (typeof self.showLoginStatus === 'function') {
+                    self.showLoginStatus('已成功退出登录', 'success');
+                }
+                
+                if (typeof showCustomAlert === 'function') {
+                    showCustomAlert('已退出登录', '退出成功', '✅');
+                } else {
+                    alert('已退出登录');
+                }
             } else {
-                // 移除了调试日志调用
-                this.showLoginStatus('开始本地登录流程...', 'info');
+                // 开始登录流程
+                if (typeof self.showLoginStatus === 'function') {
+                    self.showLoginStatus('开始本地登录流程...', 'info');
+                }
                 
-                // 检查是否在模拟登录环境中
-                // 移除了调试日志调用
-                if (!window.Pi) {
-                    // 移除了调试日志调用
-                    this.showLoginStatus('❌ 登录系统不可用', 'error');
-                    showCustomAlert('登录系统暂时不可用', '环境错误', '⚠️');
+                // 检查Pi SDK是否可用
+                if (!window.Pi || typeof window.Pi !== 'object') {
+                    if (typeof self.showLoginStatus === 'function') {
+                        self.showLoginStatus('❌ 登录系统不可用', 'error');
+                    }
+                    if (typeof showCustomAlert === 'function') {
+                        showCustomAlert('登录系统暂时不可用，请在Pi Browser中打开', '环境错误', '⚠️');
+                    } else {
+                        alert('登录系统暂时不可用，请在Pi Browser中打开');
+                    }
                     return;
                 }
                 
-                // 移除了调试日志调用
-                this.showLoginStatus('✅ 登录环境检测成功', 'success');
-                
-                // 确保Pi SDK已准备就绪
-                if (!isPiSDKReady) {
-                    this.showLoginStatus('正在等待Pi SDK准备就绪...', 'info');
-                    try {
-                        await waitForPiSDK();
-                    } catch (error) {
-                        this.showLoginStatus('❌ Pi SDK 加载失败', 'error');
-                        throw error;
-                    }
+                if (typeof self.showLoginStatus === 'function') {
+                    self.showLoginStatus('✅ 登录环境检测成功', 'success');
                 }
                 
-                this.showLoginStatus('📞 正在连接Pi Network...', 'info');
-                
-                // Pi Network 登录认证
-                const scopes = ['payments', 'username']; // 请求支付权限和用户名权限
-                
-                // 处理未完成的支付回调
-                const onIncompletePaymentFound = (payment) => {
-                    this.showLoginStatus('💰 发现未完成的支付，正在处理...', 'warning');
-                };
-                
-                const authResult = await piSDK.authenticate(scopes, onIncompletePaymentFound);
-                
-                if (authResult && authResult.user) {
-                    let userInfo = authResult.user;
-                    
-                    // 尝试获取详细用户信息
-                    if (authResult.accessToken) {
-                        try {
-                            this.showLoginStatus('🔍 正在获取用户详细信息...', 'info');
-                            const detailedUserInfo = await piSDK.me();
-                            userInfo = detailedUserInfo;
-                        } catch (meError) {
-                            console.warn('获取用户详细信息失败:', meError.message);
-                            this.showLoginStatus('⚠️ 获取详细信息失败，使用基本信息', 'warning');
-                            // 继续使用认证结果中的用户信息
-                        }
+                // 确保Pi SDK已准备就绪
+                if (!isPiSDKReady || !piSDK) {
+                    if (typeof self.showLoginStatus === 'function') {
+                        self.showLoginStatus('正在等待Pi SDK准备就绪...', 'info');
                     }
                     
-                    // 准备发送到后端的用户数据
-                    const piUserData = {
-                        uid: userInfo.uid,
-                        username: userInfo.username,
-                        displayName: userInfo.displayName,
-                        name: userInfo.name,
-                        accessToken: authResult.accessToken
-                    };
-                    
-                    // 如果在线，向后端发送登录请求
-                    if (this.isOnline) {
-                        try {
-                            this.showLoginStatus('🔄 正在与服务器同步用户信息...', 'info');
-                            const loginResponse = await apiClient.post('/api/auth/pi-login', piUserData);
-                            
-                            if (loginResponse.success) {
-                                // 保存后端返回的认证令牌
-                                apiClient.setToken(loginResponse.token);
-                                
-                                // 使用后端返回的用户信息
-                                this.currentUser = loginResponse.user;
-                                this.userPoints = loginResponse.user.points || 0;
-                                this.frozenPoints = loginResponse.user.frozenPoints || 0;
-                                
-                                // 加载用户相关数据
-                                await this.loadUserData();
-                                
-                                this.showLoginStatus('✅ 服务器同步成功', 'success');
-                            } else {
-                                throw new Error(loginResponse.message || '服务器登录失败');
+                    waitForPiSDK().then(function(sdk) {
+                        if (sdk) {
+                            self.performPiAuthentication();
+                        } else {
+                            if (typeof self.showLoginStatus === 'function') {
+                                self.showLoginStatus('❌ Pi SDK 加载失败', 'error');
                             }
-                        } catch (backendError) {
-                            console.warn('后端登录失败，使用本地模式:', backendError.message);
-                            this.showLoginStatus('⚠️ 服务器连接失败，使用离线模式', 'warning');
-                            
-                            // 后端登录失败，使用本地数据
-                            this.currentUser = piUserData;
-                            this.loadLocalUserData(userInfo.uid);
+                            if (typeof showCustomAlert === 'function') {
+                                showCustomAlert('Pi SDK 加载失败，请刷新页面重试', 'SDK错误', '❌');
+                            } else {
+                                alert('Pi SDK 加载失败，请刷新页面重试');
+                            }
                         }
-                    } else {
-                        // 离线模式，使用本地数据
-                        this.currentUser = piUserData;
-                        this.loadLocalUserData(userInfo.uid);
-                        this.showLoginStatus('📱 离线登录成功', 'success');
-                    }
-                    
-                    // 获取用户显示名称
-                    const displayName = this.getUserDisplayName();
-                    
-                    this.saveLocalData();
-                    this.updateLoginButton();
-                    this.updateUserPointsDisplay();
-                    this.renderProjects();
-                    showCustomAlert(`欢迎，${displayName}！`, 'Pi Network 登录成功', '🎉');
+                    }).catch(function(error) {
+                        console.error('等待Pi SDK失败:', error);
+                        if (typeof self.showLoginStatus === 'function') {
+                            self.showLoginStatus('❌ Pi SDK 加载失败', 'error');
+                        }
+                        if (typeof showCustomAlert === 'function') {
+                            showCustomAlert('Pi SDK 加载失败，请刷新页面重试', 'SDK错误', '❌');
+                        } else {
+                            alert('Pi SDK 加载失败，请刷新页面重试');
+                        }
+                    });
                 } else {
-                    this.showLoginStatus('❌ 认证失败：未获取到用户信息', 'error');
-                    throw new Error('认证失败：未获取到用户信息');
+                    // Pi SDK已准备就绪，直接进行认证
+                    this.performPiAuthentication();
                 }
             }
         } catch (error) {
-            let errorMessage = '登录操作失败，请重试';
+            console.error('登录初始化错误:', error);
+            var errorMessage = '登录功能初始化失败，请重试';
             
-            // 根据错误类型提供更具体的错误信息
-            if (error.message && error.message.includes('cancelled')) {
-                errorMessage = '用户取消了登录操作';
-            } else if (error.message && error.message.includes('network')) {
-                errorMessage = '网络连接失败，请检查网络后重试';
-            } else if (error.message && error.message.includes('Pi SDK')) {
-                errorMessage = '请在Pi Browser中打开此应用';
+            if (typeof self.showLoginStatus === 'function') {
+                self.showLoginStatus('❌ ' + errorMessage, 'error');
             }
             
-            this.showLoginStatus(`❌ ${errorMessage}`, 'error');
-            showCustomAlert(errorMessage, '登录失败', '❌');
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert(errorMessage, '登录失败', '❌');
+            } else {
+                alert(errorMessage);
+            }
+        }
+    }
+    
+    // 执行Pi认证 - Pi浏览器兼容版本
+    performPiAuthentication() {
+        var self = this;
+        
+        try {
+            if (typeof self.showLoginStatus === 'function') {
+                self.showLoginStatus('📞 正在连接Pi Network...', 'info');
+            }
+            
+            // Pi Network 登录认证
+            var scopes = ['payments', 'username']; // 请求支付权限和用户名权限
+            
+            // 处理未完成的支付回调
+            function onIncompletePaymentFound(payment) {
+                if (typeof self.showLoginStatus === 'function') {
+                    self.showLoginStatus('💰 发现未完成的支付，正在处理...', 'warning');
+                }
+            }
+            
+            // 检查authenticate方法是否存在
+            if (!piSDK || typeof piSDK.authenticate !== 'function') {
+                throw new Error('Pi SDK authenticate 方法不可用');
+            }
+            
+            piSDK.authenticate(scopes, onIncompletePaymentFound).then(function(authResult) {
+                if (authResult && (authResult.user || authResult.accessToken)) {
+                    var userInfo = authResult.user || {};
+                    
+                    // 尝试获取详细用户信息
+                    if (authResult.accessToken && piSDK.me && typeof piSDK.me === 'function') {
+                        if (typeof self.showLoginStatus === 'function') {
+                            self.showLoginStatus('🔍 正在获取用户详细信息...', 'info');
+                        }
+                        
+                        piSDK.me().then(function(detailedUserInfo) {
+                            userInfo = detailedUserInfo || userInfo;
+                            self.processUserLogin(userInfo, authResult.accessToken);
+                        }).catch(function(meError) {
+                            console.warn('获取用户详细信息失败:', meError);
+                            if (typeof self.showLoginStatus === 'function') {
+                                self.showLoginStatus('⚠️ 获取详细信息失败，使用基本信息', 'warning');
+                            }
+                            self.processUserLogin(userInfo, authResult.accessToken);
+                        });
+                    } else {
+                        self.processUserLogin(userInfo, authResult.accessToken);
+                    }
+                } else {
+                    if (typeof self.showLoginStatus === 'function') {
+                        self.showLoginStatus('❌ 认证失败：未获取到用户信息', 'error');
+                    }
+                    throw new Error('认证失败：未获取到用户信息');
+                }
+            }).catch(function(error) {
+                console.error('Pi认证过程中发生错误:', error);
+                
+                var errorMessage = '登录操作失败，请重试';
+                
+                // 根据错误类型提供更具体的错误信息
+                if (error && error.message) {
+                    if (error.message.indexOf('cancelled') !== -1) {
+                        errorMessage = '用户取消了登录操作';
+                    } else if (error.message.indexOf('network') !== -1) {
+                        errorMessage = '网络连接失败，请检查网络后重试';
+                    } else if (error.message.indexOf('Pi SDK') !== -1) {
+                        errorMessage = '请在Pi Browser中打开此应用';
+                    }
+                }
+                
+                if (typeof self.showLoginStatus === 'function') {
+                    self.showLoginStatus('❌ ' + errorMessage, 'error');
+                }
+                
+                if (typeof showCustomAlert === 'function') {
+                    showCustomAlert(errorMessage, '登录失败', '❌');
+                } else {
+                    alert(errorMessage);
+                }
+            });
+        } catch (error) {
+            console.error('Pi认证初始化错误:', error);
+            var errorMessage = 'Pi认证功能初始化失败';
+            
+            if (typeof self.showLoginStatus === 'function') {
+                self.showLoginStatus('❌ ' + errorMessage, 'error');
+            }
+            
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert(errorMessage, '认证失败', '❌');
+            } else {
+                alert(errorMessage);
+            }
+        }
+    }
+    
+    // 处理用户登录 - Pi浏览器兼容版本
+    processUserLogin(userInfo, accessToken) {
+        var self = this;
+        
+        try {
+            // 准备用户数据
+            var piUserData = {
+                uid: userInfo.uid || 'unknown_' + Date.now(),
+                username: userInfo.username || 'Pi用户',
+                displayName: userInfo.displayName || userInfo.username || 'Pi用户',
+                name: userInfo.name || userInfo.username || 'Pi用户',
+                accessToken: accessToken
+            };
+            
+            // 使用本地数据（纯前端模式）
+            self.currentUser = piUserData;
+            self.loadLocalUserData(piUserData.uid);
+            
+            if (typeof self.showLoginStatus === 'function') {
+                self.showLoginStatus('📱 登录成功', 'success');
+            }
+            
+            // 获取用户显示名称
+            var displayName = self.getUserDisplayName();
+            
+            self.saveLocalData();
+            
+            if (typeof self.updateLoginButton === 'function') {
+                self.updateLoginButton();
+            }
+            if (typeof self.updateUserPointsDisplay === 'function') {
+                self.updateUserPointsDisplay();
+            }
+            if (typeof self.renderProjects === 'function') {
+                self.renderProjects();
+            }
+            
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('欢迎，' + displayName + '！', 'Pi Network 登录成功', '🎉');
+            } else {
+                alert('欢迎，' + displayName + '！');
+            }
+        } catch (error) {
+            console.error('处理用户登录失败:', error);
+            
+            if (typeof self.showLoginStatus === 'function') {
+                self.showLoginStatus('❌ 登录处理失败', 'error');
+            }
+            
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('登录处理失败，请重试', '处理失败', '❌');
+            } else {
+                alert('登录处理失败，请重试');
+            }
         }
     }
 
@@ -1640,116 +1777,236 @@ window.addEventListener('unhandledrejection', (event) => {
     // 移除了调试日志调用
 });
 
-// 页面加载完成后初始化应用
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log('DOMContentLoaded 事件触发，开始初始化应用');
-    // 移除了调试日志调用
+// 页面加载完成后初始化应用 - Pi浏览器兼容版本
+function initializeApp() {
+    console.log('开始初始化应用');
     
     try {
         app = new VotingApp();
         console.log('VotingApp 实例创建成功:', !!app);
-        // 移除了调试日志调用
         
         // 确保app对象在全局可用
         window.app = app;
         console.log('app 对象已设置到 window.app');
-        // 移除了调试日志调用
         
-        // 调用初始化方法
-        await app.init();
+        // 调用初始化方法（同步版本）
+        app.init().catch(function(error) {
+            console.error('应用初始化失败:', error);
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('应用初始化失败，请刷新页面重试', '初始化错误', '❌');
+            } else {
+                alert('应用初始化失败，请刷新页面重试');
+            }
+        });
+        
         console.log('应用初始化完成');
-        // 移除了调试日志调用
     } catch (error) {
         console.error('应用初始化失败:', error);
-        // 移除了调试日志调用
-        showCustomAlert('应用初始化失败，请刷新页面重试', '初始化错误', '❌');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('应用初始化失败，请刷新页面重试', '初始化错误', '❌');
+        } else {
+            alert('应用初始化失败，请刷新页面重试');
+        }
+    }
+}
+
+// 多种方式确保应用初始化
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+    // 如果DOM已经加载完成，直接初始化
+    initializeApp();
+}
+
+// 备用初始化方式
+window.addEventListener('load', function() {
+    if (!window.app) {
+        console.log('备用初始化触发');
+        setTimeout(initializeApp, 100);
     }
 });
 
 // 全局函数
 
-// 处理登录
+// 处理登录 - Pi浏览器兼容版本
 function handleLogin() {
     console.log('全局 handleLogin 函数被调用');
-    console.log('app 对象存在:', !!app);
-    
-    // 检查应用是否已初始化
-    if (!app) {
-        console.error('app 对象不存在，应用可能还在初始化中');
-        showCustomAlert('应用正在初始化中，请稍后再试', '初始化中', '⏳');
-        return;
-    }
-    
-    // 检查Pi SDK是否已加载
-    if (!window.Pi) {
-        console.error('Pi SDK 未加载');
-        showCustomAlert('Pi SDK 未加载，请确保在Pi Browser中打开此应用', 'SDK错误', '❌');
-        return;
-    }
+    console.log('app 对象存在:', !!window.app);
     
     try {
+        // 检查应用是否已初始化
+        if (!window.app || typeof window.app !== 'object') {
+            console.error('app 对象不存在，应用可能还在初始化中');
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('应用正在初始化中，请稍后再试', '初始化中', '⏳');
+            } else {
+                alert('应用正在初始化中，请稍后再试');
+            }
+            return;
+        }
+        
+        // 检查Pi SDK是否已加载
+        if (!window.Pi || typeof window.Pi !== 'object') {
+            console.error('Pi SDK 未加载');
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('Pi SDK 未加载，请确保在Pi Browser中打开此应用', 'SDK错误', '❌');
+            } else {
+                alert('Pi SDK 未加载，请确保在Pi Browser中打开此应用');
+            }
+            return;
+        }
+        
+        // 检查handleLogin方法是否存在
+        if (typeof window.app.handleLogin !== 'function') {
+            console.error('app.handleLogin 方法不存在');
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('登录功能不可用，请刷新页面重试', '功能错误', '❌');
+            } else {
+                alert('登录功能不可用，请刷新页面重试');
+            }
+            return;
+        }
+        
         console.log('调用 app.handleLogin()');
-        app.handleLogin();
+        window.app.handleLogin();
     } catch (error) {
         console.error('登录过程中发生错误:', error);
-        showCustomAlert('登录过程中发生错误，请重试', '登录错误', '❌');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('登录过程中发生错误，请重试', '登录错误', '❌');
+        } else {
+            alert('登录过程中发生错误，请重试');
+        }
     }
 }
 
-// 卡片展开/收起
+// 卡片展开/收起 - Pi浏览器兼容版本
 function toggleCard(cardId) {
-    const content = document.getElementById(cardId + 'Content');
-    const arrow = document.getElementById(cardId + 'Arrow');
+    console.log('toggleCard 被调用，cardId:', cardId);
     
-    if (content && arrow) {
-        const isExpanded = content.classList.contains('expanded');
+    try {
+        var content = document.getElementById(cardId + 'Content');
+        var arrow = document.getElementById(cardId + 'Arrow');
         
-        if (isExpanded) {
-            content.classList.remove('expanded');
-            arrow.classList.remove('expanded');
+        console.log('找到元素 - content:', !!content, 'arrow:', !!arrow);
+        
+        if (content && arrow) {
+            var isExpanded = false;
             
-            // 收起时恢复原始标题
-            if (cardId === 'allProjects') {
-                const allProjectsTitle = document.querySelector('.card-container .card-title span:nth-child(2)');
-                if (allProjectsTitle) {
-                    allProjectsTitle.textContent = '所有项目';
-                }
+            // 兼容性检查classList
+            if (content.classList && typeof content.classList.contains === 'function') {
+                isExpanded = content.classList.contains('expanded');
+            } else {
+                // 备用方法
+                isExpanded = content.className && content.className.indexOf('expanded') !== -1;
             }
-        } else {
-            content.classList.add('expanded');
-            arrow.classList.add('expanded');
             
-            // 当展开卡片时，刷新相应内容
-            if (app) {
-                if (cardId === 'myProjects') {
-                    app.renderMyProjects();
-                } else if (cardId === 'allProjects') {
-                    app.renderAllProjects();
-                    
-                    // 展开时显示统计信息
-                    const allProjects = [...app.projects]
-                        .filter(project => {
-                            const isActive = new Date(project.endTime) > new Date();
-                            const isDeleted = app.hiddenProjects.some(hiddenKey => {
-                                const projectId = hiddenKey.split('_')[1];
-                                return projectId === project.id && hiddenKey.startsWith(project.creatorId + '_');
-                            });
-                            return isActive && !project.resultPublished && !isDeleted;
-                        });
-                    
-                    const totalProjects = allProjects.length;
-                    const totalParticipants = [...new Set(
-                        allProjects.flatMap(project => 
-                            project.voteDetails?.map(vote => vote.voter) || []
-                        )
-                    )].length;
-                    
-                    const allProjectsTitle = document.querySelector('.card-container .card-title span:nth-child(2)');
-                    if (allProjectsTitle) {
-                        allProjectsTitle.innerHTML = `所有项目 <span style="display: inline-flex; align-items: center; margin-left: 50px; margin-right: 0px; font-size: 12px; vertical-align: middle; color: #ff4757;"><span style="text-align: center; margin-right: 8px;">总项目<br><strong>${totalProjects}</strong></span><span style="border-left: 1px solid #ff4757; height: 20px; margin-right: 8px;"></span><span style="text-align: center;">参与人<br><strong>${totalParticipants}</strong></span></span>`;
+            console.log('当前展开状态:', isExpanded);
+            
+            if (isExpanded) {
+                // 收起卡片
+                if (content.classList && typeof content.classList.remove === 'function') {
+                    content.classList.remove('expanded');
+                    arrow.classList.remove('expanded');
+                } else {
+                    // 备用方法
+                    content.className = content.className.replace(/\bexpanded\b/g, '').trim();
+                    arrow.className = arrow.className.replace(/\bexpanded\b/g, '').trim();
+                }
+                
+                // 收起时恢复原始标题
+                if (cardId === 'allProjects') {
+                    try {
+                        var allProjectsTitle = document.querySelector('.card-container .card-title span:nth-child(2)');
+                        if (allProjectsTitle) {
+                            allProjectsTitle.textContent = '所有项目';
+                        }
+                    } catch (titleError) {
+                        console.error('恢复标题失败:', titleError);
                     }
                 }
+            } else {
+                // 展开卡片
+                if (content.classList && typeof content.classList.add === 'function') {
+                    content.classList.add('expanded');
+                    arrow.classList.add('expanded');
+                } else {
+                    // 备用方法
+                    if (content.className.indexOf('expanded') === -1) {
+                        content.className += ' expanded';
+                    }
+                    if (arrow.className.indexOf('expanded') === -1) {
+                        arrow.className += ' expanded';
+                    }
+                }
+                
+                // 当展开卡片时，刷新相应内容
+                if (window.app && typeof window.app === 'object') {
+                    try {
+                        if (cardId === 'myProjects' && typeof window.app.renderMyProjects === 'function') {
+                            window.app.renderMyProjects();
+                        } else if (cardId === 'allProjects' && typeof window.app.renderAllProjects === 'function') {
+                            window.app.renderAllProjects();
+                            
+                            // 展开时显示统计信息
+                            try {
+                                if (window.app.projects && Array.isArray(window.app.projects)) {
+                                    var allProjects = window.app.projects.filter(function(project) {
+                                        var isActive = new Date(project.endTime) > new Date();
+                                        var isDeleted = false;
+                                        
+                                        if (window.app.hiddenProjects && Array.isArray(window.app.hiddenProjects)) {
+                                            isDeleted = window.app.hiddenProjects.some(function(hiddenKey) {
+                                                var projectId = hiddenKey.split('_')[1];
+                                                return projectId === project.id && hiddenKey.indexOf(project.creatorId + '_') === 0;
+                                            });
+                                        }
+                                        
+                                        return isActive && !project.resultPublished && !isDeleted;
+                                    });
+                                    
+                                    var totalProjects = allProjects.length;
+                                    var allVoters = [];
+                                    
+                                    for (var i = 0; i < allProjects.length; i++) {
+                                        var project = allProjects[i];
+                                        if (project.voteDetails && Array.isArray(project.voteDetails)) {
+                                            for (var j = 0; j < project.voteDetails.length; j++) {
+                                                var vote = project.voteDetails[j];
+                                                if (vote.voter && allVoters.indexOf(vote.voter) === -1) {
+                                                    allVoters.push(vote.voter);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    var totalParticipants = allVoters.length;
+                                    
+                                    var allProjectsTitle = document.querySelector('.card-container .card-title span:nth-child(2)');
+                                    if (allProjectsTitle) {
+                                        allProjectsTitle.innerHTML = '所有项目 <span style="display: inline-flex; align-items: center; margin-left: 50px; margin-right: 0px; font-size: 12px; vertical-align: middle; color: #ff4757;"><span style="text-align: center; margin-right: 8px;">总项目<br><strong>' + totalProjects + '</strong></span><span style="border-left: 1px solid #ff4757; height: 20px; margin-right: 8px;"></span><span style="text-align: center;">参与人<br><strong>' + totalParticipants + '</strong></span></span>';
+                                    }
+                                }
+                            } catch (statsError) {
+                                console.error('更新统计信息失败:', statsError);
+                            }
+                        }
+                    } catch (renderError) {
+                        console.error('渲染内容失败:', renderError);
+                    }
+                } else {
+                    console.warn('app对象不可用');
+                }
             }
+            
+            console.log('toggleCard 执行完成');
+        } else {
+            console.error('未找到必要的DOM元素 - content:', !!content, 'arrow:', !!arrow);
+        }
+    } catch (error) {
+        console.error('toggleCard 执行失败:', error);
+        // 备用提示
+        if (typeof alert === 'function') {
+            alert('卡片操作失败，请刷新页面重试');
         }
     }
 }
