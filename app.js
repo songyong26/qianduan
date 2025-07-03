@@ -116,83 +116,6 @@ class VotingApp {
             console.log('- User Agent:', navigator.userAgent);
             console.log('- window.Pi 存在:', !!window.Pi);
             console.log('- 是否为Pi浏览器:', this.isPiBrowser());
-    }
-    
-    // 设置Pi SDK加载监听器
-    setupPiSDKLoadListener() {
-        console.log('设置Pi SDK加载监听器...');
-        
-        // 监听Pi SDK脚本的加载事件
-        const piScripts = document.querySelectorAll('script[src*="pi-sdk"]');
-        piScripts.forEach((script, index) => {
-            console.log(`监听Pi SDK脚本 ${index + 1}: ${script.src}`);
-            
-            script.addEventListener('load', () => {
-                console.log(`Pi SDK脚本 ${index + 1} 加载完成`);
-                this.checkPiSDKAfterLoad();
-            });
-            
-            script.addEventListener('error', (error) => {
-                console.error(`Pi SDK脚本 ${index + 1} 加载失败:`, error);
-                this.showLoginStatus('❌ Pi SDK脚本加载失败', 'error');
-            });
-        });
-        
-        // 如果没有找到Pi SDK脚本，尝试动态检测
-        if (piScripts.length === 0) {
-            console.log('未找到Pi SDK脚本标签，使用动态检测');
-            this.dynamicPiSDKDetection();
-        }
-    }
-    
-    // 脚本加载后检查Pi SDK
-    checkPiSDKAfterLoad() {
-        setTimeout(() => {
-            console.log('脚本加载后检查Pi SDK状态...');
-            if (window.Pi) {
-                console.log('window.Pi 已存在，检查方法...');
-                console.log('Pi SDK 方法:', Object.keys(window.Pi));
-                
-                if (typeof window.Pi.authenticate === 'function') {
-                    this.piSDKReady = true;
-                    console.log('Pi SDK 认证方法可用');
-                    this.showLoginStatus('✅ Pi SDK 已就绪', 'success');
-                } else {
-                    console.log('Pi SDK 认证方法不可用，继续等待...');
-                }
-            } else {
-                console.log('window.Pi 仍不存在，继续等待...');
-            }
-        }, 100);
-    }
-    
-    // 动态Pi SDK检测
-    dynamicPiSDKDetection() {
-        let checkCount = 0;
-        const maxChecks = 100;
-        const checkInterval = 100;
-        
-        const dynamicCheck = () => {
-            checkCount++;
-            console.log(`动态检测Pi SDK (${checkCount}/${maxChecks})`);
-            
-            if (window.Pi && typeof window.Pi.authenticate === 'function') {
-                console.log('动态检测成功：Pi SDK已加载');
-                this.piSDKReady = true;
-                this.showLoginStatus('✅ Pi SDK 已就绪', 'success');
-                return;
-            }
-            
-            if (checkCount < maxChecks) {
-                setTimeout(dynamicCheck, checkInterval);
-            } else {
-                console.error('动态检测超时：Pi SDK未能加载');
-                this.showLoginStatus('❌ Pi SDK加载超时', 'error');
-            }
-        };
-        
-        setTimeout(dynamicCheck, checkInterval);
-    }
             
             // 检测是否为Pi浏览器环境
             const isPiBrowser = this.isPiBrowser();
@@ -293,6 +216,82 @@ class VotingApp {
             this.showLoginStatus('Pi SDK 初始化失败', 'error');
             this.piSDKReady = false;
         }
+    }
+    
+    // 设置Pi SDK加载监听器
+    setupPiSDKLoadListener() {
+        console.log('设置Pi SDK加载监听器...');
+        
+        // 监听Pi SDK脚本的加载事件
+        const piScripts = document.querySelectorAll('script[src*="pi-sdk"]');
+        piScripts.forEach((script, index) => {
+            console.log(`监听Pi SDK脚本 ${index + 1}: ${script.src}`);
+            
+            script.addEventListener('load', () => {
+                console.log(`Pi SDK脚本 ${index + 1} 加载完成`);
+                this.checkPiSDKAfterLoad();
+            });
+            
+            script.addEventListener('error', (error) => {
+                console.error(`Pi SDK脚本 ${index + 1} 加载失败:`, error);
+                this.showLoginStatus('❌ Pi SDK脚本加载失败', 'error');
+            });
+        });
+        
+        // 如果没有找到Pi SDK脚本，尝试动态检测
+        if (piScripts.length === 0) {
+            console.log('未找到Pi SDK脚本标签，使用动态检测');
+            this.dynamicPiSDKDetection();
+        }
+    }
+    
+    // 脚本加载后检查Pi SDK
+    checkPiSDKAfterLoad() {
+        setTimeout(() => {
+            console.log('脚本加载后检查Pi SDK状态...');
+            if (window.Pi) {
+                console.log('window.Pi 已存在，检查方法...');
+                console.log('Pi SDK 方法:', Object.keys(window.Pi));
+                
+                if (typeof window.Pi.authenticate === 'function') {
+                    this.piSDKReady = true;
+                    console.log('Pi SDK 认证方法可用');
+                    this.showLoginStatus('✅ Pi SDK 已就绪', 'success');
+                } else {
+                    console.log('Pi SDK 认证方法不可用，继续等待...');
+                }
+            } else {
+                console.log('window.Pi 仍不存在，继续等待...');
+            }
+        }, 100);
+    }
+    
+    // 动态Pi SDK检测
+    dynamicPiSDKDetection() {
+        let checkCount = 0;
+        const maxChecks = 100;
+        const checkInterval = 100;
+        
+        const dynamicCheck = () => {
+            checkCount++;
+            console.log(`动态检测Pi SDK (${checkCount}/${maxChecks})`);
+            
+            if (window.Pi && typeof window.Pi.authenticate === 'function') {
+                console.log('动态检测成功：Pi SDK已加载');
+                this.piSDKReady = true;
+                this.showLoginStatus('✅ Pi SDK 已就绪', 'success');
+                return;
+            }
+            
+            if (checkCount < maxChecks) {
+                setTimeout(dynamicCheck, checkInterval);
+            } else {
+                console.error('动态检测超时：Pi SDK未能加载');
+                this.showLoginStatus('❌ Pi SDK加载超时', 'error');
+            }
+        };
+        
+        setTimeout(dynamicCheck, checkInterval);
     }
     
     // 检测是否为Pi浏览器环境
@@ -2896,3 +2895,178 @@ async function restartProject(projectId) {
 // app对象已在initializeApp函数中设置到window.app
 
 // 调试面板功能
+
+                                    }
+                                }
+                            } catch (statsError) {
+                                console.error('统计信息显示失败:', statsError);
+                            }
+                        }
+                    } catch (renderError) {
+                        console.error('渲染内容失败:', renderError);
+                    }
+                }
+            }
+            
+            console.log('卡片切换完成，新状态:', !isExpanded);
+        } else {
+            console.error('找不到卡片元素:', cardId);
+        }
+    } catch (error) {
+        console.error('toggleCard 执行失败:', error);
+    }
+}
+
+// 处理充值
+function handleRecharge() {
+    console.log('全局 handleRecharge 函数被调用');
+    if (window.app && typeof window.app.handleRecharge === 'function') {
+        window.app.handleRecharge();
+    } else {
+        console.error('app.handleRecharge 方法不存在');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('充值功能不可用，请刷新页面重试', '功能错误', '❌');
+        } else {
+            alert('充值功能不可用，请刷新页面重试');
+        }
+    }
+}
+
+// 处理提现
+function handleWithdraw() {
+    console.log('全局 handleWithdraw 函数被调用');
+    if (window.app && typeof window.app.handleWithdraw === 'function') {
+        window.app.handleWithdraw();
+    } else {
+        console.error('app.handleWithdraw 方法不存在');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('提现功能不可用，请刷新页面重试', '功能错误', '❌');
+        } else {
+            alert('提现功能不可用，请刷新页面重试');
+        }
+    }
+}
+
+// 处理创建项目表单提交
+function handleCreateProject(event) {
+    console.log('全局 handleCreateProject 函数被调用');
+    if (event) {
+        event.preventDefault();
+    }
+    
+    if (window.app && typeof window.app.handleCreateProject === 'function') {
+        window.app.handleCreateProject(event);
+    } else {
+        console.error('app.handleCreateProject 方法不存在');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('创建项目功能不可用，请刷新页面重试', '功能错误', '❌');
+        } else {
+            alert('创建项目功能不可用，请刷新页面重试');
+        }
+    }
+}
+
+// 投票函数
+function vote(projectId, option) {
+    console.log('全局 vote 函数被调用，项目ID:', projectId, '选项:', option);
+    if (window.app && typeof window.app.vote === 'function') {
+        window.app.vote(projectId, option);
+    } else {
+        console.error('app.vote 方法不存在');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('投票功能不可用，请刷新页面重试', '功能错误', '❌');
+        } else {
+            alert('投票功能不可用，请刷新页面重试');
+        }
+    }
+}
+
+// 删除项目
+function deleteProject(projectId) {
+    console.log('全局 deleteProject 函数被调用，项目ID:', projectId);
+    if (window.app && typeof window.app.deleteProject === 'function') {
+        window.app.deleteProject(projectId);
+    } else {
+        console.error('app.deleteProject 方法不存在');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('删除功能不可用，请刷新页面重试', '功能错误', '❌');
+        } else {
+            alert('删除功能不可用，请刷新页面重试');
+        }
+    }
+}
+
+// 显示公布结果模态框
+function showPublishResultModal(projectId) {
+    console.log('全局 showPublishResultModal 函数被调用，项目ID:', projectId);
+    if (window.app && typeof window.app.showPublishResultModal === 'function') {
+        window.app.showPublishResultModal(projectId);
+    } else {
+        console.error('app.showPublishResultModal 方法不存在');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('公布结果功能不可用，请刷新页面重试', '功能错误', '❌');
+        } else {
+            alert('公布结果功能不可用，请刷新页面重试');
+        }
+    }
+}
+
+// 确认公布结果
+function confirmPublishResult(projectId) {
+    console.log('全局 confirmPublishResult 函数被调用，项目ID:', projectId);
+    if (window.app && typeof window.app.confirmPublishResult === 'function') {
+        window.app.confirmPublishResult(projectId);
+    } else {
+        console.error('app.confirmPublishResult 方法不存在');
+        if (typeof showCustomAlert === 'function') {
+            showCustomAlert('公布结果功能不可用，请刷新页面重试', '功能错误', '❌');
+        } else {
+            alert('公布结果功能不可用，请刷新页面重试');
+        }
+    }
+}
+
+// 关闭模态框
+function closeModal(modalId) {
+    console.log('全局 closeModal 函数被调用，模态框ID:', modalId);
+    try {
+        var modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'none';
+        } else {
+            console.error('找不到模态框:', modalId);
+        }
+    } catch (error) {
+        console.error('关闭模态框失败:', error);
+    }
+}
+
+// 确保在页面加载完成后初始化应用
+console.log('脚本加载完成，准备初始化应用');
+console.log('当前 document.readyState:', document.readyState);
+
+// 立即尝试初始化（如果DOM已准备好）
+if (document.readyState === 'loading') {
+    console.log('DOM正在加载，添加DOMContentLoaded监听器');
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOMContentLoaded事件触发');
+        initializeApp();
+    });
+} else {
+    console.log('DOM已准备好，立即初始化');
+    initializeApp();
+}
+
+// 备用初始化
+window.addEventListener('load', function() {
+    console.log('window load事件触发');
+    if (!window.app) {
+        console.log('备用初始化触发');
+        setTimeout(function() {
+            initializeApp();
+        }, 100);
+    }
+});
+
+// 调试信息
+console.log('app.js 脚本加载完成');
