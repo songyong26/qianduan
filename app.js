@@ -38,77 +38,6 @@ function showCustomAlert(message, title = '提示', icon = 'ℹ️') {
     if (modal) {
         modal.style.display = 'block';
     }
-
-    // 初始化 Pi SDK
-    initPiSDK() {
-        try {
-            console.log('开始初始化 Pi SDK');
-            updateDebugInfo('开始初始化 Pi SDK');
-            
-            // 首先尝试初始化 Pi SDK
-            if (window.Pi) {
-                try {
-                    console.log('调用 Pi.init...');
-                    updateDebugInfo('调用 Pi.init...');
-                    window.Pi.init({ version: "2.0", sandbox: false });
-                    console.log('Pi.init 调用完成');
-                    updateDebugInfo('Pi.init 调用完成');
-                } catch (initError) {
-                    console.error('Pi.init 调用失败:', initError);
-                    updateDebugInfo(`Pi.init 调用失败: ${initError.message}`);
-                }
-            } else {
-                console.warn('window.Pi 对象不存在，可能不在 Pi Browser 环境中');
-                updateDebugInfo('window.Pi 对象不存在，可能不在 Pi Browser 环境中');
-            }
-            
-            // 检查 Pi SDK 是否已经加载并可用
-            const checkPiSDK = () => {
-                if (window.Pi && typeof window.Pi.authenticate === 'function') {
-                    this.piSDKReady = true;
-                    console.log('Pi SDK 已加载并可用');
-                    this.showLoginStatus('Pi SDK 已就绪', 'success');
-                    return true;
-                }
-                return false;
-            };
-            
-            // 立即检查一次
-            if (checkPiSDK()) {
-                return;
-            }
-            
-            // 如果 Pi SDK 还没有完全加载，等待一段时间后重试
-            let retryCount = 0;
-            const maxRetries = 20; // 增加重试次数
-            const retryInterval = 500; // 500ms
-            
-            const retryCheck = () => {
-                retryCount++;
-                console.log(`检查 Pi SDK 状态 (第${retryCount}次)`);
-                
-                if (checkPiSDK()) {
-                    return;
-                }
-                
-                if (retryCount < maxRetries) {
-                    setTimeout(retryCheck, retryInterval);
-                } else {
-                    console.warn('Pi SDK 加载超时，应用将在离线模式下运行');
-                    this.showLoginStatus('离线模式：请在Pi Browser中打开', 'warning');
-                    this.piSDKReady = false;
-                }
-            };
-            
-            // 开始重试检查
-            setTimeout(retryCheck, retryInterval);
-            
-        } catch (error) {
-            console.error('Pi SDK 初始化失败:', error);
-            this.showLoginStatus('Pi SDK 初始化失败', 'error');
-            this.piSDKReady = false;
-        }
-    }
 }
 
 // 自定义确认弹窗函数
@@ -195,6 +124,81 @@ class VotingApp {
             } catch (fallbackError) {
                 console.error('备用初始化也失败:', fallbackError);
             }
+        }
+    }
+
+    // 初始化 Pi SDK
+    initPiSDK() {
+        try {
+            console.log('开始初始化 Pi SDK');
+            updateDebugInfo('开始初始化 Pi SDK');
+            
+            // 首先尝试初始化 Pi SDK
+            if (window.Pi) {
+                try {
+                    console.log('调用 Pi.init...');
+                    updateDebugInfo('调用 Pi.init...');
+                    window.Pi.init({ version: "2.0", sandbox: false });
+                    console.log('Pi.init 调用完成');
+                    updateDebugInfo('Pi.init 调用完成');
+                } catch (initError) {
+                    console.error('Pi.init 调用失败:', initError);
+                    updateDebugInfo(`Pi.init 调用失败: ${initError.message}`);
+                }
+            } else {
+                console.warn('window.Pi 对象不存在，可能不在 Pi Browser 环境中');
+                updateDebugInfo('window.Pi 对象不存在，可能不在 Pi Browser 环境中');
+            }
+            
+            // 检查 Pi SDK 是否已经加载并可用
+            const checkPiSDK = () => {
+                if (window.Pi && typeof window.Pi.authenticate === 'function') {
+                    this.piSDKReady = true;
+                    console.log('Pi SDK 已加载并可用');
+                    updateDebugInfo('✅ Pi SDK 已加载并可用');
+                    this.showLoginStatus('Pi SDK 已就绪', 'success');
+                    return true;
+                }
+                return false;
+            };
+            
+            // 立即检查一次
+            if (checkPiSDK()) {
+                return;
+            }
+            
+            // 如果 Pi SDK 还没有完全加载，等待一段时间后重试
+            let retryCount = 0;
+            const maxRetries = 20; // 增加重试次数
+            const retryInterval = 500; // 500ms
+            
+            const retryCheck = () => {
+                retryCount++;
+                console.log(`检查 Pi SDK 状态 (第${retryCount}次)`);
+                updateDebugInfo(`检查 Pi SDK 状态 (第${retryCount}次)`);
+                
+                if (checkPiSDK()) {
+                    return;
+                }
+                
+                if (retryCount < maxRetries) {
+                    setTimeout(retryCheck, retryInterval);
+                } else {
+                    console.warn('Pi SDK 加载超时，应用将在离线模式下运行');
+                    updateDebugInfo('⚠️ Pi SDK 加载超时，应用将在离线模式下运行');
+                    this.showLoginStatus('离线模式：请在Pi Browser中打开', 'warning');
+                    this.piSDKReady = false;
+                }
+            };
+            
+            // 开始重试检查
+            setTimeout(retryCheck, retryInterval);
+            
+        } catch (error) {
+            console.error('Pi SDK 初始化失败:', error);
+            updateDebugInfo(`❌ Pi SDK 初始化失败: ${error.message}`);
+            this.showLoginStatus('Pi SDK 初始化失败', 'error');
+            this.piSDKReady = false;
         }
     }
 
