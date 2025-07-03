@@ -401,6 +401,70 @@
 
 
 
+    <!-- 调试面板 -->
+    <div id="debugPanel" class="debug-panel">
+        <div class="debug-header" onclick="toggleDebugPanel()">
+            <span class="debug-title">🔧 调试面板</span>
+            <span class="debug-toggle" id="debugToggle">▼</span>
+        </div>
+        <div class="debug-content" id="debugContent">
+            <div class="debug-section">
+                <h4>Pi SDK 状态</h4>
+                <div class="debug-item">
+                    <span class="debug-label">window.Pi:</span>
+                    <span class="debug-value" id="debugWindowPi">-</span>
+                </div>
+                <div class="debug-item">
+                    <span class="debug-label">piSDK:</span>
+                    <span class="debug-value" id="debugPiSDK">-</span>
+                </div>
+                <div class="debug-item">
+                    <span class="debug-label">isPiSDKReady:</span>
+                    <span class="debug-value" id="debugIsPiSDKReady">-</span>
+                </div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>用户信息</h4>
+                <div class="debug-item">
+                    <span class="debug-label">当前用户:</span>
+                    <span class="debug-value" id="debugCurrentUser">-</span>
+                </div>
+                <div class="debug-item">
+                    <span class="debug-label">用户积分:</span>
+                    <span class="debug-value" id="debugUserPoints">-</span>
+                </div>
+                <div class="debug-item">
+                    <span class="debug-label">冻结积分:</span>
+                    <span class="debug-value" id="debugFrozenPoints">-</span>
+                </div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>应用状态</h4>
+                <div class="debug-item">
+                    <span class="debug-label">网络状态:</span>
+                    <span class="debug-value" id="debugIsOnline">-</span>
+                </div>
+                <div class="debug-item">
+                    <span class="debug-label">项目数量:</span>
+                    <span class="debug-value" id="debugProjectsCount">-</span>
+                </div>
+                <div class="debug-item">
+                    <span class="debug-label">应用初始化:</span>
+                    <span class="debug-value" id="debugAppReady">-</span>
+                </div>
+            </div>
+            
+            <div class="debug-section">
+                <h4>操作</h4>
+                <button class="debug-btn" onclick="refreshDebugInfo()">刷新信息</button>
+                <button class="debug-btn" onclick="clearLocalStorage()">清除本地数据</button>
+                <button class="debug-btn" onclick="exportDebugInfo()">导出调试信息</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 应用脚本 -->
     <script src="app.js"></script>
 </body>

@@ -62,50 +62,57 @@ function waitForPiSDK() {
     return new Promise(function(resolve, reject) {
         console.log('检查 window.Pi:', !!window.Pi);
         
-        if (window.Pi && typeof window.Pi === 'object' && typeof window.Pi.init === 'function') {
-            console.log('Pi SDK 立即可用');
+        // 在手机端Pi浏览器中，Pi SDK可能以不同方式加载
+        // 首先尝试直接使用window.Pi
+        if (window.Pi && typeof window.Pi === 'object') {
+            console.log('Pi SDK 立即可用 - 属性:', Object.keys(window.Pi).join(', '));
             piSDK = window.Pi;
             isPiSDKReady = true;
             resolve(piSDK);
-        } else {
-            console.log('Pi SDK 未立即可用，等待加载...');
-            var attempts = 0;
-            var maxAttempts = 20; // 增加到20次尝试
-            var checkInterval = 500; // 每500毫秒检查一次
+            return;
+        }
+        
+        console.log('Pi SDK 未立即可用，等待加载...');
+        var attempts = 0;
+        var maxAttempts = 30; // 增加到30次尝试
+        var checkInterval = 300; // 每300毫秒检查一次
+        
+        function checkPiSDK() {
+            attempts++;
+            console.log('第' + attempts + '次检查 window.Pi:', !!window.Pi);
             
-            function checkPiSDK() {
-                attempts++;
-                console.log('第' + attempts + '次检查 window.Pi:', !!window.Pi);
+            try {
+                // 在手机端Pi浏览器中，可能不需要检查init方法
+                if (window.Pi && typeof window.Pi === 'object') {
+                    console.log('Pi SDK 加载成功 - 属性:', Object.keys(window.Pi).join(', '));
+                    piSDK = window.Pi;
+                    isPiSDKReady = true;
+                    resolve(piSDK);
+                    return;
+                }
                 
-                try {
-                    if (window.Pi && typeof window.Pi === 'object' && typeof window.Pi.init === 'function') {
-                        console.log('Pi SDK 加载成功');
-                        piSDK = window.Pi;
-                        isPiSDKReady = true;
-                        resolve(piSDK);
-                    } else if (attempts >= maxAttempts) {
-                        console.warn('Pi SDK 加载超时，应用将在离线模式下运行');
-                        // 不再拒绝Promise，而是解析为null，让应用继续运行
-                        piSDK = null;
-                        isPiSDKReady = false;
-                        resolve(null);
-                    } else {
-                        setTimeout(checkPiSDK, checkInterval);
-                    }
-                } catch (error) {
-                    console.error('检查Pi SDK时发生错误:', error);
-                    if (attempts >= maxAttempts) {
-                        piSDK = null;
-                        isPiSDKReady = false;
-                        resolve(null);
-                    } else {
-                        setTimeout(checkPiSDK, checkInterval);
-                    }
+                if (attempts >= maxAttempts) {
+                    console.warn('Pi SDK 加载超时，应用将在离线模式下运行');
+                    // 不再拒绝Promise，而是解析为null，让应用继续运行
+                    piSDK = null;
+                    isPiSDKReady = false;
+                    resolve(null);
+                } else {
+                    setTimeout(checkPiSDK, checkInterval);
+                }
+            } catch (error) {
+                console.error('检查Pi SDK时发生错误:', error);
+                if (attempts >= maxAttempts) {
+                    piSDK = null;
+                    isPiSDKReady = false;
+                    resolve(null);
+                } else {
+                    setTimeout(checkPiSDK, checkInterval);
                 }
             }
-            
-            setTimeout(checkPiSDK, checkInterval);
         }
+        
+        setTimeout(checkPiSDK, checkInterval);
     });
 }
 
@@ -486,21 +493,11 @@ class VotingApp {
                     self.showLoginStatus('开始本地登录流程...', 'info');
                 }
                 
-                // 检查Pi SDK是否可用
-                if (!window.Pi || typeof window.Pi !== 'object') {
-                    if (typeof self.showLoginStatus === 'function') {
-                        self.showLoginStatus('❌ 登录系统不可用', 'error');
-                    }
-                    if (typeof showCustomAlert === 'function') {
-                        showCustomAlert('登录系统暂时不可用，请在Pi Browser中打开', '环境错误', '⚠️');
-                    } else {
-                        alert('登录系统暂时不可用，请在Pi Browser中打开');
-                    }
-                    return;
-                }
+                // 记录Pi SDK状态用于调试
+                console.log('Pi SDK 检查 - window.Pi:', !!window.Pi, 'piSDK:', !!piSDK, 'isPiSDKReady:', isPiSDKReady);
                 
                 if (typeof self.showLoginStatus === 'function') {
-                    self.showLoginStatus('✅ 登录环境检测成功', 'success');
+                    self.showLoginStatus('🔍 检查Pi SDK状态...', 'info');
                 }
                 
                 // 确保Pi SDK已准备就绪
@@ -1834,6 +1831,7 @@ window.addEventListener('load', function() {
 function handleLogin() {
     console.log('全局 handleLogin 函数被调用');
     console.log('app 对象存在:', !!window.app);
+    console.log('Pi SDK 状态 - window.Pi:', !!window.Pi, 'piSDK:', !!piSDK, 'isPiSDKReady:', isPiSDKReady);
     
     try {
         // 检查应用是否已初始化
@@ -1843,17 +1841,6 @@ function handleLogin() {
                 showCustomAlert('应用正在初始化中，请稍后再试', '初始化中', '⏳');
             } else {
                 alert('应用正在初始化中，请稍后再试');
-            }
-            return;
-        }
-        
-        // 检查Pi SDK是否已加载
-        if (!window.Pi || typeof window.Pi !== 'object') {
-            console.error('Pi SDK 未加载');
-            if (typeof showCustomAlert === 'function') {
-                showCustomAlert('Pi SDK 未加载，请确保在Pi Browser中打开此应用', 'SDK错误', '❌');
-            } else {
-                alert('Pi SDK 未加载，请确保在Pi Browser中打开此应用');
             }
             return;
         }
@@ -1869,6 +1856,7 @@ function handleLogin() {
             return;
         }
         
+        // 直接调用app的handleLogin方法，让它内部处理Pi SDK的检查
         console.log('调用 app.handleLogin()');
         window.app.handleLogin();
     } catch (error) {
@@ -2895,3 +2883,248 @@ async function restartProject(projectId) {
 }
 
 // app对象已在initializeApp函数中设置到window.app
+
+// 调试面板功能
+class DebugPanel {
+    constructor() {
+        this.isCollapsed = false;
+        this.updateInterval = null;
+        this.init();
+    }
+    
+    init() {
+        this.bindEvents();
+        this.startAutoUpdate();
+        this.updateDebugInfo();
+    }
+    
+    bindEvents() {
+        // 折叠/展开事件
+        const header = document.querySelector('.debug-header');
+        if (header) {
+            header.addEventListener('click', () => this.togglePanel());
+        }
+        
+        // 按钮事件
+        const refreshBtn = document.getElementById('debugRefreshBtn');
+        const clearBtn = document.getElementById('debugClearBtn');
+        const exportBtn = document.getElementById('debugExportBtn');
+        
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => this.updateDebugInfo());
+        }
+        
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => this.clearLocalData());
+        }
+        
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => this.exportDebugInfo());
+        }
+    }
+    
+    togglePanel() {
+        this.isCollapsed = !this.isCollapsed;
+        const content = document.querySelector('.debug-content');
+        const toggle = document.querySelector('.debug-toggle');
+        
+        if (content && toggle) {
+            if (this.isCollapsed) {
+                content.classList.add('collapsed');
+                toggle.classList.add('collapsed');
+                toggle.textContent = '▶';
+            } else {
+                content.classList.remove('collapsed');
+                toggle.classList.remove('collapsed');
+                toggle.textContent = '▼';
+            }
+        }
+    }
+    
+    startAutoUpdate() {
+        // 每5秒自动更新一次调试信息
+        this.updateInterval = setInterval(() => {
+            if (!this.isCollapsed) {
+                this.updateDebugInfo();
+            }
+        }, 5000);
+    }
+    
+    stopAutoUpdate() {
+        if (this.updateInterval) {
+            clearInterval(this.updateInterval);
+            this.updateInterval = null;
+        }
+    }
+    
+    updateDebugInfo() {
+        this.updatePiSDKStatus();
+        this.updateUserInfo();
+        this.updateAppStatus();
+        this.updateSystemInfo();
+    }
+    
+    updatePiSDKStatus() {
+        const setValue = (id, value, className = '') => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = value;
+                element.className = 'debug-value ' + className;
+            }
+        };
+        
+        setValue('debugPiSDKLoaded', window.Pi ? '是' : '否', window.Pi ? '' : 'error');
+        setValue('debugPiSDKReady', isPiSDKReady ? '是' : '否', isPiSDKReady ? '' : 'warning');
+        setValue('debugPiSDKMethods', window.Pi ? Object.keys(window.Pi).length : '0');
+        setValue('debugPiSDKType', window.Pi ? typeof window.Pi : 'undefined', window.Pi ? '' : 'error');
+    }
+    
+    updateUserInfo() {
+        const setValue = (id, value, className = '') => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = value;
+                element.className = 'debug-value ' + className;
+            }
+        };
+        
+        const user = window.app ? window.app.currentUser : null;
+        setValue('debugUserLoggedIn', user ? '是' : '否', user ? '' : 'warning');
+        setValue('debugUserName', user ? user.username : '未登录');
+        setValue('debugUserUID', user ? user.uid : 'N/A');
+        setValue('debugUserPoints', window.app ? window.app.userPoints : '0');
+        setValue('debugFrozenPoints', window.app ? window.app.frozenPoints : '0');
+    }
+    
+    updateAppStatus() {
+        const setValue = (id, value, className = '') => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = value;
+                element.className = 'debug-value ' + className;
+            }
+        };
+        
+        setValue('debugProjectsCount', window.app ? window.app.projects.length : '0');
+        setValue('debugVotesCount', window.app ? window.app.userVotes.length : '0');
+        setValue('debugHiddenCount', window.app ? window.app.hiddenProjects.length : '0');
+        setValue('debugOnlineStatus', navigator.onLine ? '在线' : '离线', navigator.onLine ? '' : 'warning');
+        setValue('debugAppReady', window.app ? '是' : '否', window.app ? '' : 'error');
+    }
+    
+    updateSystemInfo() {
+        const setValue = (id, value, className = '') => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = value;
+                element.className = 'debug-value ' + className;
+            }
+        };
+        
+        setValue('debugUserAgent', navigator.userAgent.substring(0, 50) + '...');
+        setValue('debugViewport', `${window.innerWidth}x${window.innerHeight}`);
+        setValue('debugLocalStorage', this.getLocalStorageSize());
+        setValue('debugTimestamp', new Date().toLocaleTimeString());
+    }
+    
+    getLocalStorageSize() {
+        try {
+            let total = 0;
+            for (let key in localStorage) {
+                if (localStorage.hasOwnProperty(key)) {
+                    total += localStorage[key].length + key.length;
+                }
+            }
+            return `${(total / 1024).toFixed(2)} KB`;
+        } catch (e) {
+            return '无法计算';
+        }
+    }
+    
+    clearLocalData() {
+        if (confirm('确定要清除所有本地数据吗？这将删除所有项目、投票和用户数据。')) {
+            try {
+                localStorage.clear();
+                showCustomAlert('本地数据已清除，页面将刷新', '清除成功', '🗑️');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } catch (e) {
+                showCustomAlert('清除本地数据失败：' + e.message, '清除失败', '❌');
+            }
+        }
+    }
+    
+    exportDebugInfo() {
+        try {
+            const debugInfo = {
+                timestamp: new Date().toISOString(),
+                piSDK: {
+                    loaded: !!window.Pi,
+                    ready: isPiSDKReady,
+                    methods: window.Pi ? Object.keys(window.Pi) : [],
+                    type: typeof window.Pi
+                },
+                user: window.app ? {
+                    loggedIn: !!window.app.currentUser,
+                    username: window.app.currentUser ? window.app.currentUser.username : null,
+                    uid: window.app.currentUser ? window.app.currentUser.uid : null,
+                    points: window.app.userPoints,
+                    frozenPoints: window.app.frozenPoints
+                } : null,
+                app: window.app ? {
+                    projectsCount: window.app.projects.length,
+                    votesCount: window.app.userVotes.length,
+                    hiddenCount: window.app.hiddenProjects.length,
+                    projects: window.app.projects,
+                    votes: window.app.userVotes
+                } : null,
+                system: {
+                    online: navigator.onLine,
+                    userAgent: navigator.userAgent,
+                    viewport: `${window.innerWidth}x${window.innerHeight}`,
+                    localStorageSize: this.getLocalStorageSize()
+                }
+            };
+            
+            const dataStr = JSON.stringify(debugInfo, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `debug-info-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            showCustomAlert('调试信息已导出', '导出成功', '📄');
+        } catch (e) {
+            showCustomAlert('导出调试信息失败：' + e.message, '导出失败', '❌');
+        }
+    }
+    
+    destroy() {
+        this.stopAutoUpdate();
+    }
+}
+
+// 初始化调试面板
+let debugPanel = null;
+
+function initDebugPanel() {
+    // 确保调试面板HTML已存在
+    const debugPanelElement = document.querySelector('.debug-panel');
+    if (debugPanelElement && !debugPanel) {
+        debugPanel = new DebugPanel();
+        console.log('调试面板已初始化');
+    }
+}
+
+// 在DOM加载完成后初始化调试面板
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDebugPanel);
+} else {
+    initDebugPanel();
+}
