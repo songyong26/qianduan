@@ -7,41 +7,9 @@
     <link rel="stylesheet" href="styles.css">
     
     <!-- Pi Network SDK -->
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <script>
-        // 动态加载Pi SDK，增强错误处理
-        (function() {
-            const script = document.createElement('script');
-            script.src = 'https://sdk.minepi.com/pi-sdk.js';
-            script.async = true;
-            
-            script.onload = function() {
-                console.log('Pi SDK 脚本加载成功');
-                if (typeof Pi !== 'undefined') {
-                    try {
-                        Pi.init({ version: "2.0", appId: "1478946ec299f01f" });
-                        console.log('Pi SDK 初始化成功');
-                        // 通知应用Pi SDK已准备就绪
-                        if (window.app && window.app.onPiSDKReady) {
-                            window.app.onPiSDKReady();
-                        }
-                    } catch (error) {
-                        console.error('Pi SDK 初始化失败:', error);
-                    }
-                } else {
-                    console.warn('Pi SDK 对象未找到');
-                }
-            };
-            
-            script.onerror = function() {
-                console.warn('Pi SDK 加载失败，应用将在离线模式下运行');
-                // 通知应用Pi SDK加载失败
-                if (window.app && window.app.onPiSDKError) {
-                    window.app.onPiSDKError();
-                }
-            };
-            
-            document.head.appendChild(script);
-        })();
+        Pi.init({ version: "2.0", sandbox: false });
     </script>
 </head>
 <body>
@@ -401,93 +369,7 @@
 
 
 
-    <!-- 调试面板 -->
-    <div id="debugPanel" class="debug-panel">
-        <div class="debug-header" onclick="toggleDebugPanel()">
-            <span class="debug-title">🔧 调试面板</span>
-            <span class="debug-toggle" id="debugToggle">▼</span>
-        </div>
-        <div class="debug-content" id="debugContent">
-            <div class="debug-section">
-                <h4>Pi SDK 状态</h4>
-                <div class="debug-item">
-                    <span class="debug-label">window.Pi:</span>
-                    <span class="debug-value" id="debugWindowPi">-</span>
-                </div>
-                <div class="debug-item">
-                    <span class="debug-label">piSDK:</span>
-                    <span class="debug-value" id="debugPiSDK">-</span>
-                </div>
-                <div class="debug-item">
-                    <span class="debug-label">isPiSDKReady:</span>
-                    <span class="debug-value" id="debugIsPiSDKReady">-</span>
-                </div>
-            </div>
-            
-            <div class="debug-section">
-                <h4>用户信息</h4>
-                <div class="debug-item">
-                    <span class="debug-label">当前用户:</span>
-                    <span class="debug-value" id="debugCurrentUser">-</span>
-                </div>
-                <div class="debug-item">
-                    <span class="debug-label">用户积分:</span>
-                    <span class="debug-value" id="debugUserPoints">-</span>
-                </div>
-                <div class="debug-item">
-                    <span class="debug-label">冻结积分:</span>
-                    <span class="debug-value" id="debugFrozenPoints">-</span>
-                </div>
-            </div>
-            
-            <div class="debug-section">
-                <h4>应用状态</h4>
-                <div class="debug-item">
-                    <span class="debug-label">网络状态:</span>
-                    <span class="debug-value" id="debugIsOnline">-</span>
-                </div>
-                <div class="debug-item">
-                    <span class="debug-label">项目数量:</span>
-                    <span class="debug-value" id="debugProjectsCount">-</span>
-                </div>
-                <div class="debug-item">
-                    <span class="debug-label">应用初始化:</span>
-                    <span class="debug-value" id="debugAppReady">-</span>
-                </div>
-            </div>
-            
-            <div class="debug-section">
-                <h4>调试信息</h4>
-                <div class="debug-item">
-                    <span class="debug-label">最后错误:</span>
-                    <span class="debug-value" id="debugLastError">无</span>
-                </div>
-                <div class="debug-item">
-                    <span class="debug-label">登录尝试:</span>
-                    <span class="debug-value" id="debugLoginAttempts">0</span>
-                </div>
-                <div class="debug-item">
-                    <span class="debug-label">SDK加载时间:</span>
-                    <span class="debug-value" id="debugPiSDKLoadTime">-</span>
-                </div>
-                <div class="debug-item">
-                    <span class="debug-label">网络错误:</span>
-                    <span class="debug-value" id="debugNetworkErrors">无</span>
-                </div>
-                <div class="debug-item" style="flex-direction: column; align-items: flex-start;">
-                    <span class="debug-label">最近日志:</span>
-                    <div class="debug-value" id="debugRecentLogs" style="width: 100%; margin-top: 5px; padding: 5px; background: rgba(0,0,0,0.1); border-radius: 3px; font-size: 10px;">暂无日志</div>
-                </div>
-            </div>
-            
-            <div class="debug-section">
-                <h4>操作</h4>
-                <button class="debug-btn" onclick="refreshDebugInfo()">刷新信息</button>
-                <button class="debug-btn" onclick="clearLocalStorage()">清除本地数据</button>
-                <button class="debug-btn" onclick="exportDebugInfo()">导出调试信息</button>
-            </div>
-        </div>
-    </div>
+
 
     <!-- 应用脚本 -->
     <script src="app.js"></script>
