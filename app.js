@@ -2,6 +2,28 @@
 
 // 纯前端项目 - 移除了所有后端API调用
 
+// 调试信息显示功能
+function toggleDebugInfo() {
+    const debugInfo = document.getElementById('debugInfo');
+    if (debugInfo) {
+        debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function updateDebugInfo(message) {
+    const debugContent = document.getElementById('debugContent');
+    if (debugContent) {
+        const timestamp = new Date().toLocaleTimeString();
+        debugContent.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+        // 保持最新的10条信息
+        const lines = debugContent.children;
+        if (lines.length > 10) {
+            debugContent.removeChild(lines[0]);
+        }
+    }
+    console.log(`[DEBUG] ${message}`);
+}
+
 // 自定义弹窗函数
 function showCustomAlert(message, title = '提示', icon = 'ℹ️') {
     const modal = document.getElementById('customAlertModal');
@@ -20,18 +42,71 @@ function showCustomAlert(message, title = '提示', icon = 'ℹ️') {
     // 初始化 Pi SDK
     initPiSDK() {
         try {
-            // 检查 Pi SDK 是否可用
+            console.log('开始初始化 Pi SDK');
+            updateDebugInfo('开始初始化 Pi SDK');
+            
+            // 首先尝试初始化 Pi SDK
             if (window.Pi) {
-                this.piSDKReady = true;
-                console.log('Pi SDK 已加载');
-                this.showLoginStatus('Pi SDK 已就绪', 'success');
+                try {
+                    console.log('调用 Pi.init...');
+                    updateDebugInfo('调用 Pi.init...');
+                    window.Pi.init({ version: "2.0", sandbox: false });
+                    console.log('Pi.init 调用完成');
+                    updateDebugInfo('Pi.init 调用完成');
+                } catch (initError) {
+                    console.error('Pi.init 调用失败:', initError);
+                    updateDebugInfo(`Pi.init 调用失败: ${initError.message}`);
+                }
             } else {
-                console.warn('Pi SDK 未加载，应用将在离线模式下运行');
-                this.showLoginStatus('离线模式：请在Pi Browser中打开', 'warning');
+                console.warn('window.Pi 对象不存在，可能不在 Pi Browser 环境中');
+                updateDebugInfo('window.Pi 对象不存在，可能不在 Pi Browser 环境中');
             }
+            
+            // 检查 Pi SDK 是否已经加载并可用
+            const checkPiSDK = () => {
+                if (window.Pi && typeof window.Pi.authenticate === 'function') {
+                    this.piSDKReady = true;
+                    console.log('Pi SDK 已加载并可用');
+                    this.showLoginStatus('Pi SDK 已就绪', 'success');
+                    return true;
+                }
+                return false;
+            };
+            
+            // 立即检查一次
+            if (checkPiSDK()) {
+                return;
+            }
+            
+            // 如果 Pi SDK 还没有完全加载，等待一段时间后重试
+            let retryCount = 0;
+            const maxRetries = 20; // 增加重试次数
+            const retryInterval = 500; // 500ms
+            
+            const retryCheck = () => {
+                retryCount++;
+                console.log(`检查 Pi SDK 状态 (第${retryCount}次)`);
+                
+                if (checkPiSDK()) {
+                    return;
+                }
+                
+                if (retryCount < maxRetries) {
+                    setTimeout(retryCheck, retryInterval);
+                } else {
+                    console.warn('Pi SDK 加载超时，应用将在离线模式下运行');
+                    this.showLoginStatus('离线模式：请在Pi Browser中打开', 'warning');
+                    this.piSDKReady = false;
+                }
+            };
+            
+            // 开始重试检查
+            setTimeout(retryCheck, retryInterval);
+            
         } catch (error) {
             console.error('Pi SDK 初始化失败:', error);
             this.showLoginStatus('Pi SDK 初始化失败', 'error');
+            this.piSDKReady = false;
         }
     }
 }
@@ -453,14 +528,14 @@ class VotingApp {
                 }
                 
                 // 确保Pi SDK已准备就绪
-                if (!window.Pi) {
+                if (!window.Pi || typeof window.Pi.authenticate !== 'function') {
                     if (typeof self.showLoginStatus === 'function') {
                         self.showLoginStatus('❌ Pi SDK 不可用', 'error');
                     }
                     if (typeof showCustomAlert === 'function') {
-                        showCustomAlert('请在 Pi Browser 中打开此应用', 'SDK错误', '❌');
+                        showCustomAlert('请在 Pi Browser 中打开此应用，或等待 Pi SDK 加载完成', 'SDK错误', '❌');
                     } else {
-                        alert('请在 Pi Browser 中打开此应用');
+                        alert('请在 Pi Browser 中打开此应用，或等待 Pi SDK 加载完成');
                     }
                 } else {
                     // Pi SDK已准备就绪，直接进行认证
@@ -487,48 +562,99 @@ class VotingApp {
     // Pi Network 用户认证 - 按照官方文档实现
     async performPiAuthentication() {
         try {
+            console.log('=== 开始 Pi 认证流程 ===');
+            updateDebugInfo('=== 开始 Pi 认证流程 ===');
+            console.log('window.Pi 存在:', !!window.Pi);
+            updateDebugInfo(`window.Pi 存在: ${!!window.Pi}`);
+            console.log('window.Pi.authenticate 类型:', typeof window.Pi?.authenticate);
+            updateDebugInfo(`window.Pi.authenticate 类型: ${typeof window.Pi?.authenticate}`);
+            console.log('Pi SDK 就绪状态:', this.piSDKReady);
+            updateDebugInfo(`Pi SDK 就绪状态: ${this.piSDKReady}`);
+            
             // 检查 Pi SDK 是否可用
-            if (!window.Pi || typeof window.Pi.authenticate !== 'function') {
-                throw new Error('Pi SDK 不可用，请在 Pi Browser 中打开此应用');
+            if (!window.Pi) {
+                console.error('window.Pi 对象不存在');
+                updateDebugInfo('❌ window.Pi 对象不存在');
+                throw new Error('Pi SDK 未加载，请在 Pi Browser 中打开此应用');
+            }
+            
+            if (typeof window.Pi.authenticate !== 'function') {
+                console.error('window.Pi.authenticate 不是函数，类型:', typeof window.Pi.authenticate);
+                updateDebugInfo(`❌ window.Pi.authenticate 不是函数，类型: ${typeof window.Pi.authenticate}`);
+                console.log('window.Pi 对象内容:', Object.keys(window.Pi));
+                updateDebugInfo(`window.Pi 对象内容: ${Object.keys(window.Pi).join(', ')}`);
+                throw new Error('Pi SDK authenticate 方法不可用，请等待 SDK 完全加载');
             }
 
             this.showLoginStatus('正在连接 Pi Network...', 'info');
+            console.log('开始调用 Pi.authenticate...');
+            updateDebugInfo('✅ Pi SDK 检查通过，开始认证...');
 
             // 定义权限范围
             const scopes = ['payments', 'username'];
+            console.log('请求权限范围:', scopes);
+            updateDebugInfo(`请求权限范围: ${scopes.join(', ')}`);
 
             // 处理未完成支付的回调函数
             const onIncompletePaymentFound = (payment) => {
                 console.log('发现未完成的支付:', payment);
+                updateDebugInfo('⚠️ 发现未完成的支付');
                 this.showLoginStatus('发现未完成的支付，正在处理...', 'warning');
                 // 这里可以添加处理未完成支付的逻辑
                 return payment.txid;
             };
 
             // 执行认证
+            console.log('调用 window.Pi.authenticate...');
+            updateDebugInfo('🔄 正在调用 Pi.authenticate...');
             const authResult = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
             
-            console.log('Pi 认证成功:', authResult);
+            console.log('Pi 认证返回结果:', authResult);
+            updateDebugInfo('✅ Pi.authenticate 调用完成');
+            console.log('认证结果类型:', typeof authResult);
+            updateDebugInfo(`认证结果类型: ${typeof authResult}`);
+            console.log('用户信息存在:', !!authResult?.user);
+            updateDebugInfo(`用户信息存在: ${!!authResult?.user}`);
             
             if (authResult && authResult.user) {
+                console.log('认证成功，处理用户登录...');
+                updateDebugInfo('🎉 认证成功，处理用户登录...');
                 // 处理用户登录
                 this.processUserLogin(authResult.user, authResult.accessToken);
             } else {
+                console.error('认证失败：认证结果无效', authResult);
+                updateDebugInfo('❌ 认证失败：认证结果无效');
                 throw new Error('认证失败：未获取到用户信息');
             }
 
         } catch (error) {
-            console.error('Pi 认证失败:', error);
+            console.error('=== Pi 认证失败 ===');
+            updateDebugInfo('❌ === Pi 认证失败 ===');
+            console.error('错误对象:', error);
+            console.error('错误消息:', error.message);
+            updateDebugInfo(`错误消息: ${error.message}`);
+            console.error('错误堆栈:', error.stack);
+            console.error('错误类型:', error.constructor.name);
+            updateDebugInfo(`错误类型: ${error.constructor.name}`);
             
             let errorMessage = '登录失败，请重试';
+            let debugInfo = '';
             
             // 根据错误类型提供具体的错误信息
             if (error.message && error.message.includes('cancelled')) {
                 errorMessage = '用户取消了登录操作';
+                updateDebugInfo('用户取消了登录操作');
             } else if (error.message && error.message.includes('network')) {
                 errorMessage = '网络连接失败，请检查网络后重试';
+                updateDebugInfo('网络连接失败');
             } else if (error.message && error.message.includes('Pi SDK')) {
                 errorMessage = '请在 Pi Browser 中打开此应用';
+                updateDebugInfo('Pi SDK 相关错误');
+            } else {
+                // 添加调试信息
+                debugInfo = `\n调试信息: ${error.message || '未知错误'}`;
+                errorMessage = '登录过程中出现错误' + debugInfo;
+                updateDebugInfo(`未知错误: ${error.message || '未知错误'}`);
             }
             
             this.showLoginStatus(errorMessage, 'error');
@@ -1700,13 +1826,17 @@ window.addEventListener('load', function() {
 // 处理登录 - Pi浏览器兼容版本
 function handleLogin() {
     console.log('全局 handleLogin 函数被调用');
+    updateDebugInfo('🔘 全局 handleLogin 函数被调用');
     console.log('app 对象存在:', !!window.app);
+    updateDebugInfo(`app 对象存在: ${!!window.app}`);
     console.log('Pi SDK 状态 - window.Pi:', !!window.Pi);
+    updateDebugInfo(`Pi SDK 状态 - window.Pi: ${!!window.Pi}`);
     
     try {
         // 检查应用是否已初始化
         if (!window.app || typeof window.app !== 'object') {
             console.error('app 对象不存在，应用可能还在初始化中');
+            updateDebugInfo('❌ app 对象不存在，应用可能还在初始化中');
             if (typeof showCustomAlert === 'function') {
                 showCustomAlert('应用正在初始化中，请稍后再试', '初始化中', '⏳');
             } else {
