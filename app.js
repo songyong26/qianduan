@@ -2961,7 +2961,6 @@ class DebugPanel {
         this.updatePiSDKStatus();
         this.updateUserInfo();
         this.updateAppStatus();
-        this.updateSystemInfo();
     }
     
     updatePiSDKStatus() {
@@ -2973,10 +2972,9 @@ class DebugPanel {
             }
         };
         
-        setValue('debugPiSDKLoaded', window.Pi ? '是' : '否', window.Pi ? '' : 'error');
-        setValue('debugPiSDKReady', isPiSDKReady ? '是' : '否', isPiSDKReady ? '' : 'warning');
-        setValue('debugPiSDKMethods', window.Pi ? Object.keys(window.Pi).length : '0');
-        setValue('debugPiSDKType', window.Pi ? typeof window.Pi : 'undefined', window.Pi ? '' : 'error');
+        setValue('debugWindowPi', window.Pi ? '已加载' : '未加载', window.Pi ? '' : 'error');
+        setValue('debugPiSDK', window.piSDK ? '已加载' : '未加载', window.piSDK ? '' : 'warning');
+        setValue('debugIsPiSDKReady', isPiSDKReady ? '是' : '否', isPiSDKReady ? '' : 'warning');
     }
     
     updateUserInfo() {
@@ -2989,9 +2987,7 @@ class DebugPanel {
         };
         
         const user = window.app ? window.app.currentUser : null;
-        setValue('debugUserLoggedIn', user ? '是' : '否', user ? '' : 'warning');
-        setValue('debugUserName', user ? user.username : '未登录');
-        setValue('debugUserUID', user ? user.uid : 'N/A');
+        setValue('debugCurrentUser', user ? user.username : '未登录', user ? '' : 'warning');
         setValue('debugUserPoints', window.app ? window.app.userPoints : '0');
         setValue('debugFrozenPoints', window.app ? window.app.frozenPoints : '0');
     }
@@ -3005,41 +3001,12 @@ class DebugPanel {
             }
         };
         
+        setValue('debugIsOnline', navigator.onLine ? '在线' : '离线', navigator.onLine ? '' : 'warning');
         setValue('debugProjectsCount', window.app ? window.app.projects.length : '0');
-        setValue('debugVotesCount', window.app ? window.app.userVotes.length : '0');
-        setValue('debugHiddenCount', window.app ? window.app.hiddenProjects.length : '0');
-        setValue('debugOnlineStatus', navigator.onLine ? '在线' : '离线', navigator.onLine ? '' : 'warning');
         setValue('debugAppReady', window.app ? '是' : '否', window.app ? '' : 'error');
     }
     
-    updateSystemInfo() {
-        const setValue = (id, value, className = '') => {
-            const element = document.getElementById(id);
-            if (element) {
-                element.textContent = value;
-                element.className = 'debug-value ' + className;
-            }
-        };
-        
-        setValue('debugUserAgent', navigator.userAgent.substring(0, 50) + '...');
-        setValue('debugViewport', `${window.innerWidth}x${window.innerHeight}`);
-        setValue('debugLocalStorage', this.getLocalStorageSize());
-        setValue('debugTimestamp', new Date().toLocaleTimeString());
-    }
-    
-    getLocalStorageSize() {
-        try {
-            let total = 0;
-            for (let key in localStorage) {
-                if (localStorage.hasOwnProperty(key)) {
-                    total += localStorage[key].length + key.length;
-                }
-            }
-            return `${(total / 1024).toFixed(2)} KB`;
-        } catch (e) {
-            return '无法计算';
-        }
-    }
+
     
     clearLocalData() {
         if (confirm('确定要清除所有本地数据吗？这将删除所有项目、投票和用户数据。')) {
@@ -3075,34 +3042,97 @@ class DebugPanel {
                 app: window.app ? {
                     projectsCount: window.app.projects.length,
                     votesCount: window.app.userVotes.length,
-                    hiddenCount: window.app.hiddenProjects.length,
-                    projects: window.app.projects,
-                    votes: window.app.userVotes
+                    hiddenCount: window.app.hiddenProjects.length
                 } : null,
                 system: {
                     online: navigator.onLine,
                     userAgent: navigator.userAgent,
-                    viewport: `${window.innerWidth}x${window.innerHeight}`,
-                    localStorageSize: this.getLocalStorageSize()
+                    viewport: window.innerWidth + 'x' + window.innerHeight
                 }
             };
             
             const dataStr = JSON.stringify(debugInfo, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            const url = URL.createObjectURL(dataBlob);
             
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `debug-info-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            
-            showCustomAlert('调试信息已导出', '导出成功', '📄');
+            // 兼容性更好的方式：复制到剪贴板或显示在弹窗中
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(dataStr).then(() => {
+                    showCustomAlert('调试信息已复制到剪贴板', '导出成功', '📄');
+                }).catch(() => {
+                    this.showDebugInfoInModal(dataStr);
+                });
+            } else {
+                this.showDebugInfoInModal(dataStr);
+            }
         } catch (e) {
             showCustomAlert('导出调试信息失败：' + e.message, '导出失败', '❌');
         }
+    }
+    
+    showDebugInfoInModal(debugInfo) {
+        // 创建一个简单的模态框显示调试信息
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+        
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 80%;
+            max-height: 80%;
+            overflow: auto;
+            position: relative;
+        `;
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '关闭';
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        `;
+        closeBtn.onclick = () => document.body.removeChild(modal);
+        
+        const textarea = document.createElement('textarea');
+        textarea.value = debugInfo;
+        textarea.style.cssText = `
+            width: 100%;
+            height: 400px;
+            font-family: monospace;
+            font-size: 12px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 30px;
+        `;
+        textarea.readOnly = true;
+        
+        content.appendChild(closeBtn);
+        content.appendChild(document.createTextNode('调试信息（请手动复制）：'));
+        content.appendChild(textarea);
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+        
+        // 选中文本便于复制
+        textarea.select();
+        
+        showCustomAlert('调试信息已显示，请手动复制', '导出成功', '📄');
     }
     
     destroy() {
