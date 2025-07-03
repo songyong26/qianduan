@@ -1,99 +1,6 @@
 // 移除了调试面板相关代码
 
-// API 配置
-const API_CONFIG = {
-    BASE_URL: '', // 生产环境使用相对路径
-    ENDPOINTS: {
-        AUTH: '/api/auth',
-        USERS: '/api/users',
-        PROJECTS: '/api/projects',
-        VOTES: '/api/votes'
-    }
-};
-
-// API 请求工具函数
-class ApiClient {
-    constructor() {
-        this.baseURL = API_CONFIG.BASE_URL;
-        this.token = localStorage.getItem('auth_token');
-    }
-
-    // 设置认证令牌
-    setToken(token) {
-        this.token = token;
-        if (token) {
-            localStorage.setItem('auth_token', token);
-        } else {
-            localStorage.removeItem('auth_token');
-        }
-    }
-
-    // 获取请求头
-    getHeaders() {
-        const headers = {
-            'Content-Type': 'application/json'
-        };
-        if (this.token) {
-            headers['Authorization'] = `Bearer ${this.token}`;
-        }
-        return headers;
-    }
-
-    // 通用请求方法
-    async request(endpoint, options = {}) {
-        const url = `${this.baseURL}${endpoint}`;
-        const config = {
-            headers: this.getHeaders(),
-            ...options
-        };
-
-        try {
-            console.log(`API请求: ${options.method || 'GET'} ${url}`);
-            const response = await fetch(url, config);
-            
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ message: '请求失败' }));
-                throw new Error(errorData.message || `HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-            console.log(`API响应:`, data);
-            return data;
-        } catch (error) {
-            console.error(`API请求失败: ${url}`, error);
-            throw error;
-        }
-    }
-
-    // GET 请求
-    async get(endpoint) {
-        return this.request(endpoint, { method: 'GET' });
-    }
-
-    // POST 请求
-    async post(endpoint, data) {
-        return this.request(endpoint, {
-            method: 'POST',
-            body: JSON.stringify(data)
-        });
-    }
-
-    // PUT 请求
-    async put(endpoint, data) {
-        return this.request(endpoint, {
-            method: 'PUT',
-            body: JSON.stringify(data)
-        });
-    }
-
-    // DELETE 请求
-    async delete(endpoint) {
-        return this.request(endpoint, { method: 'DELETE' });
-    }
-}
-
-// 创建API客户端实例
-const apiClient = new ApiClient();
+// 纯前端项目 - 移除了所有后端API调用
 
 // 自定义弹窗函数
 function showCustomAlert(message, title = '提示', icon = 'ℹ️') {
@@ -229,13 +136,8 @@ class VotingApp {
             // 加载本地数据
             this.loadLocalData();
             
-            // 尝试从后端加载数据
-            if (this.isOnline) {
-                await this.loadDataFromBackend();
-            } else {
-                console.log('离线模式：使用本地数据');
-                this.showLoginStatus('离线模式：使用本地数据', 'warning');
-            }
+            // 纯前端项目，只使用本地数据
+            console.log('纯前端模式：使用本地数据');
             
             // 初始化UI
             this.initializeUI();
@@ -276,98 +178,7 @@ class VotingApp {
         });
     }
 
-    // 从后端加载数据
-    async loadDataFromBackend() {
-        try {
-            console.log('开始从后端加载数据...');
-            
-            // 检查是否有保存的认证令牌
-            const savedToken = localStorage.getItem('auth_token');
-            if (savedToken) {
-                apiClient.setToken(savedToken);
-                
-                try {
-                    // 验证令牌并获取用户信息
-                    const userInfo = await apiClient.get('/api/auth/me');
-                    this.currentUser = userInfo.user;
-                    this.userPoints = userInfo.user.points || 0;
-                    this.frozenPoints = userInfo.user.frozenPoints || 0;
-                    
-                    console.log('用户信息加载成功:', this.currentUser);
-                    this.updateLoginButton();
-                    this.updateUserPointsDisplay();
-                } catch (authError) {
-                    console.log('认证令牌无效，清除本地认证信息');
-                    apiClient.setToken(null);
-                    this.currentUser = null;
-                    localStorage.removeItem('current_user');
-                }
-            }
-            
-            // 加载项目列表
-            const projectsResponse = await apiClient.get('/api/projects');
-            if (projectsResponse.success && projectsResponse.projects) {
-                this.projects = projectsResponse.projects;
-                console.log('项目列表加载成功:', this.projects.length, '个项目');
-            }
-            
-            // 如果用户已登录，加载用户相关数据
-            if (this.currentUser) {
-                try {
-                    // 加载用户投票记录
-                    const votesResponse = await apiClient.get('/api/votes/my-votes');
-                    if (votesResponse.success && votesResponse.votes) {
-                        this.userVotes = votesResponse.votes;
-                        console.log('用户投票记录加载成功:', this.userVotes.length, '条记录');
-                    }
-                    
-                    // 加载积分历史
-                    const historyResponse = await apiClient.get('/api/users/points-history');
-                    if (historyResponse.success && historyResponse.history) {
-                        this.pointsHistory = historyResponse.history;
-                        console.log('积分历史加载成功:', this.pointsHistory.length, '条记录');
-                    }
-                } catch (userDataError) {
-                    console.warn('加载用户数据失败:', userDataError.message);
-                }
-            }
-            
-            // 保存到本地存储作为备份
-            this.saveLocalData();
-            
-        } catch (error) {
-            console.error('从后端加载数据失败:', error);
-            this.showLoginStatus('连接服务器失败，使用本地数据', 'warning');
-            // 如果后端加载失败，继续使用本地数据
-        }
-    }
-    
-    // 加载用户相关数据（在线模式）
-    async loadUserData() {
-        try {
-            // 获取项目列表
-            const projectsResponse = await apiClient.get('/api/projects');
-            if (projectsResponse.success) {
-                this.projects = projectsResponse.projects || [];
-            }
-            
-            // 获取用户投票记录
-            const votesResponse = await apiClient.get('/api/votes/my-votes');
-            if (votesResponse.success) {
-                this.userVotes = votesResponse.votes || {};
-            }
-            
-            // 获取积分历史
-            const historyResponse = await apiClient.get('/api/users/points-history');
-            if (historyResponse.success) {
-                this.pointsHistory = historyResponse.history || [];
-            }
-        } catch (error) {
-            console.warn('加载用户数据失败:', error);
-            // 如果加载失败，使用本地数据
-            this.loadLocalUserData(this.currentUser.uid);
-        }
-    }
+    // 纯前端项目 - 移除了后端数据加载方法
     
     // 加载本地用户数据（离线模式）
     loadLocalUserData(userId) {
