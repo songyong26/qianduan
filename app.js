@@ -129,23 +129,89 @@ class VotingApp {
         this.isOnline = navigator.onLine; // 网络状态
         this.piSDKReady = false; // Pi SDK状态
         
-        // 移除了调试面板初始化
+        // 调试信息收集
+        this.debugLogs = [];
+        this.lastError = null;
+        this.loginAttempts = 0;
+        this.piSDKLoadTime = null;
+        this.networkErrors = [];
         
         // 不在构造函数中自动初始化，由外部调用
     }
     
-    // 移除了调试面板初始化方法
+    // 调试日志记录方法
+    addDebugLog(message, type = 'info', details = null) {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = {
+            timestamp,
+            message,
+            type, // 'info', 'warning', 'error', 'success'
+            details
+        };
+        
+        this.debugLogs.unshift(logEntry); // 最新的在前面
+        
+        // 只保留最近50条日志
+        if (this.debugLogs.length > 50) {
+            this.debugLogs = this.debugLogs.slice(0, 50);
+        }
+        
+        // 同时输出到控制台
+        const consoleMethod = type === 'error' ? 'error' : type === 'warning' ? 'warn' : 'log';
+        console[consoleMethod](`[${timestamp}] ${message}`, details || '');
+        
+        // 更新调试面板显示
+        this.updateDebugPanel();
+    }
+    
+    // 记录错误信息
+    recordError(error, context = '') {
+        this.lastError = {
+            message: error.message || error.toString(),
+            context,
+            timestamp: new Date().toLocaleTimeString(),
+            stack: error.stack
+        };
+        
+        this.addDebugLog(`错误: ${error.message || error}`, 'error', { context, stack: error.stack });
+    }
+    
+    // 记录网络错误
+    recordNetworkError(url, error) {
+        const networkError = {
+            url,
+            error: error.message || error.toString(),
+            timestamp: new Date().toLocaleTimeString()
+        };
+        
+        this.networkErrors.unshift(networkError);
+        if (this.networkErrors.length > 10) {
+            this.networkErrors = this.networkErrors.slice(0, 10);
+        }
+        
+        this.addDebugLog(`网络错误: ${url} - ${error.message || error}`, 'error');
+    }
 
     async init() {
         try {
+            this.addDebugLog('开始初始化应用', 'info');
+            
             // 等待并初始化 Pi SDK
+            const startTime = Date.now();
             const piSDKResult = await waitForPiSDK();
+            this.piSDKLoadTime = Date.now() - startTime;
+            
             if (piSDKResult) {
                 console.log('Pi SDK 初始化完成');
                 this.piSDKReady = true;
+                this.addDebugLog(`Pi SDK 加载成功 (耗时: ${this.piSDKLoadTime}ms)`, 'success', {
+                    loadTime: this.piSDKLoadTime,
+                    piMethods: Object.keys(piSDKResult)
+                });
                 this.showLoginStatus('Pi SDK 已加载', 'success');
             } else {
                 console.log('Pi SDK 未加载，应用将在离线模式下运行');
+                this.addDebugLog(`Pi SDK 加载失败 (耗时: ${this.piSDKLoadTime}ms)`, 'warning');
                 this.showLoginStatus('离线模式：Pi SDK 未加载', 'warning');
             }
             
@@ -156,7 +222,7 @@ class VotingApp {
             this.loadLocalData();
             
             // 纯前端项目，只使用本地数据
-            console.log('纯前端模式：使用本地数据');
+            this.addDebugLog('使用纯前端模式', 'info');
             
             // 初始化UI
             this.initializeUI();
@@ -164,9 +230,10 @@ class VotingApp {
             // 渲染项目列表
             this.renderProjects();
             
-            console.log('应用初始化完成');
+            this.addDebugLog('应用初始化完成', 'success');
         } catch (error) {
             console.error('应用初始化失败:', error);
+            this.recordError(error, '应用初始化');
             this.showLoginStatus('应用初始化失败，使用本地数据', 'error');
             
             // 即使初始化失败，也要尝试加载本地数据和初始化UI
@@ -176,6 +243,7 @@ class VotingApp {
                 this.renderProjects();
             } catch (fallbackError) {
                 console.error('备用初始化也失败:', fallbackError);
+                this.recordError(fallbackError, '备用初始化');
             }
         }
     }
@@ -446,12 +514,16 @@ class VotingApp {
         var self = this;
         
         try {
+            this.loginAttempts++;
+            this.addDebugLog(`开始第${this.loginAttempts}次登录尝试`, 'info');
+            
             if (typeof self.showLoginStatus === 'function') {
                 self.showLoginStatus('开始处理登录请求...');
             }
             
             if (this.currentUser) {
                 // 退出登录
+                this.addDebugLog('用户请求退出登录', 'info');
                 if (typeof self.showLoginStatus === 'function') {
                     self.showLoginStatus('正在退出登录...', 'info');
                 }
@@ -489,11 +561,19 @@ class VotingApp {
                 }
             } else {
                 // 开始登录流程
+                this.addDebugLog('开始Pi Network登录流程', 'info');
                 if (typeof self.showLoginStatus === 'function') {
                     self.showLoginStatus('开始本地登录流程...', 'info');
                 }
                 
                 // 记录Pi SDK状态用于调试
+                const sdkStatus = {
+                    windowPi: !!window.Pi,
+                    piSDK: !!piSDK,
+                    isPiSDKReady: isPiSDKReady,
+                    piSDKLoadTime: this.piSDKLoadTime
+                };
+                this.addDebugLog('Pi SDK状态检查', 'info', sdkStatus);
                 console.log('Pi SDK 检查 - window.Pi:', !!window.Pi, 'piSDK:', !!piSDK, 'isPiSDKReady:', isPiSDKReady);
                 
                 if (typeof self.showLoginStatus === 'function') {
@@ -502,14 +582,20 @@ class VotingApp {
                 
                 // 确保Pi SDK已准备就绪
                 if (!isPiSDKReady || !piSDK) {
+                    this.addDebugLog('Pi SDK未就绪，开始等待', 'warning', {
+                        isPiSDKReady,
+                        piSDKExists: !!piSDK
+                    });
                     if (typeof self.showLoginStatus === 'function') {
                         self.showLoginStatus('正在等待Pi SDK准备就绪...', 'info');
                     }
                     
                     waitForPiSDK().then(function(sdk) {
                         if (sdk) {
+                            self.addDebugLog('Pi SDK等待成功，开始认证', 'success');
                             self.performPiAuthentication();
                         } else {
+                            self.addDebugLog('Pi SDK等待失败', 'error');
                             if (typeof self.showLoginStatus === 'function') {
                                 self.showLoginStatus('❌ Pi SDK 加载失败', 'error');
                             }
@@ -521,6 +607,7 @@ class VotingApp {
                         }
                     }).catch(function(error) {
                         console.error('等待Pi SDK失败:', error);
+                        self.recordError(error, 'Pi SDK等待');
                         if (typeof self.showLoginStatus === 'function') {
                             self.showLoginStatus('❌ Pi SDK 加载失败', 'error');
                         }
@@ -532,11 +619,13 @@ class VotingApp {
                     });
                 } else {
                     // Pi SDK已准备就绪，直接进行认证
+                    this.addDebugLog('Pi SDK已就绪，直接开始认证', 'info');
                     this.performPiAuthentication();
                 }
             }
         } catch (error) {
             console.error('登录初始化错误:', error);
+            this.recordError(error, '登录初始化');
             var errorMessage = '登录功能初始化失败，请重试';
             
             if (typeof self.showLoginStatus === 'function') {
@@ -556,15 +645,18 @@ class VotingApp {
         var self = this;
         
         try {
+            this.addDebugLog('开始Pi认证流程', 'info');
             if (typeof self.showLoginStatus === 'function') {
                 self.showLoginStatus('📞 正在连接Pi Network...', 'info');
             }
             
             // Pi Network 登录认证
             var scopes = ['payments', 'username']; // 请求支付权限和用户名权限
+            this.addDebugLog('Pi认证权限范围', 'info', { scopes });
             
             // 处理未完成的支付回调
             function onIncompletePaymentFound(payment) {
+                self.addDebugLog('发现未完成的支付', 'warning', payment);
                 if (typeof self.showLoginStatus === 'function') {
                     self.showLoginStatus('💰 发现未完成的支付，正在处理...', 'warning');
                 }
@@ -572,53 +664,81 @@ class VotingApp {
             
             // 检查authenticate方法是否存在
             if (!piSDK || typeof piSDK.authenticate !== 'function') {
-                throw new Error('Pi SDK authenticate 方法不可用');
+                const errorMsg = 'Pi SDK authenticate 方法不可用';
+                this.addDebugLog(errorMsg, 'error', {
+                    piSDKExists: !!piSDK,
+                    authenticateMethod: typeof piSDK?.authenticate
+                });
+                throw new Error(errorMsg);
             }
             
             piSDK.authenticate(scopes, onIncompletePaymentFound).then(function(authResult) {
+                self.addDebugLog('Pi认证成功', 'success', {
+                    hasUser: !!(authResult && authResult.user),
+                    hasAccessToken: !!(authResult && authResult.accessToken),
+                    userKeys: authResult && authResult.user ? Object.keys(authResult.user) : []
+                });
+                
                 if (authResult && (authResult.user || authResult.accessToken)) {
                     var userInfo = authResult.user || {};
                     
                     // 尝试获取详细用户信息
                     if (authResult.accessToken && piSDK.me && typeof piSDK.me === 'function') {
+                        self.addDebugLog('开始获取用户详细信息', 'info');
                         if (typeof self.showLoginStatus === 'function') {
                             self.showLoginStatus('🔍 正在获取用户详细信息...', 'info');
                         }
                         
                         piSDK.me().then(function(detailedUserInfo) {
+                            self.addDebugLog('获取用户详细信息成功', 'success', detailedUserInfo);
                             userInfo = detailedUserInfo || userInfo;
                             self.processUserLogin(userInfo, authResult.accessToken);
                         }).catch(function(meError) {
                             console.warn('获取用户详细信息失败:', meError);
+                            self.recordError(meError, '获取用户详细信息');
                             if (typeof self.showLoginStatus === 'function') {
                                 self.showLoginStatus('⚠️ 获取详细信息失败，使用基本信息', 'warning');
                             }
                             self.processUserLogin(userInfo, authResult.accessToken);
                         });
                     } else {
+                        self.addDebugLog('使用基本用户信息进行登录', 'info');
                         self.processUserLogin(userInfo, authResult.accessToken);
                     }
                 } else {
+                    const errorMsg = '认证失败：未获取到用户信息';
+                    self.addDebugLog(errorMsg, 'error', authResult);
                     if (typeof self.showLoginStatus === 'function') {
-                        self.showLoginStatus('❌ 认证失败：未获取到用户信息', 'error');
+                        self.showLoginStatus('❌ ' + errorMsg, 'error');
                     }
-                    throw new Error('认证失败：未获取到用户信息');
+                    throw new Error(errorMsg);
                 }
             }).catch(function(error) {
                 console.error('Pi认证过程中发生错误:', error);
+                self.recordError(error, 'Pi认证');
                 
                 var errorMessage = '登录操作失败，请重试';
+                var errorType = 'unknown';
                 
                 // 根据错误类型提供更具体的错误信息
                 if (error && error.message) {
                     if (error.message.indexOf('cancelled') !== -1) {
                         errorMessage = '用户取消了登录操作';
+                        errorType = 'user_cancelled';
                     } else if (error.message.indexOf('network') !== -1) {
                         errorMessage = '网络连接失败，请检查网络后重试';
+                        errorType = 'network_error';
                     } else if (error.message.indexOf('Pi SDK') !== -1) {
                         errorMessage = '请在Pi Browser中打开此应用';
+                        errorType = 'sdk_error';
                     }
                 }
+                
+                self.addDebugLog(`Pi认证失败: ${errorMessage}`, 'error', {
+                    errorType,
+                    originalError: error.message,
+                    stack: error.stack
+                });
                 
                 if (typeof self.showLoginStatus === 'function') {
                     self.showLoginStatus('❌ ' + errorMessage, 'error');
@@ -651,6 +771,11 @@ class VotingApp {
         var self = this;
         
         try {
+            this.addDebugLog('开始处理用户登录', 'info', {
+                userInfoKeys: Object.keys(userInfo || {}),
+                hasAccessToken: !!accessToken
+            });
+            
             // 准备用户数据
             var piUserData = {
                 uid: userInfo.uid || 'unknown_' + Date.now(),
@@ -659,6 +784,12 @@ class VotingApp {
                 name: userInfo.name || userInfo.username || 'Pi用户',
                 accessToken: accessToken
             };
+            
+            this.addDebugLog('用户数据准备完成', 'success', {
+                uid: piUserData.uid,
+                username: piUserData.username,
+                hasAccessToken: !!piUserData.accessToken
+            });
             
             // 使用本地数据（纯前端模式）
             self.currentUser = piUserData;
@@ -2961,6 +3092,67 @@ class DebugPanel {
         this.updatePiSDKStatus();
         this.updateUserInfo();
         this.updateAppStatus();
+        this.updateDebugLogs();
+    }
+    
+    // 更新调试日志显示
+    updateDebugLogs() {
+        // 显示最后错误信息
+        const lastErrorElement = document.getElementById('debugLastError');
+        if (lastErrorElement && window.app && window.app.lastError) {
+            lastErrorElement.textContent = `${window.app.lastError.context}: ${window.app.lastError.message} (${window.app.lastError.timestamp})`;
+            lastErrorElement.className = 'debug-value error';
+        } else if (lastErrorElement) {
+            lastErrorElement.textContent = '无';
+            lastErrorElement.className = 'debug-value';
+        }
+        
+        // 显示登录尝试次数
+        const loginAttemptsElement = document.getElementById('debugLoginAttempts');
+        if (loginAttemptsElement && window.app) {
+            loginAttemptsElement.textContent = window.app.loginAttempts.toString();
+            loginAttemptsElement.className = window.app.loginAttempts > 3 ? 'debug-value warning' : 'debug-value';
+        }
+        
+        // 显示Pi SDK加载时间
+        const piSDKLoadTimeElement = document.getElementById('debugPiSDKLoadTime');
+        if (piSDKLoadTimeElement && window.app && window.app.piSDKLoadTime) {
+            piSDKLoadTimeElement.textContent = `${window.app.piSDKLoadTime}ms`;
+            piSDKLoadTimeElement.className = window.app.piSDKLoadTime > 5000 ? 'debug-value warning' : 'debug-value';
+        } else if (piSDKLoadTimeElement) {
+            piSDKLoadTimeElement.textContent = '-';
+        }
+        
+        // 显示最近的调试日志
+        const debugLogsElement = document.getElementById('debugRecentLogs');
+        if (debugLogsElement && window.app && window.app.debugLogs && window.app.debugLogs.length > 0) {
+            const recentLogs = window.app.debugLogs.slice(0, 5).map(log => {
+                const typeIcon = log.type === 'error' ? '❌' : 
+                               log.type === 'warning' ? '⚠️' : 
+                               log.type === 'success' ? '✅' : 'ℹ️';
+                return `${typeIcon} ${log.timestamp} ${log.message}`;
+            }).join('\n');
+            debugLogsElement.textContent = recentLogs;
+            debugLogsElement.style.whiteSpace = 'pre-line';
+            debugLogsElement.style.fontSize = '11px';
+            debugLogsElement.style.maxHeight = '100px';
+            debugLogsElement.style.overflow = 'auto';
+        } else if (debugLogsElement) {
+            debugLogsElement.textContent = '暂无日志';
+        }
+        
+        // 显示网络错误
+        const networkErrorsElement = document.getElementById('debugNetworkErrors');
+        if (networkErrorsElement && window.app && window.app.networkErrors && window.app.networkErrors.length > 0) {
+            const errorText = window.app.networkErrors.slice(0, 2).map(err => 
+                `${err.url}: ${err.error} (${err.timestamp})`
+            ).join('; ');
+            networkErrorsElement.textContent = errorText;
+            networkErrorsElement.className = 'debug-value error';
+        } else if (networkErrorsElement) {
+            networkErrorsElement.textContent = '无';
+            networkErrorsElement.className = 'debug-value';
+        }
     }
     
     updatePiSDKStatus() {

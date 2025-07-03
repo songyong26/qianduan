@@ -457,6 +457,30 @@
             </div>
             
             <div class="debug-section">
+                <h4>调试信息</h4>
+                <div class="debug-item">
+                    <span class="debug-label">最后错误:</span>
+                    <span class="debug-value" id="debugLastError">无</span>
+                </div>
+                <div class="debug-item">
+                    <span class="debug-label">登录尝试:</span>
+                    <span class="debug-value" id="debugLoginAttempts">0</span>
+                </div>
+                <div class="debug-item">
+                    <span class="debug-label">SDK加载时间:</span>
+                    <span class="debug-value" id="debugPiSDKLoadTime">-</span>
+                </div>
+                <div class="debug-item">
+                    <span class="debug-label">网络错误:</span>
+                    <span class="debug-value" id="debugNetworkErrors">无</span>
+                </div>
+                <div class="debug-item" style="flex-direction: column; align-items: flex-start;">
+                    <span class="debug-label">最近日志:</span>
+                    <div class="debug-value" id="debugRecentLogs" style="width: 100%; margin-top: 5px; padding: 5px; background: rgba(0,0,0,0.1); border-radius: 3px; font-size: 10px;">暂无日志</div>
+                </div>
+            </div>
+            
+            <div class="debug-section">
                 <h4>操作</h4>
                 <button class="debug-btn" onclick="refreshDebugInfo()">刷新信息</button>
                 <button class="debug-btn" onclick="clearLocalStorage()">清除本地数据</button>
