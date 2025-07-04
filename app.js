@@ -49,18 +49,6 @@ function closeCustomConfirm(result) {
 
 // Pi Network SDK 初始化和环境检测
 function isPiBrowser() {
-    // 简化的Pi浏览器环境检测
-    
-    // 检查是否有Pi特有的API和方法
-    const hasPiAPI = typeof window.Pi !== 'undefined' && 
-                     window.Pi !== null && 
-                     typeof window.Pi.authenticate === 'function';
-    
-    if (!hasPiAPI) {
-        console.log('环境检测结果: 没有Pi API，非Pi环境');
-        return false;
-    }
-    
     // 检查User Agent是否包含Pi Browser的特征
     const userAgent = navigator.userAgent;
     const isPiBrowserUA = /PiBrowser/i.test(userAgent);
@@ -73,11 +61,15 @@ function isPiBrowser() {
                    typeof window.webkit !== 'undefined' ||
                    typeof window.ReactNativeWebView !== 'undefined';
     
-    // 如果有Pi API，并且满足以下任一条件，则认为是Pi浏览器环境：
-    // 1. User Agent包含PiBrowser
-    // 2. 是移动设备且在应用内浏览器中
-    // 3. 有Pi API就默认认为是Pi环境（更宽松的检测）
-    const isPiEnvironment = isPiBrowserUA || (isMobile && isInApp) || hasPiAPI;
+    // 检查是否有Pi特有的API和方法
+    const hasPiAPI = typeof window.Pi !== 'undefined' && 
+                     window.Pi !== null && 
+                     typeof window.Pi.authenticate === 'function';
+    
+    // 只有在满足以下条件时才认为是真正的Pi浏览器环境：
+    // 1. User Agent明确包含PiBrowser，或者
+    // 2. 是移动设备且在应用内浏览器中且有Pi API
+    const isPiEnvironment = isPiBrowserUA || (isMobile && isInApp && hasPiAPI);
     
     console.log('环境检测结果:', {
         userAgent: navigator.userAgent,
@@ -350,8 +342,30 @@ class VotingApp {
                 loginBtn.disabled = true;
                 
                 console.log('开始认证过程...');
-                const authResult = await piSDK.authenticate();
-                console.log('认证结果:', authResult);
+                let authResult = null;
+                try {
+                    authResult = await piSDK.authenticate();
+                    console.log('认证结果:', authResult);
+                } catch (authError) {
+                    console.error('Pi SDK认证失败:', authError);
+                    if (isPiBrowser()) {
+                        // 在Pi浏览器环境下，认证失败应该阻止登录
+                        loginBtn.textContent = originalText;
+                        loginBtn.disabled = false;
+                        showCustomAlert('Pi认证失败，请重试', '认证失败', '❌');
+                        return;
+                    } else {
+                        // 在非Pi环境下，认证失败时使用模拟用户
+                        console.log('非Pi环境认证失败，使用模拟用户');
+                        authResult = {
+                            user: {
+                                uid: 'test_user_123',
+                                username: 'TestUser'
+                            }
+                        };
+                    }
+                }
+                
                 if (authResult && authResult.user) {
                     // 显示后端连接状态
                     loginBtn.innerHTML = '<span class="loading-spinner">🔄</span> 连接服务器...';
@@ -384,7 +398,7 @@ class VotingApp {
                             console.error('后端API登录失败:', apiError);
                             
                             // 检查是否在Pi浏览器环境
-                            if (this.isPiBrowser()) {
+                            if (isPiBrowser()) {
                                 // 在Pi浏览器环境下，显示真实的连接错误
                                 console.log('Pi浏览器环境下API连接失败');
                                 setTimeout(() => {
@@ -417,6 +431,7 @@ class VotingApp {
                     // 登录失败，恢复按钮状态
                     loginBtn.textContent = originalText;
                     loginBtn.disabled = false;
+                    showCustomAlert('认证失败，请重试', '登录失败', '❌');
                 }
             }
         } catch (error) {
