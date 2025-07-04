@@ -212,8 +212,8 @@ class VotingApp {
     // 加载本地存储数据
     loadLocalData() {
         try {
-            // 加载已发布项目数据
-            const savedProjects = localStorage.getItem('voting_projects');
+            // 加载已发布项目数据（全局共享）
+            const savedProjects = localStorage.getItem('global_voting_projects');
             if (savedProjects) {
                 this.projects = JSON.parse(savedProjects);
                 // 确保所有项目都有必要的属性
@@ -227,14 +227,14 @@ class VotingApp {
                 });
             }
 
-            // 加载待审核项目数据
-            const savedPendingProjects = localStorage.getItem('pending_projects');
+            // 加载待审核项目数据（全局共享）
+            const savedPendingProjects = localStorage.getItem('global_pending_projects');
             if (savedPendingProjects) {
                 this.pendingProjects = JSON.parse(savedPendingProjects);
             }
 
-            // 加载待审核的公布结果请求
-            const savedPendingResults = localStorage.getItem('pending_results');
+            // 加载待审核的公布结果请求（全局共享）
+            const savedPendingResults = localStorage.getItem('global_pending_results');
             if (savedPendingResults) {
                 this.pendingResults = JSON.parse(savedPendingResults);
             }
@@ -285,9 +285,9 @@ class VotingApp {
     // 保存数据到本地存储
     saveLocalData() {
         try {
-            localStorage.setItem('voting_projects', JSON.stringify(this.projects));
-            localStorage.setItem('pending_projects', JSON.stringify(this.pendingProjects));
-            localStorage.setItem('pending_results', JSON.stringify(this.pendingResults));
+            localStorage.setItem('global_voting_projects', JSON.stringify(this.projects));
+            localStorage.setItem('global_pending_projects', JSON.stringify(this.pendingProjects));
+            localStorage.setItem('global_pending_results', JSON.stringify(this.pendingResults));
             localStorage.setItem('user_votes', JSON.stringify(this.userVotes));
             localStorage.setItem('user_points', this.userPoints.toString());
             localStorage.setItem('frozen_points', this.frozenPoints.toString());
@@ -329,6 +329,100 @@ class VotingApp {
         if (!this.currentUser) return false;
         const username = this.currentUser.username || this.currentUser.uid;
         return this.adminUsers.includes(username);
+    }
+
+    // 全局用户积分管理 - 冻结用户积分
+    freezeUserPoints(userId, points, description) {
+        try {
+            // 获取全局用户积分数据
+            const globalUserPoints = JSON.parse(localStorage.getItem('global_user_points') || '{}');
+            const globalFrozenPoints = JSON.parse(localStorage.getItem('global_frozen_points') || '{}');
+            const globalPointsHistory = JSON.parse(localStorage.getItem('global_points_history') || '{}');
+            
+            // 初始化用户数据（如果不存在）
+            if (!globalUserPoints[userId]) {
+                globalUserPoints[userId] = 1000; // 默认初始积分
+            }
+            if (!globalFrozenPoints[userId]) {
+                globalFrozenPoints[userId] = 0;
+            }
+            if (!globalPointsHistory[userId]) {
+                globalPointsHistory[userId] = [];
+            }
+            
+            // 检查用户积分是否足够
+            if (globalUserPoints[userId] < points) {
+                console.warn(`用户 ${userId} 积分不足，无法冻结 ${points} 积分`);
+                return false;
+            }
+            
+            // 冻结积分
+            globalFrozenPoints[userId] += points;
+            
+            // 添加积分历史记录
+            const historyItem = {
+                id: Date.now(),
+                type: 'project_freeze',
+                points: 0,
+                description: description,
+                timestamp: new Date().toISOString(),
+                balance: globalUserPoints[userId]
+            };
+            globalPointsHistory[userId].unshift(historyItem);
+            
+            // 限制历史记录数量
+            if (globalPointsHistory[userId].length > 100) {
+                globalPointsHistory[userId] = globalPointsHistory[userId].slice(0, 100);
+            }
+            
+            // 保存到localStorage
+            localStorage.setItem('global_user_points', JSON.stringify(globalUserPoints));
+            localStorage.setItem('global_frozen_points', JSON.stringify(globalFrozenPoints));
+            localStorage.setItem('global_points_history', JSON.stringify(globalPointsHistory));
+            
+            return true;
+        } catch (error) {
+            console.error('冻结用户积分失败:', error);
+            return false;
+        }
+    }
+
+    // 全局用户积分管理 - 解冻用户积分
+    unfreezeUserPoints(userId, points, description) {
+        try {
+            const globalFrozenPoints = JSON.parse(localStorage.getItem('global_frozen_points') || '{}');
+            const globalPointsHistory = JSON.parse(localStorage.getItem('global_points_history') || '{}');
+            
+            if (!globalFrozenPoints[userId]) {
+                globalFrozenPoints[userId] = 0;
+            }
+            if (!globalPointsHistory[userId]) {
+                globalPointsHistory[userId] = [];
+            }
+            
+            // 解冻积分
+            globalFrozenPoints[userId] = Math.max(0, globalFrozenPoints[userId] - points);
+            
+            // 添加积分历史记录
+            const historyItem = {
+                id: Date.now(),
+                type: 'project_unfreeze',
+                points: 0,
+                description: description,
+                timestamp: new Date().toISOString(),
+                balance: JSON.parse(localStorage.getItem('global_user_points') || '{}')[userId] || 1000
+            };
+            globalPointsHistory[userId].unshift(historyItem);
+            
+            // 保存到localStorage
+            localStorage.setItem('global_frozen_points', JSON.stringify(globalFrozenPoints));
+            localStorage.setItem('global_points_history', JSON.stringify(globalPointsHistory));
+            
+            return true;
+        } catch (error) {
+            console.error('解冻用户积分失败:', error);
+            return false;
+        }
     }
 
     // 显示/隐藏管理员面板
@@ -810,9 +904,22 @@ class VotingApp {
             return;
         }
         
-        // 检查用户积分是否足够
-        if (maxPoints > this.userPoints) {
-            showCustomAlert(`积分不足，当前积分：${this.userPoints}`, '积分不足', '💰');
+        // 检查用户积分是否足够（使用全局用户积分管理）
+        const globalUserPoints = JSON.parse(localStorage.getItem('global_user_points') || '{}');
+        const userTotalPoints = globalUserPoints[this.currentUser.uid] || 1000; // 默认初始积分
+        
+        if (maxPoints > userTotalPoints) {
+            showCustomAlert(`积分不足，当前积分：${userTotalPoints}`, '积分不足', '💰');
+            return;
+        }
+        
+        // 检查用户可用积分（总积分 - 冻结积分）
+        const globalFrozenPoints = JSON.parse(localStorage.getItem('global_frozen_points') || '{}');
+        const userFrozenPoints = globalFrozenPoints[this.currentUser.uid] || 0;
+        const availablePoints = userTotalPoints - userFrozenPoints;
+        
+        if (maxPoints > availablePoints) {
+            showCustomAlert(`可用积分不足，当前可用积分：${availablePoints}（总积分：${userTotalPoints}，冻结积分：${userFrozenPoints}）`, '积分不足', '💰');
             return;
         }
 
@@ -970,8 +1077,10 @@ class VotingApp {
         pendingProject.reviewedAt = new Date().toISOString();
         pendingProject.reviewedBy = this.currentUser.username || this.currentUser.uid;
         
-        // 冻结项目创建者的积分
-        // 注意：这里需要处理不同用户的积分，但由于是本地存储，我们只能处理当前用户
+        // 冻结项目创建者的积分（全局用户积分管理）
+        this.freezeUserPoints(pendingProject.creatorId, pendingProject.maxPoints, `项目审核通过冻结积分 - ${pendingProject.title}`);
+        
+        // 如果当前用户就是项目创建者，更新当前用户的积分显示
         if (pendingProject.creatorId === this.currentUser.uid) {
             this.frozenPoints += pendingProject.maxPoints;
             this.addPointsHistory('project_freeze', 0, `项目审核通过冻结积分 - ${pendingProject.title} (冻结${pendingProject.maxPoints}积分)`);
@@ -1008,6 +1117,15 @@ class VotingApp {
         pendingProject.reviewedAt = new Date().toISOString();
         pendingProject.reviewedBy = this.currentUser.username || this.currentUser.uid;
         pendingProject.rejectReason = reason;
+        
+        // 解冻项目创建者的积分（全局用户积分管理）
+        this.unfreezeUserPoints(pendingProject.creatorId, pendingProject.maxPoints, `项目审核拒绝解冻积分 - ${pendingProject.title}`);
+        
+        // 如果当前用户就是项目创建者，更新当前用户的积分显示
+        if (pendingProject.creatorId === this.currentUser.uid) {
+            this.frozenPoints = Math.max(0, this.frozenPoints - pendingProject.maxPoints);
+            this.addPointsHistory('project_unfreeze', 0, `项目审核拒绝解冻积分 - ${pendingProject.title} (解冻${pendingProject.maxPoints}积分)`);
+        }
         
         this.saveLocalData();
         this.renderAdminPanel();
