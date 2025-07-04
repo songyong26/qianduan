@@ -185,13 +185,19 @@ class VotingApp {
         this.storage = new JSONBinStorage();
         this.isOnline = navigator.onLine;
         
+        // 数据刷新定时器
+        this.refreshTimer = null;
+        this.refreshInterval = 30000; // 30秒刷新一次
+        
         // 监听网络状态变化
         window.addEventListener('online', () => {
             this.isOnline = true;
             this.syncDataToRemote();
+            this.startAutoRefresh(); // 网络恢复时启动自动刷新
         });
         window.addEventListener('offline', () => {
             this.isOnline = false;
+            this.stopAutoRefresh(); // 网络断开时停止自动刷新
         });
         
         this.init();
@@ -212,6 +218,11 @@ class VotingApp {
             
             // 渲染项目列表
             this.renderProjects();
+            
+            // 启动自动刷新（仅在在线时）
+            if (this.isOnline) {
+                this.startAutoRefresh();
+            }
             
             console.log('应用初始化完成');
         } catch (error) {
@@ -360,6 +371,71 @@ class VotingApp {
         }
     }
 
+    // 启动自动刷新
+    startAutoRefresh() {
+        if (this.refreshTimer) {
+            clearInterval(this.refreshTimer);
+        }
+        
+        this.refreshTimer = setInterval(async () => {
+            if (this.isOnline) {
+                try {
+                    console.log('自动刷新数据...');
+                    await this.refreshData();
+                } catch (error) {
+                    console.error('自动刷新失败:', error);
+                }
+            }
+        }, this.refreshInterval);
+        
+        console.log('自动刷新已启动，间隔:', this.refreshInterval / 1000, '秒');
+    }
+    
+    // 停止自动刷新
+    stopAutoRefresh() {
+        if (this.refreshTimer) {
+            clearInterval(this.refreshTimer);
+            this.refreshTimer = null;
+            console.log('自动刷新已停止');
+        }
+    }
+    
+    // 刷新数据（仅刷新共享数据，不影响用户个人数据）
+    async refreshData() {
+        try {
+            // 只刷新共享数据：项目、待审核项目、待审核结果
+            const [projects, pendingProjects, pendingResults] = await Promise.all([
+                this.storage.loadData('votingProjects', false), // 强制从远程加载
+                this.storage.loadData('pendingProjects', false),
+                this.storage.loadData('pendingResults', false)
+            ]);
+            
+            // 更新共享数据
+            this.projects = projects || [];
+            this.projects.forEach(project => {
+                if (!project.voteDetails) {
+                    project.voteDetails = [];
+                }
+                if (!project.votes) {
+                    project.votes = { yes: 0, no: 0 };
+                }
+            });
+            
+            this.pendingProjects = pendingProjects || [];
+            this.pendingResults = pendingResults || [];
+            
+            // 重新渲染界面
+            this.renderProjects();
+            if (this.isAdmin()) {
+                this.renderAdminPanel();
+            }
+            
+            console.log('数据刷新成功');
+        } catch (error) {
+            console.error('数据刷新失败:', error);
+        }
+    }
+    
     // 保存数据（同时保存到远程和本地）
     async saveLocalData() {
         try {
@@ -1820,6 +1896,68 @@ document.addEventListener('DOMContentLoaded', () => {
 function handleLogin() {
     if (app) {
         app.handleLogin();
+    }
+}
+
+// 手动刷新管理员数据
+async function refreshAdminData() {
+    if (!app || !app.isAdmin()) {
+        showCustomAlert('权限不足', '错误', '❌');
+        return;
+    }
+    
+    const refreshStatus = document.getElementById('refreshStatus');
+    const refreshBtn = document.querySelector('.btn-refresh');
+    
+    try {
+        // 显示刷新状态
+        if (refreshStatus) {
+            refreshStatus.style.display = 'block';
+            refreshStatus.textContent = '正在刷新数据...';
+        }
+        if (refreshBtn) {
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = '🔄 刷新中...';
+        }
+        
+        // 执行数据刷新
+        await app.refreshData();
+        
+        // 显示成功状态
+        if (refreshStatus) {
+            refreshStatus.textContent = '数据刷新成功！';
+            refreshStatus.style.color = '#28a745';
+        }
+        
+        // 2秒后隐藏状态
+        setTimeout(() => {
+            if (refreshStatus) {
+                refreshStatus.style.display = 'none';
+            }
+        }, 2000);
+        
+    } catch (error) {
+        console.error('手动刷新失败:', error);
+        
+        // 显示错误状态
+        if (refreshStatus) {
+            refreshStatus.textContent = '刷新失败，请重试';
+            refreshStatus.style.color = '#dc3545';
+        }
+        
+        // 3秒后隐藏状态
+        setTimeout(() => {
+            if (refreshStatus) {
+                refreshStatus.style.display = 'none';
+            }
+        }, 3000);
+        
+    } finally {
+        // 恢复按钮状态
+        if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = '🔄 刷新';
+        }
     }
 }
 

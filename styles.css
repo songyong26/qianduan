@@ -173,6 +173,34 @@ body {
     transform: translateY(-2px);
 }
 
+.btn-refresh {
+    background: #28a745;
+    color: white;
+    padding: 8px 16px;
+    font-size: 14px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.btn-refresh:hover {
+    background: #218838;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.btn-refresh:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
 /* 卡片样式 */
 .card-container {
     background: rgba(255,255,255,0.1);
