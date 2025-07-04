@@ -188,9 +188,16 @@ class VotingApp {
                 await piSDK.init();
             }
             
-            // 初始化API客户端
-            if (typeof APIClient !== 'undefined') {
-                this.apiClient = new APIClient();
+            // 使用全局API客户端实例
+            if (typeof apiClient !== 'undefined') {
+                this.apiClient = apiClient;
+                
+                // 如果用户已登录，恢复API客户端的认证token
+                const savedUser = localStorage.getItem('current_user');
+                const savedToken = localStorage.getItem('authToken');
+                if (savedUser && savedToken) {
+                    this.apiClient.setToken(savedToken);
+                }
             }
             
             // 加载本地数据
@@ -259,6 +266,14 @@ class VotingApp {
             if (savedUser) {
                 this.currentUser = JSON.parse(savedUser);
                 this.updateLoginButton();
+                
+                // 恢复API客户端的认证token
+                if (this.apiClient) {
+                    const savedToken = localStorage.getItem('authToken');
+                    if (savedToken) {
+                        this.apiClient.setToken(savedToken);
+                    }
+                }
             }
 
             // 加载隐藏项目列表
@@ -315,9 +330,15 @@ class VotingApp {
 
     // 处理登录/退出
     async handleLogin() {
+        const loginBtn = document.getElementById('loginBtn');
+        const originalText = loginBtn.textContent;
+        
         try {
             if (this.currentUser) {
                 // 退出登录
+                loginBtn.innerHTML = '<span class="loading-spinner">⏳</span> 退出中...';
+                loginBtn.disabled = true;
+                
                 await piSDK.signOut();
                 this.currentUser = null;
                 localStorage.removeItem('current_user');
@@ -332,8 +353,14 @@ class VotingApp {
                 showCustomAlert('已退出登录', '退出成功', '✅');
             } else {
                 // 登录
+                loginBtn.innerHTML = '<span class="loading-spinner">⏳</span> 登录中...';
+                loginBtn.disabled = true;
+                
                 const authResult = await piSDK.authenticate();
                 if (authResult && authResult.user) {
+                    // 显示后端连接状态
+                    loginBtn.innerHTML = '<span class="loading-spinner">🔄</span> 连接服务器...';
+                    
                     const isNewUser = !this.currentUser;
                     this.currentUser = authResult.user;
                     
@@ -341,17 +368,16 @@ class VotingApp {
                     if (this.apiClient) {
                         try {
                             const loginResponse = await this.apiClient.login({
-                                piId: authResult.user.uid,
-                                username: authResult.user.username
+                                accessToken: authResult.accessToken
                             });
                             
-                            if (loginResponse.token) {
-                                this.apiClient.setToken(loginResponse.token);
+                            if (loginResponse.success && loginResponse.data.token) {
+                                this.apiClient.setToken(loginResponse.data.token);
                             }
                             
                             // 同步用户积分数据
-                            if (loginResponse.user) {
-                                this.userPoints = loginResponse.user.piBalance || this.userPoints;
+                            if (loginResponse.success && loginResponse.data.user) {
+                                this.userPoints = loginResponse.data.user.piBalance || this.userPoints;
                             }
                         } catch (apiError) {
                             console.warn('后端API登录失败，使用本地数据:', apiError);
@@ -367,10 +393,17 @@ class VotingApp {
                     this.updateLoginButton();
                     this.renderProjects();
                     showCustomAlert(`欢迎，${this.currentUser.username || this.currentUser.uid}！`, '登录成功', '🎉');
+                } else {
+                    // 登录失败，恢复按钮状态
+                    loginBtn.textContent = originalText;
+                    loginBtn.disabled = false;
                 }
             }
         } catch (error) {
             console.error('登录操作失败:', error);
+            // 恢复按钮状态
+            loginBtn.textContent = originalText;
+            loginBtn.disabled = false;
             showCustomAlert('登录操作失败，请重试', '登录失败', '❌');
         }
     }
@@ -768,11 +801,18 @@ class VotingApp {
         }
 
         try {
+            // 构造符合后端期望的项目数据格式
             const projectData = {
                 title,
                 description,
-                endTime,
-                maxPoints
+                options: ['支持', '反对'], // 默认的投票选项
+                startTime: new Date().toISOString(), // 立即开始
+                endTime: new Date(endTime).toISOString(), // 用户选择的结束时间
+                requirePayment: false,
+                paymentAmount: 0,
+                maxVotesPerUser: 1,
+                category: '积分投票',
+                tags: ['积分投票']
             };
 
             // 调用后端API创建项目
@@ -780,16 +820,17 @@ class VotingApp {
                 const response = await this.apiClient.createProject(projectData);
                 
                 if (response.success) {
-                    // 后端创建成功，更新本地数据
+                    // 后端创建成功，构建前端需要的项目数据结构
+                    const backendProject = response.data.project;
                     const project = {
-                        id: response.project.id || Date.now().toString(),
-                        title,
-                        description,
-                        endTime,
-                        maxPoints,
+                        id: backendProject.id,
+                        title: backendProject.title,
+                        description: backendProject.description,
+                        endTime: backendProject.endTime,
+                        maxPoints: maxPoints, // 前端特有字段
                         creatorId: this.currentUser.uid,
                         creatorName: this.currentUser.username || this.currentUser.uid,
-                        createdAt: new Date().toISOString(),
+                        createdAt: backendProject.createdAt || new Date().toISOString(),
                         frozenPoints: parseInt(maxPoints),
                         votes: {
                             yes: 0,
@@ -799,7 +840,9 @@ class VotingApp {
                         voteDetails: [],
                         status: 'active',
                         result: null,
-                        resultPublished: false
+                        resultPublished: false,
+                        // 保存后端项目的完整信息
+                        backendData: backendProject
                     };
 
                     // 冻结积分（不扣除总积分，只增加冻结积分）
