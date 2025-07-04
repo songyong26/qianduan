@@ -179,7 +179,7 @@ class VotingApp {
         this.frozenPoints = 0; // 冻结积分
         this.pointsHistory = []; // 积分历史记录
         this.hiddenProjects = []; // 用户隐藏的项目列表
-        this.adminUsers = ['admin', 'TestUser', 'administrator']; // 管理员用户名列表
+        this.adminUsers = ['sjf88888888']; // 管理员用户名列表
         this.init();
     }
 
