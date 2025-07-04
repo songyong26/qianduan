@@ -177,6 +177,7 @@ class VotingApp {
         this.frozenPoints = 0; // 冻结积分
         this.pointsHistory = []; // 积分历史记录
         this.hiddenProjects = []; // 用户隐藏的项目列表
+        this.apiClient = null; // API客户端
         this.init();
     }
 
@@ -187,7 +188,10 @@ class VotingApp {
                 await piSDK.init();
             }
             
-
+            // 初始化API客户端
+            if (typeof APIClient !== 'undefined') {
+                this.apiClient = new APIClient();
+            }
             
             // 加载本地数据
             this.loadLocalData();
@@ -317,6 +321,12 @@ class VotingApp {
                 await piSDK.signOut();
                 this.currentUser = null;
                 localStorage.removeItem('current_user');
+                
+                // 清除API客户端认证
+                if (this.apiClient) {
+                    this.apiClient.setToken(null);
+                }
+                
                 this.updateLoginButton();
                 this.renderProjects();
                 showCustomAlert('已退出登录', '退出成功', '✅');
@@ -326,6 +336,27 @@ class VotingApp {
                 if (authResult && authResult.user) {
                     const isNewUser = !this.currentUser;
                     this.currentUser = authResult.user;
+                    
+                    // 登录后端API
+                    if (this.apiClient) {
+                        try {
+                            const loginResponse = await this.apiClient.login({
+                                piId: authResult.user.uid,
+                                username: authResult.user.username
+                            });
+                            
+                            if (loginResponse.token) {
+                                this.apiClient.setToken(loginResponse.token);
+                            }
+                            
+                            // 同步用户积分数据
+                            if (loginResponse.user) {
+                                this.userPoints = loginResponse.user.piBalance || this.userPoints;
+                            }
+                        } catch (apiError) {
+                            console.warn('后端API登录失败，使用本地数据:', apiError);
+                        }
+                    }
                     
                     // 如果是新用户且没有积分历史记录，添加初始积分记录
                     if (isNewUser && this.pointsHistory.length === 0) {
@@ -681,7 +712,7 @@ class VotingApp {
     }
 
     // 处理创建项目
-    handleCreateProject(e) {
+    async handleCreateProject(e) {
         e.preventDefault();
         
         if (!this.currentUser) {
@@ -724,65 +755,118 @@ class VotingApp {
             return;
         }
         
-        {
-            // 检查最低积分要求
-            if (maxPoints < 100) {
-                showCustomAlert('项目最低要求100积分', '积分不足', '💰');
-                return;
-            }
-            
-            // 创建新项目
-            if (maxPoints > this.userPoints) {
-                showCustomAlert(`积分不足，当前积分：${this.userPoints}`, '积分不足', '💰');
-                return;
-            }
+        // 检查最低积分要求
+        if (maxPoints < 100) {
+            showCustomAlert('项目最低要求100积分', '积分不足', '💰');
+            return;
+        }
+        
+        // 创建新项目
+        if (maxPoints > this.userPoints) {
+            showCustomAlert(`积分不足，当前积分：${this.userPoints}`, '积分不足', '💰');
+            return;
+        }
 
-            const project = {
-                id: Date.now().toString(),
+        try {
+            const projectData = {
                 title,
                 description,
                 endTime,
-                maxPoints,
-                creatorId: this.currentUser.uid,
-                creatorName: this.currentUser.username || this.currentUser.uid,
-                createdAt: new Date().toISOString(),
-                frozenPoints: parseInt(maxPoints), // 冻结的积分
-                votes: {
-                    yes: 0,
-                    no: 0
-                },
-                voters: [],
-                voteDetails: [], // 投票详情
-                status: 'active',
-                result: null, // 发起人公布的结果
-                resultPublished: false // 是否已公布结果
+                maxPoints
             };
 
-            // 冻结积分（不扣除总积分，只增加冻结积分）
-            this.frozenPoints += maxPoints;
-            this.addPointsHistory('project_freeze', 0, `创建项目冻结积分 - ${title} (冻结${maxPoints}积分)`);
+            // 调用后端API创建项目
+            if (this.apiClient) {
+                const response = await this.apiClient.createProject(projectData);
+                
+                if (response.success) {
+                    // 后端创建成功，更新本地数据
+                    const project = {
+                        id: response.project.id || Date.now().toString(),
+                        title,
+                        description,
+                        endTime,
+                        maxPoints,
+                        creatorId: this.currentUser.uid,
+                        creatorName: this.currentUser.username || this.currentUser.uid,
+                        createdAt: new Date().toISOString(),
+                        frozenPoints: parseInt(maxPoints),
+                        votes: {
+                            yes: 0,
+                            no: 0
+                        },
+                        voters: [],
+                        voteDetails: [],
+                        status: 'active',
+                        result: null,
+                        resultPublished: false
+                    };
+
+                    // 冻结积分（不扣除总积分，只增加冻结积分）
+                    this.frozenPoints += maxPoints;
+                    this.addPointsHistory('project_freeze', 0, `创建项目冻结积分 - ${title} (冻结${maxPoints}积分)`);
+                    
+                    // 添加项目
+                    this.projects.unshift(project);
+                    
+                    showCustomAlert(`项目创建成功！已冻结${maxPoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '创建成功', '🎉');
+                } else {
+                    showCustomAlert(response.message || '项目创建失败', '创建失败', '❌');
+                    return;
+                }
+            } else {
+                // 无API客户端，使用本地模拟
+                const project = {
+                    id: Date.now().toString(),
+                    title,
+                    description,
+                    endTime,
+                    maxPoints,
+                    creatorId: this.currentUser.uid,
+                    creatorName: this.currentUser.username || this.currentUser.uid,
+                    createdAt: new Date().toISOString(),
+                    frozenPoints: parseInt(maxPoints),
+                    votes: {
+                        yes: 0,
+                        no: 0
+                    },
+                    voters: [],
+                    voteDetails: [],
+                    status: 'active',
+                    result: null,
+                    resultPublished: false
+                };
+
+                // 冻结积分（不扣除总积分，只增加冻结积分）
+                this.frozenPoints += maxPoints;
+                this.addPointsHistory('project_freeze', 0, `创建项目冻结积分 - ${title} (冻结${maxPoints}积分)`);
+                
+                // 添加项目
+                this.projects.unshift(project);
+                
+                showCustomAlert(`项目创建成功！已冻结${maxPoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '创建成功', '🎉');
+            }
+
+            // 保存数据并更新显示
+            this.saveLocalData();
+            this.updateUserPointsDisplay();
+
+            // 重置表单
+            e.target.reset();
             
-            // 添加项目
-            this.projects.unshift(project);
+            // 刷新显示
+            console.log('项目创建后，当前项目数量:', this.projects.length);
+            console.log('最新项目:', this.projects[0]);
+            this.renderProjects();
             
-            showCustomAlert(`项目创建成功！已冻结${maxPoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '创建成功', '🎉');
+        } catch (error) {
+            console.error('项目创建失败:', error);
+            showCustomAlert(`项目创建失败: ${error.message || '网络错误'}`, '创建失败', '❌');
         }
-
-        // 保存数据并更新显示
-        this.saveLocalData();
-        this.updateUserPointsDisplay();
-
-        // 重置表单
-        e.target.reset();
-        
-        // 刷新显示
-        console.log('项目创建后，当前项目数量:', this.projects.length);
-        console.log('最新项目:', this.projects[0]);
-        this.renderProjects();
     }
 
     // 处理投票
-    handleVote(projectId, option, votePoints) {
+    async handleVote(projectId, option, votePoints) {
         if (!this.currentUser) {
             showCustomAlert('请先登录', '登录提示', '🔐');
             return;
@@ -804,8 +888,6 @@ class VotingApp {
             showCustomAlert('该项目已被删除，无法投票', '操作失败', '❌');
             return;
         }
-
-        // 允许多次投票，移除已投票检查
 
         // 检查项目是否已结束
         if (new Date(project.endTime) <= new Date()) {
@@ -836,41 +918,93 @@ class VotingApp {
             return;
         }
 
-        // 记录投票
-        const vote = {
-            projectId,
-            userId: this.currentUser.uid,
-            option,
-            points: votePoints,
-            timestamp: new Date().toISOString()
-        };
+        try {
+            // 调用后端API进行投票
+            if (this.apiClient) {
+                const voteData = {
+                    projectId,
+                    option,
+                    points: votePoints
+                };
+                
+                const response = await this.apiClient.vote(voteData);
+                
+                if (response.success) {
+                    // 后端投票成功，更新本地数据
+                    const vote = {
+                        projectId,
+                        userId: this.currentUser.uid,
+                        option,
+                        points: votePoints,
+                        timestamp: new Date().toISOString()
+                    };
 
-        this.userVotes.push(vote);
-        project.votes[option] += votePoints;
-        project.voters.push(this.currentUser.uid);
-        
-        // 记录投票详情
-        project.voteDetails.push({
-            voter: this.currentUser.uid,
-            option: option,
-            points: votePoints,
-            timestamp: new Date().toISOString()
-        });
-        
-        // 冻结投票积分（不扣除总积分，只增加冻结积分）
-        this.frozenPoints += votePoints;
-        this.addPointsHistory('vote_freeze', 0, `投票冻结积分 - ${project.title} (${option === 'yes' ? '是' : '否'}, 冻结${votePoints}积分)`);
-        
-        this.saveLocalData();
-        this.updateUserPointsDisplay();
-        this.renderProjects();
-        
-        showCustomAlert(`投票成功！已冻结${votePoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '投票成功', '🎉');
-        closeModal('voteModal');
+                    this.userVotes.push(vote);
+                    project.votes[option] += votePoints;
+                    project.voters.push(this.currentUser.uid);
+                    
+                    // 记录投票详情
+                    project.voteDetails.push({
+                        voter: this.currentUser.uid,
+                        option: option,
+                        points: votePoints,
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    // 冻结投票积分（不扣除总积分，只增加冻结积分）
+                    this.frozenPoints += votePoints;
+                    this.addPointsHistory('vote_freeze', 0, `投票冻结积分 - ${project.title} (${option === 'yes' ? '是' : '否'}, 冻结${votePoints}积分)`);
+                    
+                    this.saveLocalData();
+                    this.updateUserPointsDisplay();
+                    this.renderProjects();
+                    
+                    showCustomAlert(`投票成功！已冻结${votePoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '投票成功', '🎉');
+                    closeModal('voteModal');
+                } else {
+                    showCustomAlert(response.message || '投票失败', '投票错误', '❌');
+                }
+            } else {
+                // 无API客户端，使用本地模拟
+                const vote = {
+                    projectId,
+                    userId: this.currentUser.uid,
+                    option,
+                    points: votePoints,
+                    timestamp: new Date().toISOString()
+                };
+
+                this.userVotes.push(vote);
+                project.votes[option] += votePoints;
+                project.voters.push(this.currentUser.uid);
+                
+                // 记录投票详情
+                project.voteDetails.push({
+                    voter: this.currentUser.uid,
+                    option: option,
+                    points: votePoints,
+                    timestamp: new Date().toISOString()
+                });
+                
+                // 冻结投票积分（不扣除总积分，只增加冻结积分）
+                this.frozenPoints += votePoints;
+                this.addPointsHistory('vote_freeze', 0, `投票冻结积分 - ${project.title} (${option === 'yes' ? '是' : '否'}, 冻结${votePoints}积分)`);
+                
+                this.saveLocalData();
+                this.updateUserPointsDisplay();
+                this.renderProjects();
+                
+                showCustomAlert(`投票成功！已冻结${votePoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '投票成功', '🎉');
+                closeModal('voteModal');
+            }
+        } catch (error) {
+            console.error('投票失败:', error);
+            showCustomAlert(`投票失败: ${error.message || '网络错误'}`, '投票失败', '❌');
+        }
     }
 
     // 处理提现
-    handleWithdraw(e) {
+    async handleWithdraw(e) {
         e.preventDefault();
         
         if (!this.currentUser) {
@@ -911,21 +1045,53 @@ class VotingApp {
             return;
         }
         
-        // 计算手续费
-        const fee = Math.floor(amount * 0.1);
-        const totalDeduction = amount + fee;
-        
-        // 扣除积分
-        this.userPoints -= totalDeduction;
-        this.addPointsHistory('withdraw', -totalDeduction, `提现 ${amount} 积分 (含手续费 ${fee})`);
-        
-        this.saveLocalData();
-        this.updateUserPointsDisplay();
-        
-        // 关闭模态框
-        closeModal('withdrawModal');
-        
-        showCustomAlert(`提现申请已提交！\n提现金额：${amount}\n手续费：${fee}\n预计1小时内到账`, '提现成功', '🎉');
+        try {
+            // 计算手续费
+            const fee = Math.floor(amount * 0.1);
+            const totalDeduction = amount + fee;
+            
+            const withdrawData = {
+                address,
+                amount,
+                fee
+            };
+            
+            // 调用后端API进行提现
+            if (this.apiClient) {
+                const response = await this.apiClient.withdraw(withdrawData);
+                
+                if (response.success) {
+                    // 后端提现成功，更新本地数据
+                    this.userPoints -= totalDeduction;
+                    this.addPointsHistory('withdraw', -totalDeduction, `提现 ${amount} 积分 (含手续费 ${fee})`);
+                    
+                    this.saveLocalData();
+                    this.updateUserPointsDisplay();
+                    
+                    // 关闭模态框
+                    closeModal('withdrawModal');
+                    
+                    showCustomAlert(`提现申请已提交！\n提现金额：${amount}\n手续费：${fee}\n预计1小时内到账`, '提现成功', '🎉');
+                } else {
+                    showCustomAlert(response.message || '提现申请失败', '提现失败', '❌');
+                }
+            } else {
+                // 无API客户端，使用本地模拟
+                this.userPoints -= totalDeduction;
+                this.addPointsHistory('withdraw', -totalDeduction, `提现 ${amount} 积分 (含手续费 ${fee})`);
+                
+                this.saveLocalData();
+                this.updateUserPointsDisplay();
+                
+                // 关闭模态框
+                closeModal('withdrawModal');
+                
+                showCustomAlert(`提现申请已提交！\n提现金额：${amount}\n手续费：${fee}\n预计1小时内到账`, '提现成功', '🎉');
+            }
+        } catch (error) {
+            console.error('提现失败:', error);
+            showCustomAlert(`提现失败: ${error.message || '网络错误'}`, '提现失败', '❌');
+        }
     }
     
     // 获取冻结积分（直接返回属性值）
@@ -1349,6 +1515,11 @@ async function publishResult(projectId, result) {
 
 // 显示充值模态框
 function showRechargeModal() {
+    if (!app.currentUser) {
+        showCustomAlert('请先登录', '登录提示', '🔐');
+        return;
+    }
+    
     document.getElementById('rechargeModal').style.display = 'block';
     
     // 初始化充值表单事件
@@ -1358,114 +1529,143 @@ function showRechargeModal() {
         rechargeForm.hasEventListener = true;
     }
     
-    // 为转币数量输入框添加只能输入数字的限制
+    // 为充值金额输入框添加数字验证
     const amountInput = document.getElementById('rechargeAmount');
     if (amountInput && !amountInput.hasEventListener) {
         amountInput.addEventListener('input', function(e) {
-            // 只允许输入数字
+            // 只允许输入整数
             this.value = this.value.replace(/[^0-9]/g, '');
         });
         amountInput.hasEventListener = true;
     }
-    
-    // 为用户名输入框添加只能输入数字和字母的限制
-    const usernameInput = document.getElementById('rechargeUsername');
-    if (usernameInput && !usernameInput.hasEventListener) {
-        usernameInput.addEventListener('input', function(e) {
-            // 只允许输入数字和字母
-            this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
-        });
-        usernameInput.hasEventListener = true;
-    }
-}
-
-// 复制地址功能
-function copyAddress() {
-    const addressElement = document.getElementById('rechargeAddress');
-    const address = addressElement.textContent;
-    
-    // 使用现代的 Clipboard API
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(address).then(() => {
-            showCustomAlert('地址已复制到剪贴板', '复制成功', '✅');
-        }).catch(err => {
-            console.error('复制失败:', err);
-            fallbackCopyTextToClipboard(address);
-        });
-    } else {
-        // 降级方案
-        fallbackCopyTextToClipboard(address);
-    }
-}
-
-// 降级复制方案
-function fallbackCopyTextToClipboard(text) {
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    textArea.style.top = '0';
-    textArea.style.left = '0';
-    textArea.style.position = 'fixed';
-    
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    
-    try {
-        const successful = document.execCommand('copy');
-        if (successful) {
-            showCustomAlert('地址已复制到剪贴板', '复制成功', '✅');
-        } else {
-            showCustomAlert('复制失败，请手动复制地址', '复制失败', '❌');
-        }
-    } catch (err) {
-        console.error('复制失败:', err);
-        showCustomAlert('复制失败，请手动复制地址', '复制失败', '❌');
-    }
-    
-    document.body.removeChild(textArea);
 }
 
 // 处理充值表单提交
-function handleRechargeSubmit(e) {
+async function handleRechargeSubmit(e) {
     e.preventDefault();
     
-    const username = document.getElementById('rechargeUsername').value.trim();
-    const amount = document.getElementById('rechargeAmount').value.trim();
-    const hash = document.getElementById('transactionHash').value.trim();
-    
-    // 验证表单
-    if (!username || !amount || !hash) {
-        showCustomAlert('请填写所有必填字段', '输入错误', '⚠️');
+    if (!app.currentUser) {
+        showCustomAlert('请先登录', '登录提示', '🔐');
         return;
     }
     
-    // 验证用户名格式
-    if (!/^[a-zA-Z0-9]+$/.test(username)) {
-        showCustomAlert('用户名只能包含数字和字母', '格式错误', '⚠️');
+    const amount = parseInt(document.getElementById('rechargeAmount').value);
+    
+    // 验证充值金额
+    if (isNaN(amount) || amount <= 0) {
+        showCustomAlert('请输入有效的充值金额', '输入错误', '⚠️');
         return;
     }
     
-    // 验证转币数量
-    const amountNum = parseInt(amount);
-    if (isNaN(amountNum) || amountNum < 1) {
-        showCustomAlert('转币数量必须是大于0的整数', '数量错误', '⚠️');
+    if (amount < 1) {
+        showCustomAlert('最低充值金额为1 Pi', '金额错误', '⚠️');
         return;
     }
     
-    // 验证交易哈希
-    if (hash.length < 10) {
-        showCustomAlert('请输入有效的交易哈希', '输入错误', '⚠️');
-        return;
+    // 显示支付状态
+    const statusElement = document.getElementById('paymentStatus');
+    const submitBtn = document.getElementById('rechargeSubmitBtn');
+    
+    if (statusElement) statusElement.style.display = 'block';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="btn-icon">⏳</span>跳转钱包中...';
     }
     
-    // 模拟提交充值申请
-    showCustomAlert(`充值申请已提交！\n用户名: ${username}\n转币数量: ${amountNum} Pi\n交易哈希: ${hash}\n\n请等待1小时内处理完毕，积分将按1:1比例到账。`, '充值成功', '🎉');
-    
-    // 重置表单
-    document.getElementById('rechargeForm').reset();
-    
-    // 关闭模态框
-    closeModal('rechargeModal');
+    try {
+        // 检查是否在Pi浏览器环境中
+        if (!isPiBrowser()) {
+            // 非Pi环境，提示用户在Pi浏览器中打开
+            showCustomAlert('请在Pi浏览器中打开此应用进行充值', '环境提示', 'ℹ️');
+            return;
+        }
+        
+        // Pi浏览器环境，创建支付请求跳转到钱包
+        const paymentData = {
+            amount: amount,
+            memo: `投票系统充值${amount}Pi`,
+            metadata: {
+                userId: app.currentUser.uid,
+                username: app.currentUser.username,
+                type: 'recharge',
+                timestamp: new Date().toISOString()
+            }
+        };
+        
+        // 调用Pi支付API
+        const payment = await window.Pi.createPayment(paymentData, {
+            onReadyForServerApproval: async (paymentId) => {
+                console.log('支付准备就绪，等待服务器批准:', paymentId);
+                
+                // 调用后端API处理支付
+                if (app.apiClient) {
+                    try {
+                        const response = await app.apiClient.createPayment({
+                            piPaymentId: paymentId,
+                            amount: amount,
+                            paymentType: 'recharge',
+                            memo: memo
+                        });
+                        
+                        console.log('后端支付记录创建成功:', response);
+                    } catch (apiError) {
+                        console.error('后端支付记录创建失败:', apiError);
+                    }
+                }
+            },
+            onReadyForServerCompletion: async (paymentId, txid) => {
+                console.log('支付完成，等待服务器确认:', paymentId, txid);
+                
+                // 调用后端API完成支付
+                if (app.apiClient) {
+                    try {
+                        const response = await app.apiClient.completePayment({
+                            piPaymentId: paymentId,
+                            transactionId: txid
+                        });
+                        
+                        if (response.success) {
+                            // 更新本地积分
+                            app.userPoints += amount;
+                            app.addPointsHistory('recharge', amount, `Pi Network充值 - ${amount} Pi (${txid})`);
+                            app.saveLocalData();
+                            app.updateUserPointsDisplay();
+                            
+                            showCustomAlert(`充值成功！\n充值金额: ${amount} Pi\n获得积分: ${amount}\n交易ID: ${txid}\n\n积分已到账，可以开始投票了！`, '充值成功', '🎉');
+                        }
+                    } catch (apiError) {
+                        console.error('后端支付完成失败:', apiError);
+                        showCustomAlert('支付处理出现问题，请联系客服', '支付错误', '❌');
+                    }
+                }
+            },
+            onCancel: (paymentId) => {
+                console.log('支付被取消:', paymentId);
+                showCustomAlert('支付已取消', '支付取消', 'ℹ️');
+            },
+            onError: (error, payment) => {
+                console.error('支付错误:', error, payment);
+                showCustomAlert(`支付失败: ${error.message || '未知错误'}`, '支付失败', '❌');
+            }
+        });
+        
+        console.log('Pi支付创建成功:', payment);
+        
+    } catch (error) {
+        console.error('充值处理失败:', error);
+        showCustomAlert(`充值失败: ${error.message || '未知错误'}`, '充值失败', '❌');
+    } finally {
+        // 恢复按钮状态
+        if (statusElement) statusElement.style.display = 'none';
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span class="btn-icon">💰</span>立即充值';
+        }
+        
+        // 重置表单
+        document.getElementById('rechargeForm').reset();
+        closeModal('rechargeModal');
+    }
 }
 
 // 显示提现模态框

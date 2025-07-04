@@ -171,48 +171,53 @@
     <div id="rechargeModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>充值</h2>
+                <h2>充值积分</h2>
                 <span class="close" onclick="closeModal('rechargeModal')">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="address-section">
-                    <label>收币地址：</label>
-                    <div class="address-container">
-                        <div class="address-display" id="rechargeAddress">Pi1234567890abcdef...</div>
-                        <button class="btn btn-copy" onclick="copyAddress()">复制</button>
+                <div class="pi-payment-section">
+                    <form id="rechargeForm">
+                        <div class="form-group">
+                            <label for="rechargeAmount">充值数量 (Pi) *</label>
+                            <input type="number" id="rechargeAmount" min="1" step="1" placeholder="请输入要充值的Pi数量（整数）" required>
+                            <div class="amount-info">
+                                <small>充值比例：1 Pi = 1 积分（仅支持整数充值）</small>
+                            </div>
+                        </div>
+                        
+                        <div class="payment-status" id="paymentStatus" style="display: none;">
+                            <div class="status-content">
+                                <div class="status-icon">⏳</div>
+                                <div class="status-text">正在处理支付...</div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" id="rechargeSubmitBtn">
+                            <span class="btn-icon">π</span>
+                            立即充值
+                        </button>
+                    </form>
+                    
+                    <div class="payment-features">
+                        <h4>充值特点</h4>
+                        <ul>
+                            <li>✅ 使用Pi Network官方支付系统</li>
+                            <li>✅ 跳转到Pi钱包进行转账</li>
+                            <li>✅ 安全可靠，交易透明</li>
+                            <li>✅ 仅支持整数充值</li>
+                            <li>✅ 自动记录交易历史</li>
+                        </ul>
                     </div>
-                </div>
-                <form id="rechargeForm">
-                    <div class="form-group">
-                        <label for="rechargeUsername">用户名 *</label>
-                        <input type="text" id="rechargeUsername" pattern="[a-zA-Z0-9]+" title="只能输入数字和字母" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="rechargeAmount">转币数量 *</label>
-                        <input type="number" id="rechargeAmount" min="1" step="1" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="transactionHash">交易哈希 *</label>
-                        <input type="text" id="transactionHash" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">提交申请</button>
-                </form>
-                <div class="tutorial-section">
-                    <h3>充值教程</h3>
-                    <ol>
-                        <li>复制以上钱包地址</li>
-                        <li>进入你的钱包</li>
-                        <li>对此地址进行对应的转账</li>
-                        <li>转币成功后，回到此界面</li>
-                        <li>输入你的用户名</li>
-                        <li>输入所转数量</li>
-                        <li>输入交易哈希</li>
-                        <li>提交申请</li>
-                        <li>等待积分到账</li>
-                    </ol>
-                    <div class="recharge-info">
-                        <p><strong>充值积分比例：1pi=1积分</strong></p>
-                        <p><strong>转币只能转整数，非整数向下取整</strong></p>
+                    
+                    <div class="payment-notice">
+                        <p><strong>注意事项：</strong></p>
+                        <ul>
+                            <li>点击充值后将跳转到Pi钱包</li>
+                            <li>需要输入助记词进入钱包进行转账</li>
+                            <li>转账到应用开发者的收币地址</li>
+                            <li>仅支持整数充值，不支持小数</li>
+                            <li>充值成功后积分将自动到账</li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -352,6 +357,8 @@
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <script>Pi.init({ version: "2.0" })</script>
     
+    <!-- API配置 -->
+    <script src="config.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
