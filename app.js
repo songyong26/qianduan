@@ -50,26 +50,58 @@ function closeCustomConfirm(result) {
 // Pi Network SDK 初始化和环境检测
 function isPiBrowser() {
     // 更准确的Pi浏览器环境检测
-    // 检查User Agent中是否包含Pi Browser的标识
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isPiUserAgent = userAgent.includes('pi browser') || userAgent.includes('pi-browser');
     
-    // 检查是否有Pi特有的API
+    // 检查是否有Pi特有的API和方法
     const hasPiAPI = typeof window.Pi !== 'undefined' && 
                      window.Pi !== null && 
                      typeof window.Pi.authenticate === 'function';
     
-    // 检查是否在真实的Pi环境中（通过检测特定的Pi浏览器特征）
-    const isPiEnvironment = isPiUserAgent && hasPiAPI;
+    if (!hasPiAPI) {
+        console.log('环境检测结果: 没有Pi API，非Pi环境');
+        return false;
+    }
     
-    console.log('环境检测结果:', {
-        userAgent: navigator.userAgent,
-        isPiUserAgent,
-        hasPiAPI,
-        isPiEnvironment
-    });
-    
-    return isPiEnvironment;
+    // 检查Pi SDK是否是通过外部脚本加载的（非Pi环境）
+    // 在真实Pi环境中，Pi对象应该是原生提供的，而不是通过外部SDK注入的
+    try {
+        // 尝试检测Pi对象的一些内部特征
+        // 真实的Pi浏览器应该有一些特定的属性或方法
+        const hasNativePiFeatures = 
+            // 检查Pi对象是否有原生特征（这些在外部SDK中通常不存在）
+            (typeof window.Pi._internal !== 'undefined') ||
+            (typeof window.Pi.version !== 'undefined' && window.Pi.version !== '2.0') ||
+            // 检查是否在移动应用环境中（Pi Browser是移动应用）
+            (typeof window.ReactNativeWebView !== 'undefined') ||
+            // 检查是否有应用特有的全局变量
+            (typeof window.PiBrowser !== 'undefined');
+        
+        // 检查User Agent是否包含移动设备标识（Pi Browser是移动应用）
+        const userAgent = navigator.userAgent;
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
+        
+        // 检查是否在应用内浏览器环境（通常有特定的标识）
+        const isInApp = /wv|WebView/i.test(userAgent) || 
+                       typeof window.webkit !== 'undefined' ||
+                       typeof window.ReactNativeWebView !== 'undefined';
+        
+        const isPiEnvironment = hasNativePiFeatures || (isMobile && isInApp && hasPiAPI);
+        
+        console.log('环境检测结果:', {
+            userAgent: navigator.userAgent,
+            hasPiAPI,
+            hasNativePiFeatures,
+            isMobile,
+            isInApp,
+            isPiEnvironment
+        });
+        
+        return isPiEnvironment;
+        
+    } catch (error) {
+        console.error('Pi环境检测出错:', error);
+        // 如果检测出错，但有Pi API，则假设是Pi环境
+        return hasPiAPI;
+    }
 }
 
 // 根据环境选择SDK
