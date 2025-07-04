@@ -48,7 +48,7 @@
             <div class="card-container" id="createProject">
                 <div class="card-header" onclick="toggleCard('createProject')">
                     <div class="card-title">
-                        <span class="card-icon">➕</span>
+                        <span class="card-icon">📝</span>
                         <span>创建项目</span>
                     </div>
                     <span class="expand-arrow" id="createProjectArrow">▼</span>
@@ -58,17 +58,17 @@
                     <div class="warning-notice">
                         <div class="warning-icon">⚠️</div>
                         <div class="warning-content">
-                            <strong>重要提醒：</strong>请发起人一定要先查看下方的<strong>游戏规则</strong>，特别是<strong>"关于发布项目"</strong>部分。项目一经发布，将会严格按照规则执行，违规将承担相应后果！
+                            <strong>重要提醒：</strong>项目需要提交给管理员审核后才能发布。请确保项目内容真实有效，审核通过后所有用户都可以看到并参与投票。
                         </div>
                     </div>
                     <form id="createProjectForm">
                         <div class="form-group">
                             <label for="projectTitle">项目标题 *</label>
-                <input type="text" id="projectTitle" placeholder="请输入项目标题（最多11个字符）" required>
+                            <input type="text" id="projectTitle" placeholder="请输入项目标题（最多11个字符）" required>
                         </div>
                         <div class="form-group">
                             <label for="projectDescription">项目描述 (可选)</label>
-                <textarea id="projectDescription" maxlength="40" placeholder="请输入项目描述（最多40个字符）"></textarea>
+                            <textarea id="projectDescription" maxlength="40" placeholder="请输入项目描述（最多40个字符）"></textarea>
                         </div>
                         <div class="form-group">
                             <label for="endTime">截止时间 *</label>
@@ -77,6 +77,7 @@
                         <div class="form-group">
                             <label for="maxPoints">单个选项最高可投积分 * (最低100积分)</label>
                             <input type="number" id="maxPoints" min="100" required>
+                            <small>创建项目需要冻结相应积分，提交后需等待管理员审核</small>
                         </div>
                         <div class="form-group">
                             <label>投票选项</label>
@@ -91,10 +92,38 @@
                                 </div>
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary">创建项目</button>
+                        <button type="submit" class="btn btn-primary">提交审核</button>
                     </form>
                 </div>
             </div>
+
+            <!-- 管理员审核卡片 -->
+            <div class="card-container" id="adminPanel" style="display: none;">
+                <div class="card-header" onclick="toggleCard('adminPanel')">
+                    <div class="card-title">
+                        <span class="card-icon">👑</span>
+                        <span>管理员审核</span>
+                    </div>
+                    <span class="expand-arrow" id="adminPanelArrow">▼</span>
+                </div>
+                <div class="card-content" id="adminPanelContent">
+                    <div class="admin-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">待审核项目：</span>
+                            <span class="stat-value" id="pendingCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">已发布项目：</span>
+                            <span class="stat-value" id="publishedCount">0</span>
+                        </div>
+                    </div>
+                    <div id="pendingProjectsList" class="pending-projects-list">
+                        <!-- 待审核项目列表 -->
+                    </div>
+                </div>
+            </div>
+
+
 
             <!-- 我的项目卡片 -->
             <div class="card-container">
