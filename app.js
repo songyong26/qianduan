@@ -853,13 +853,8 @@ class VotingApp {
             };
 
             // 调用后端API创建项目
-            if (this.apiClient) {
-                // 验证是否有有效的token
-                if (!this.apiClient.token) {
-                    showCustomAlert('访问令牌缺失，请重新登录', '认证失败', '🔐');
-                    console.error('创建项目失败：没有有效的token');
-                    return;
-                }
+            if (this.apiClient && this.apiClient.token) {
+                // 有API客户端且有token，使用后端API
                 
                 console.log('开始创建项目，token存在:', this.apiClient.token ? '是' : '否');
                 const response = await this.apiClient.createProject(projectData);
@@ -903,7 +898,11 @@ class VotingApp {
                     return;
                 }
             } else {
-                // 无API客户端，使用本地模拟
+                // 无API客户端或无token，使用本地模拟
+                console.log('使用本地模拟模式创建项目');
+                if (isPiBrowser()) {
+                    console.log('Pi浏览器环境下，API连接失败，使用本地模式');
+                }
                 const project = {
                     id: Date.now().toString(),
                     title,
