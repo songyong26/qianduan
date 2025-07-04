@@ -5,14 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>大众投票平台</title>
     <link rel="stylesheet" href="styles.css">
-    
-    <!-- Pi Network SDK -->
-    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 </head>
 <body>
     <div class="app-container">
-        <!-- 移除了调试面板 -->
-        
         <!-- 头部区域 -->
         <header class="header">
             <div class="logo-section">
@@ -28,11 +23,9 @@
             <!-- 操作按钮区域 -->
             <div class="action-buttons">
                 <button class="btn btn-recharge" onclick="showRechargeModal()">充币</button>
-                <button class="btn btn-login" id="loginBtn">登录</button>
+                <button class="btn btn-login" id="loginBtn" onclick="handleLogin()">登录</button>
                 <button class="btn btn-withdraw" onclick="showWithdrawModal()">提币</button>
             </div>
-            
-
         </header>
 
         <!-- 主要内容区域 -->
@@ -138,38 +131,35 @@
                 <div class="card-content" id="gameRulesContent">
 
                     <div class="rules-section">
-                        <h3>发布项目</h3>
+                        <h3>关于发布项目</h3>
                         <ul>
-                            <li>账户积分足够，任何用户都可以发布项目，不需要审核，单个项目最低要求100积分</li>
+                            <li>任何人都可以发布项目，项目最低要求100积分</li>
+                            <li>只要积分足够任何用户都可以发布项目，不需要审核</li>
                             <li>项目到期24小时内，发起人必须公布正确结果</li>
-                            <li>未发布正确结果或公布错误结果按超时处理</li>
-                            <li>直接扣除发起人对应此项目冻结积分的60%，其它用户积分原路返回</li>
-                            <li>发布项目之前请认真检查，发布的项目必须有绝对有效的结果</li>
-                            <li>否则项目到期后，你不能公布正确有效结果，会损失你的积分</li>
+                            <li>未发布正确结果按超时处理，直接扣除发起人冻结积分的60%，其它用户积分原路返回</li>
+                            <li>故意公布错误结果按超时处理，同上</li>
+                            <li>发布项目之前请认真检查，发布的项目必须要有绝对有效的结果</li>
+                            <li>否则项目到期后，你并不能公布有效结果，会损失你的积分</li>
                         </ul>
                     </div>
                     <div class="rules-section">
-                        <h3>参与投票</h3>
+                        <h3>关于投票</h3>
                         <ul>
-                            <li>用户参与投票的时候，项目发起人已经冻结足够的积分，请放心参与投票</li>
-                            <li>一旦投票，不能撤销，只能等待项目发起人公布结果</li>
-                            <li>项目如果被撤销，你的积分会原路返回，不会有任何损失</li>
+                            <li>当你参与投票的时候，项目发起人已经冻结足够的积分，请放心参与投票</li>
+                            <li>一旦投票，不能撤销，只能等待项目发起人公布结果，项目如果被撤销，你的积分会原路返回，不会有任何损失</li>
                         </ul>
                     </div>
                     <div class="rules-section">
-                        <h3>发布结果</h3>
+                        <h3>关于充值和提现</h3>
                         <ul>
-                            <li>为了保证参与投票用户的合理权益，项目发起人公布结果需要简单审核</li>
-                            <li>公布结果准确无误——获得批准</li>
-                            <li>公布的结果不准确或者无法界定是否正确——按超时处理</li>
-                            <li>公布结果会在30分钟之内进行审核</li>
+                            <li>点击充值和提现后按照提示输入对应的内容，提交申请，1小时之内会处理完毕</li>
                         </ul>
                     </div>
                     <div class="rules-section">
-                        <h3>充币提币</h3>
+                        <h3>关于发布结果</h3>
                         <ul>
-                            <li>输入对应的数字点击充币，会跳转到pi钱包进行转账，系统检测转账成功后积分自动到账</li>
-                            <li>输入对应的数量，点击提现后官方收到提现请求，自动向你提供的钱包地址转入对应数量的pi币</li>
+                            <li>为了保证参与投票用户的合理权益，发起人公布结果需要提交审核，审核正常就批准公布，公布的结果不准确按超时处理</li>
+                            <li>公布结果会在10分钟之内进行审核</li>
                         </ul>
                     </div>
                 </div>
@@ -181,56 +171,48 @@
     <div id="rechargeModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Pi Network 充值</h2>
+                <h2>充值</h2>
                 <span class="close" onclick="closeModal('rechargeModal')">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="pi-info-section">
-                    <div class="pi-logo">π</div>
-                    <h3>使用Pi Network钱包充值</h3>
-                    <p>通过Pi Network官方钱包直接充值到您的账户</p>
+                <div class="address-section">
+                    <label>收币地址：</label>
+                    <div class="address-container">
+                        <div class="address-display" id="rechargeAddress">Pi1234567890abcdef...</div>
+                        <button class="btn btn-copy" onclick="copyAddress()">复制</button>
+                    </div>
                 </div>
-                
                 <form id="rechargeForm">
                     <div class="form-group">
-                        <label for="rechargeAmount">充值金额 (Pi) *</label>
-                        <input type="number" id="rechargeAmount" min="1" step="1" placeholder="请输入充值金额" required>
-                        <div class="input-hint">最小充值金额：1 Pi</div>
+                        <label for="rechargeUsername">用户名 *</label>
+                        <input type="text" id="rechargeUsername" pattern="[a-zA-Z0-9]+" title="只能输入数字和字母" required>
                     </div>
-                    <button type="submit" class="btn btn-primary">使用Pi钱包支付</button>
+                    <div class="form-group">
+                        <label for="rechargeAmount">转币数量 *</label>
+                        <input type="number" id="rechargeAmount" min="1" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="transactionHash">交易哈希 *</label>
+                        <input type="text" id="transactionHash" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">提交申请</button>
                 </form>
-                
                 <div class="tutorial-section">
-                    <h3>充值说明</h3>
-                    <div class="recharge-steps">
-                        <div class="step">
-                            <span class="step-number">1</span>
-                            <span class="step-text">输入要充值的Pi数量</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-number">2</span>
-                            <span class="step-text">点击"使用Pi钱包支付"</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-number">3</span>
-                            <span class="step-text">在Pi钱包中确认支付</span>
-                        </div>
-                        <div class="step">
-                            <span class="step-number">4</span>
-                            <span class="step-text">支付完成后积分自动到账</span>
-                        </div>
-                    </div>
-                    
+                    <h3>充值教程</h3>
+                    <ol>
+                        <li>复制以上钱包地址</li>
+                        <li>进入你的钱包</li>
+                        <li>对此地址进行对应的转账</li>
+                        <li>转币成功后，回到此界面</li>
+                        <li>输入你的用户名</li>
+                        <li>输入所转数量</li>
+                        <li>输入交易哈希</li>
+                        <li>提交申请</li>
+                        <li>等待积分到账</li>
+                    </ol>
                     <div class="recharge-info">
-                        <div class="info-item">
-                            <strong>充值比例：</strong>1 Pi = 1 积分
-                        </div>
-                        <div class="info-item">
-                            <strong>到账时间：</strong>支付确认后立即到账
-                        </div>
-                        <div class="info-item">
-                            <strong>积分精度：</strong>小数部分向下取整
-                        </div>
+                        <p><strong>充值积分比例：1pi=1积分</strong></p>
+                        <p><strong>转币只能转整数，非整数向下取整</strong></p>
                     </div>
                 </div>
             </div>
@@ -366,11 +348,10 @@
         </div>
     </div>
 
-
-
-
-
-    <!-- 应用脚本 -->
+    <!-- Pi Network SDK -->
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <script>Pi.init({ version: "2.0" })</script>
+    
     <script src="app.js"></script>
 </body>
 </html>
