@@ -186,6 +186,9 @@ class VotingApp {
             // 加载本地数据
             this.loadLocalData();
             
+            // 从后端获取所有项目数据
+            await this.loadProjectsFromAPI();
+            
             // 初始化UI
             this.initializeUI();
             
@@ -198,7 +201,72 @@ class VotingApp {
         }
     }
     
-
+    // 从后端API加载项目数据
+    async loadProjectsFromAPI() {
+        if (!this.apiClient) {
+            console.log('没有API客户端，跳过从后端加载项目');
+            return;
+        }
+        
+        try {
+            console.log('开始从后端获取项目数据...');
+            const response = await this.apiClient.getProjects();
+            
+            if (response.success && response.data && Array.isArray(response.data.projects)) {
+                const backendProjects = response.data.projects;
+                console.log('从后端获取到', backendProjects.length, '个项目');
+                
+                // 将后端项目转换为前端格式并合并到本地项目列表
+                backendProjects.forEach(backendProject => {
+                    // 检查本地是否已存在该项目
+                    const existingProject = this.projects.find(p => p.id === backendProject.id);
+                    
+                    if (!existingProject) {
+                        // 转换后端项目格式为前端格式
+                        const frontendProject = {
+                            id: backendProject.id,
+                            title: backendProject.title,
+                            description: backendProject.description,
+                            endTime: backendProject.endTime,
+                            maxPoints: 1000, // 默认最大积分，可以根据后端数据调整
+                            creatorId: backendProject.creatorId,
+                            creatorName: backendProject.creatorName || 'Unknown',
+                            createdAt: backendProject.createdAt,
+                            frozenPoints: 0, // 前端特有字段
+                            votes: {
+                                yes: 0,
+                                no: 0
+                            },
+                            voters: [],
+                            voteDetails: [],
+                            status: backendProject.status || 'active',
+                            result: null,
+                            resultPublished: false,
+                            // 保存后端项目的完整信息
+                            backendData: backendProject
+                        };
+                        
+                        // 添加到项目列表
+                        this.projects.push(frontendProject);
+                    } else {
+                        // 更新现有项目的后端数据
+                        existingProject.backendData = backendProject;
+                        // 更新一些可能变化的字段
+                        existingProject.status = backendProject.status || existingProject.status;
+                    }
+                });
+                
+                // 保存更新后的项目列表到本地存储
+                this.saveLocalData();
+                console.log('项目数据同步完成，当前总项目数:', this.projects.length);
+            } else {
+                console.log('后端返回的项目数据格式不正确:', response);
+            }
+        } catch (error) {
+            console.error('从后端获取项目数据失败:', error);
+            // 不阻止应用继续运行，使用本地数据
+        }
+    }
 
     // 加载本地存储数据
     loadLocalData() {
@@ -424,6 +492,10 @@ class VotingApp {
                     
                     this.saveLocalData();
                     this.updateLoginButton();
+                    
+                    // 登录成功后刷新项目数据
+                    await this.loadProjectsFromAPI();
+                    
                     this.renderProjects();
                     showCustomAlert(`欢迎，${this.currentUser.username || this.currentUser.uid}！`, '登录成功', '🎉');
                 } else {
@@ -940,6 +1012,9 @@ class VotingApp {
 
             // 重置表单
             e.target.reset();
+            
+            // 刷新项目数据，确保其他用户能看到新创建的项目
+            await this.loadProjectsFromAPI();
             
             // 刷新显示
             console.log('项目创建后，当前项目数量:', this.projects.length);
