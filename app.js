@@ -116,7 +116,8 @@ const piSDK = {
                     user: {
                         uid: auth.user.uid,
                         username: auth.user.username
-                    }
+                    },
+                    accessToken: auth.accessToken
                 };
             } catch (error) {
                 console.error('Pi SDK认证失败:', error);
@@ -129,7 +130,8 @@ const piSDK = {
                 user: { 
                     uid: 'test_user_123', 
                     username: 'TestUser' 
-                } 
+                },
+                accessToken: 'test_access_token_123'
             });
         }
     },
@@ -430,7 +432,8 @@ class VotingApp {
                             user: {
                                 uid: 'test_user_123',
                                 username: 'TestUser'
-                            }
+                            },
+                            accessToken: 'test_access_token_123'
                         };
                     }
                 }
