@@ -64,7 +64,8 @@ function isPiBrowser() {
     // 检查是否有Pi特有的API和方法
     const hasPiAPI = typeof window.Pi !== 'undefined' && 
                      window.Pi !== null && 
-                     typeof window.Pi.authenticate === 'function';
+                     typeof Pi !== 'undefined' &&
+                     typeof Pi.authenticate === 'function';
     
     // 只有在满足以下条件时才认为是真正的Pi浏览器环境：
     // 1. User Agent明确包含PiBrowser，或者
@@ -108,7 +109,7 @@ const piSDK = {
                     // 这里可以处理未完成的支付逻辑
                 }
                 
-                const auth = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+                const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
                 console.log('Pi SDK认证成功:', auth);
                 
                 return {
@@ -1679,8 +1680,8 @@ async function handleRechargeSubmit(e) {
             }
         };
         
-        // 调用Pi支付API
-        const payment = await window.Pi.createPayment(paymentData, {
+        // 调用Pi支付API - 使用正确的Pi SDK 2.0 API
+        const payment = await Pi.createPayment(paymentData, {
             onReadyForServerApproval: async (paymentId) => {
                 console.log('支付准备就绪，等待服务器批准:', paymentId);
                 
@@ -1691,7 +1692,7 @@ async function handleRechargeSubmit(e) {
                             piPaymentId: paymentId,
                             amount: amount,
                             paymentType: 'recharge',
-                            memo: memo
+                            memo: paymentData.memo
                         });
                         
                         console.log('后端支付记录创建成功:', response);
