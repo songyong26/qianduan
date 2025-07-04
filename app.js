@@ -455,13 +455,19 @@ class VotingApp {
                                 console.log('Token已保存到localStorage:', localStorage.getItem('authToken') ? '是' : '否');
                             } else {
                                 console.error('登录响应中没有token:', loginResponse);
-                                // 在Pi浏览器环境下，即使没有token也继续登录流程
-                                if (isPiBrowser()) {
-                                    console.log('Pi浏览器环境下，即使没有token也继续登录');
-                                } else {
-                                    showCustomAlert('登录失败：服务器未返回有效令牌', '登录失败', '❌');
-                                    return;
+                                
+                                // 没有获得有效token时，清除用户状态
+                                this.currentUser = null;
+                                localStorage.removeItem('current_user');
+                                if (this.apiClient) {
+                                    this.apiClient.setToken(null);
                                 }
+                                
+                                loginBtn.textContent = originalText;
+                                loginBtn.disabled = false;
+                                
+                                showCustomAlert('登录失败：服务器未返回有效令牌，请重试', '登录失败', '❌');
+                                return;
                             }
                             
                             // 同步用户积分数据
@@ -471,17 +477,18 @@ class VotingApp {
                         } catch (apiError) {
                             console.error('后端API登录失败:', apiError);
                             
-                            // 在Pi浏览器环境下，API连接失败时继续登录流程，不阻止用户登录
-                            if (isPiBrowser()) {
-                                console.log('Pi浏览器环境下API连接失败，继续本地登录流程');
-                                // 不显示错误提示，让用户能够正常使用基本功能
-                            } else {
-                                // 在非Pi浏览器环境下，切换到本地模拟模式
-                                console.log('API连接失败，继续使用本地模拟模式');
-                                setTimeout(() => {
-                                    showCustomAlert('服务器连接失败，已切换到本地模拟模式', '提示', 'ℹ️');
-                                }, 100);
+                            // API登录失败时，清除用户状态并提示重新登录
+                            this.currentUser = null;
+                            localStorage.removeItem('current_user');
+                            if (this.apiClient) {
+                                this.apiClient.setToken(null);
                             }
+                            
+                            loginBtn.textContent = originalText;
+                            loginBtn.disabled = false;
+                            
+                            showCustomAlert('服务器连接失败，请检查网络后重新登录', '登录失败', '❌');
+                            return;
                         }
                     }
                     
@@ -930,6 +937,12 @@ class VotingApp {
                 return;
             }
 
+            // 检查是否有有效的访问令牌
+            if (!this.apiClient.token) {
+                showCustomAlert('访问令牌缺失，请重新登录后再试。', '认证失败', '🔐');
+                return;
+            }
+
             console.log('调用后端API创建项目，token存在:', this.apiClient.token ? '是' : '否');
             console.log('项目数据:', projectData);
             
@@ -1056,6 +1069,12 @@ class VotingApp {
             // 必须通过后端API进行投票，确保所有用户都能看到投票结果
             if (!this.apiClient) {
                 showCustomAlert('API连接失败，无法投票。请刷新页面重试。', '连接错误', '❌');
+                return;
+            }
+
+            // 检查是否有有效的访问令牌
+            if (!this.apiClient.token) {
+                showCustomAlert('访问令牌缺失，请重新登录后再试。', '认证失败', '🔐');
                 return;
             }
 
