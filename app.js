@@ -924,66 +924,32 @@ class VotingApp {
                 tags: ['积分投票']
             };
 
-            // 调用后端API创建项目
-            if (this.apiClient && this.apiClient.token) {
-                // 有API客户端且有token，使用后端API
-                
-                console.log('开始创建项目，token存在:', this.apiClient.token ? '是' : '否');
-                const response = await this.apiClient.createProject(projectData);
-                
-                if (response.success) {
-                    // 后端创建成功，构建前端需要的项目数据结构
-                    const backendProject = response.data.project;
-                    const project = {
-                        id: backendProject.id,
-                        title: backendProject.title,
-                        description: backendProject.description,
-                        endTime: backendProject.endTime,
-                        maxPoints: maxPoints, // 前端特有字段
-                        creatorId: this.currentUser.uid,
-                        creatorName: this.currentUser.username || this.currentUser.uid,
-                        createdAt: backendProject.createdAt || new Date().toISOString(),
-                        frozenPoints: parseInt(maxPoints),
-                        votes: {
-                            yes: 0,
-                            no: 0
-                        },
-                        voters: [],
-                        voteDetails: [],
-                        status: 'active',
-                        result: null,
-                        resultPublished: false,
-                        // 保存后端项目的完整信息
-                        backendData: backendProject
-                    };
+            // 必须通过后端API创建项目，确保所有用户都能看到
+            if (!this.apiClient) {
+                showCustomAlert('API连接失败，无法创建项目。请刷新页面重试。', '连接错误', '❌');
+                return;
+            }
 
-                    // 冻结积分（不扣除总积分，只增加冻结积分）
-                    this.frozenPoints += maxPoints;
-                    this.addPointsHistory('project_freeze', 0, `创建项目冻结积分 - ${title} (冻结${maxPoints}积分)`);
-                    
-                    // 添加项目
-                    this.projects.unshift(project);
-                    
-                    showCustomAlert(`项目创建成功！已冻结${maxPoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '创建成功', '🎉');
-                } else {
-                    showCustomAlert(response.message || '项目创建失败', '创建失败', '❌');
-                    return;
-                }
-            } else {
-                // 无API客户端或无token，使用本地模拟
-                console.log('使用本地模拟模式创建项目');
-                if (isPiBrowser()) {
-                    console.log('Pi浏览器环境下，API连接失败，使用本地模式');
-                }
+            console.log('调用后端API创建项目，token存在:', this.apiClient.token ? '是' : '否');
+            console.log('项目数据:', projectData);
+            
+            const response = await this.apiClient.createProject(projectData);
+            console.log('后端响应:', response);
+            
+            if (response.success && response.data) {
+                // 后端创建成功，构建前端需要的项目数据结构
+                const backendProject = response.data.project || response.data;
+                console.log('后端项目数据:', backendProject);
+                
                 const project = {
-                    id: Date.now().toString(),
-                    title,
-                    description,
-                    endTime,
-                    maxPoints,
+                    id: backendProject.id,
+                    title: backendProject.title,
+                    description: backendProject.description,
+                    endTime: backendProject.endTime,
+                    maxPoints: maxPoints, // 前端特有字段
                     creatorId: this.currentUser.uid,
                     creatorName: this.currentUser.username || this.currentUser.uid,
-                    createdAt: new Date().toISOString(),
+                    createdAt: backendProject.createdAt || new Date().toISOString(),
                     frozenPoints: parseInt(maxPoints),
                     votes: {
                         yes: 0,
@@ -993,17 +959,23 @@ class VotingApp {
                     voteDetails: [],
                     status: 'active',
                     result: null,
-                    resultPublished: false
+                    resultPublished: false,
+                    // 保存后端项目的完整信息
+                    backendData: backendProject
                 };
 
                 // 冻结积分（不扣除总积分，只增加冻结积分）
                 this.frozenPoints += maxPoints;
                 this.addPointsHistory('project_freeze', 0, `创建项目冻结积分 - ${title} (冻结${maxPoints}积分)`);
                 
-                // 添加项目
+                // 添加项目到本地列表
                 this.projects.unshift(project);
                 
                 showCustomAlert(`项目创建成功！已冻结${maxPoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '创建成功', '🎉');
+            } else {
+                console.error('后端项目创建失败:', response);
+                showCustomAlert(response.message || '项目创建失败，请检查网络连接后重试', '创建失败', '❌');
+                return;
             }
 
             // 保存数据并更新显示
@@ -1081,53 +1053,24 @@ class VotingApp {
         }
 
         try {
-            // 调用后端API进行投票
-            if (this.apiClient) {
-                const voteData = {
-                    projectId,
-                    option,
-                    points: votePoints
-                };
-                
-                const response = await this.apiClient.vote(voteData);
-                
-                if (response.success) {
-                    // 后端投票成功，更新本地数据
-                    const vote = {
-                        projectId,
-                        userId: this.currentUser.uid,
-                        option,
-                        points: votePoints,
-                        timestamp: new Date().toISOString()
-                    };
+            // 必须通过后端API进行投票，确保所有用户都能看到投票结果
+            if (!this.apiClient) {
+                showCustomAlert('API连接失败，无法投票。请刷新页面重试。', '连接错误', '❌');
+                return;
+            }
 
-                    this.userVotes.push(vote);
-                    project.votes[option] += votePoints;
-                    project.voters.push(this.currentUser.uid);
-                    
-                    // 记录投票详情
-                    project.voteDetails.push({
-                        voter: this.currentUser.uid,
-                        option: option,
-                        points: votePoints,
-                        timestamp: new Date().toISOString()
-                    });
-                    
-                    // 冻结投票积分（不扣除总积分，只增加冻结积分）
-                    this.frozenPoints += votePoints;
-                    this.addPointsHistory('vote_freeze', 0, `投票冻结积分 - ${project.title} (${option === 'yes' ? '是' : '否'}, 冻结${votePoints}积分)`);
-                    
-                    this.saveLocalData();
-                    this.updateUserPointsDisplay();
-                    this.renderProjects();
-                    
-                    showCustomAlert(`投票成功！已冻结${votePoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '投票成功', '🎉');
-                    closeModal('voteModal');
-                } else {
-                    showCustomAlert(response.message || '投票失败', '投票错误', '❌');
-                }
-            } else {
-                // 无API客户端，使用本地模拟
+            const voteData = {
+                projectId,
+                option,
+                points: votePoints
+            };
+            
+            console.log('调用后端API进行投票:', voteData);
+            const response = await this.apiClient.vote(voteData);
+            console.log('投票响应:', response);
+            
+            if (response.success) {
+                // 后端投票成功，更新本地数据
                 const vote = {
                     projectId,
                     userId: this.currentUser.uid,
@@ -1158,6 +1101,9 @@ class VotingApp {
                 
                 showCustomAlert(`投票成功！已冻结${votePoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '投票成功', '🎉');
                 closeModal('voteModal');
+            } else {
+                console.error('后端投票失败:', response);
+                showCustomAlert(response.message || '投票失败，请检查网络连接后重试', '投票错误', '❌');
             }
         } catch (error) {
             console.error('投票失败:', error);
