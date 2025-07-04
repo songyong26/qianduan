@@ -53,31 +53,28 @@ function isPiBrowser() {
     const userAgent = navigator.userAgent;
     const isPiBrowserUA = /PiBrowser/i.test(userAgent);
     
-    // 检查是否在移动设备上
-    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
-    
-    // 检查是否在应用内浏览器环境
-    const isInApp = /wv|WebView/i.test(userAgent) || 
-                   typeof window.webkit !== 'undefined' ||
-                   typeof window.ReactNativeWebView !== 'undefined';
-    
     // 检查是否有Pi特有的API和方法
     const hasPiAPI = typeof window.Pi !== 'undefined' && 
                      window.Pi !== null && 
                      typeof Pi !== 'undefined' &&
                      typeof Pi.authenticate === 'function';
     
-    // 只有在满足以下条件时才认为是真正的Pi浏览器环境：
-    // 1. User Agent明确包含PiBrowser，或者
-    // 2. 是移动设备且在应用内浏览器中且有Pi API
-    const isPiEnvironment = isPiBrowserUA || (isMobile && isInApp && hasPiAPI);
+    // 检查是否在移动设备上
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
     
-    console.log('环境检测结果:', {
+    // Pi浏览器环境判断：
+    // 1. 优先检查User Agent是否包含PiBrowser
+    // 2. 其次检查是否有Pi API可用
+    // 3. 在移动设备上更宽松的检测
+    const isPiEnvironment = isPiBrowserUA || 
+                           (hasPiAPI && isMobile) || 
+                           hasPiAPI;
+    
+    console.log('Pi浏览器环境检测:', {
         userAgent: navigator.userAgent,
-        hasPiAPI,
         isPiBrowserUA,
+        hasPiAPI,
         isMobile,
-        isInApp,
         isPiEnvironment
     });
     
@@ -100,6 +97,13 @@ const piSDK = {
     async authenticate() {
         if (isPiBrowser()) {
             try {
+                // 确保Pi SDK已经加载
+                if (typeof Pi === 'undefined') {
+                    throw new Error('Pi SDK未加载');
+                }
+                
+                console.log('开始Pi SDK认证...');
+                
                 // 在Pi浏览器中使用真实SDK进行认证
                 const scopes = ['username', 'payments'];
                 
@@ -112,6 +116,11 @@ const piSDK = {
                 const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
                 console.log('Pi SDK认证成功:', auth);
                 
+                // 验证认证结果
+                if (!auth || !auth.user || !auth.accessToken) {
+                    throw new Error('Pi认证返回数据不完整');
+                }
+                
                 return {
                     user: {
                         uid: auth.user.uid,
@@ -121,7 +130,7 @@ const piSDK = {
                 };
             } catch (error) {
                 console.error('Pi SDK认证失败:', error);
-                throw error;
+                throw new Error(`Pi认证失败: ${error.message}`);
             }
         } else {
             // 非Pi浏览器环境，使用测试账号
@@ -414,16 +423,31 @@ class VotingApp {
                 
                 console.log('开始认证过程...');
                 let authResult = null;
+                
+                // 检查Pi SDK是否可用
+                if (typeof Pi === 'undefined') {
+                    console.error('Pi SDK未加载');
+                    loginBtn.textContent = originalText;
+                    loginBtn.disabled = false;
+                    showCustomAlert('Pi SDK未加载，请刷新页面重试', '认证失败', '❌');
+                    return;
+                }
+                
                 try {
                     authResult = await piSDK.authenticate();
-                    console.log('认证结果:', authResult);
+                    console.log('Pi SDK认证成功:', authResult);
+                    
+                    // 验证认证结果
+                    if (!authResult || !authResult.user || !authResult.accessToken) {
+                        throw new Error('Pi认证返回数据不完整');
+                    }
                 } catch (authError) {
                     console.error('Pi SDK认证失败:', authError);
                     if (isPiBrowser()) {
                         // 在Pi浏览器环境下，认证失败应该阻止登录
                         loginBtn.textContent = originalText;
                         loginBtn.disabled = false;
-                        showCustomAlert('Pi认证失败，请重试', '认证失败', '❌');
+                        showCustomAlert(`Pi认证失败: ${authError.message || '请重试'}`, '认证失败', '❌');
                         return;
                     } else {
                         // 在非Pi环境下，认证失败时使用模拟用户
@@ -448,9 +472,8 @@ class VotingApp {
                     // 登录后端API
                     if (this.apiClient) {
                         try {
-                            const loginResponse = await this.apiClient.login({
-                                accessToken: authResult.accessToken
-                            });
+                            console.log('调用后端登录API，accessToken:', authResult.accessToken.substring(0, 10) + '...');
+                            const loginResponse = await this.apiClient.login(authResult.accessToken);
                             
                             if (loginResponse.success && loginResponse.data.token) {
                                 this.apiClient.setToken(loginResponse.data.token);
