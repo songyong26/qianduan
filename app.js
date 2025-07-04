@@ -395,12 +395,25 @@ class VotingApp {
                             }
                         } catch (apiError) {
                             console.error('后端API登录失败:', apiError);
-                            console.log('API连接失败，继续使用本地模拟模式');
-                            // API连接失败时不阻止登录，继续使用本地模拟功能
-                            // 显示提示信息，让用户知道正在使用本地模式
-                            setTimeout(() => {
-                                showCustomAlert('服务器连接失败，已切换到本地模拟模式', '提示', 'ℹ️');
-                            }, 100);
+                            
+                            // 检查是否在Pi浏览器环境
+                            if (this.isPiBrowser()) {
+                                // 在Pi浏览器环境下，显示真实的连接错误
+                                console.log('Pi浏览器环境下API连接失败');
+                                setTimeout(() => {
+                                    showCustomAlert('无法连接到服务器，请检查网络连接', '连接失败', '❌');
+                                }, 100);
+                                // 在Pi浏览器环境下，API连接失败应该阻止登录
+                                loginBtn.textContent = originalText;
+                                loginBtn.disabled = false;
+                                return;
+                            } else {
+                                // 在非Pi浏览器环境下，切换到本地模拟模式
+                                console.log('API连接失败，继续使用本地模拟模式');
+                                setTimeout(() => {
+                                    showCustomAlert('服务器连接失败，已切换到本地模拟模式', '提示', 'ℹ️');
+                                }, 100);
+                            }
                         }
                     }
                     
