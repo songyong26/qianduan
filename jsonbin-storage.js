@@ -6,7 +6,7 @@ class JSONBinStorage {
     constructor() {
         // JSONBin.io API 配置
         this.baseUrl = 'https://api.jsonbin.io/v3';
-        this.apiKey = $2a$10$JLdhPZr4wywmMUvgcqh7HOr.OwNBl5EWCf5SCRhMQAWKdYTlX1Ncm
+        this.apiKey = '$2a$10$JLdhPZr4wywmMUvgcqh7HOr.OwNBl5EWCf5SCRhMQAWKdYTlX1Ncm';
 
         
         // 数据存储的 Bin ID（需要预先创建）
