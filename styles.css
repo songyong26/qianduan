@@ -102,14 +102,15 @@ body {
 }
 
 .btn {
-    padding: 12px 24px;
+    padding: 8px 16px;
     border: none;
-    border-radius: 25px;
-    font-size: 16px;
+    border-radius: 8px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    white-space: nowrap;
 }
 
 .btn-recharge {
@@ -128,6 +129,8 @@ body {
     color: white;
     position: relative;
     overflow: hidden;
+    min-width: 90px;
+    width: 90px;
 }
 
 .btn-login:hover {
@@ -159,12 +162,22 @@ body {
 .btn-logout {
     background: #DC2626;
     color: white;
+    min-width: 70px;
+    width: 70px;
 }
 
 .btn-logout:hover {
     background: #B91C1C;
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+/* 按钮图标样式 */
+.btn-icon {
+    margin-right: 3px;
+    font-size: 13px;
+    display: inline;
+    vertical-align: baseline;
 }
 
 .btn-withdraw {

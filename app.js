@@ -197,6 +197,9 @@ class VotingApp {
                 const savedToken = localStorage.getItem('authToken');
                 if (savedUser && savedToken) {
                     this.apiClient.setToken(savedToken);
+                    console.log('应用初始化时恢复token:', savedToken.substring(0, 10) + '...');
+                } else {
+                    console.log('应用初始化时未找到保存的token');
                 }
             }
             
@@ -272,6 +275,9 @@ class VotingApp {
                     const savedToken = localStorage.getItem('authToken');
                     if (savedToken) {
                         this.apiClient.setToken(savedToken);
+                        console.log('loadLocalData中恢复token:', savedToken.substring(0, 10) + '...');
+                    } else {
+                        console.log('loadLocalData中未找到token');
                     }
                 }
             }
@@ -356,7 +362,9 @@ class VotingApp {
                 loginBtn.innerHTML = '<span class="loading-spinner">⏳</span> 登录中...';
                 loginBtn.disabled = true;
                 
+                console.log('开始认证过程...');
                 const authResult = await piSDK.authenticate();
+                console.log('认证结果:', authResult);
                 if (authResult && authResult.user) {
                     // 显示后端连接状态
                     loginBtn.innerHTML = '<span class="loading-spinner">🔄</span> 连接服务器...';
@@ -373,6 +381,12 @@ class VotingApp {
                             
                             if (loginResponse.success && loginResponse.data.token) {
                                 this.apiClient.setToken(loginResponse.data.token);
+                                console.log('Token设置成功:', loginResponse.data.token.substring(0, 10) + '...');
+                                console.log('Token已保存到localStorage:', localStorage.getItem('authToken') ? '是' : '否');
+                            } else {
+                                console.error('登录响应中没有token:', loginResponse);
+                                showCustomAlert('登录失败：服务器未返回有效令牌', '登录失败', '❌');
+                                return;
                             }
                             
                             // 同步用户积分数据
@@ -380,7 +394,13 @@ class VotingApp {
                                 this.userPoints = loginResponse.data.user.piBalance || this.userPoints;
                             }
                         } catch (apiError) {
-                            console.warn('后端API登录失败，使用本地数据:', apiError);
+                            console.error('后端API登录失败:', apiError);
+                            console.log('API连接失败，继续使用本地模拟模式');
+                            // API连接失败时不阻止登录，继续使用本地模拟功能
+                            // 显示提示信息，让用户知道正在使用本地模式
+                            setTimeout(() => {
+                                showCustomAlert('服务器连接失败，已切换到本地模拟模式', '提示', 'ℹ️');
+                            }, 100);
                         }
                     }
                     
@@ -733,8 +753,8 @@ class VotingApp {
                 if (rechargeBtn) rechargeBtn.style.display = 'inline-block';
                 if (withdrawBtn) withdrawBtn.style.display = 'inline-block';
             } else {
-                loginBtn.textContent = '登录';
-                loginBtn.className = 'btn btn-primary';
+                loginBtn.innerHTML = '<span class="btn-icon">π</span>登录';
+                loginBtn.className = 'btn btn-login';
                 
                 // 显示副标题，隐藏用户信息
                 if (subtitle) subtitle.style.display = 'block';
@@ -820,6 +840,14 @@ class VotingApp {
 
             // 调用后端API创建项目
             if (this.apiClient) {
+                // 验证是否有有效的token
+                if (!this.apiClient.token) {
+                    showCustomAlert('访问令牌缺失，请重新登录', '认证失败', '🔐');
+                    console.error('创建项目失败：没有有效的token');
+                    return;
+                }
+                
+                console.log('开始创建项目，token存在:', this.apiClient.token ? '是' : '否');
                 const response = await this.apiClient.createProject(projectData);
                 
                 if (response.success) {
