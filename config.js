@@ -8,7 +8,7 @@ const API_CONFIG = {
     },
     // 生产环境
     production: {
-        baseURL: 'https://your-render-app.onrender.com/api', // 替换为你的Render应用URL
+        baseURL: 'https://houduan.onrender.com/api',
         piAPI: 'https://api.minepi.com',
         environment: 'production'
     }
