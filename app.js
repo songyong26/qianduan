@@ -708,6 +708,9 @@ class VotingApp {
         const withdrawBtn = document.querySelector('.btn-withdraw');
         
         if (loginBtn) {
+            // 重置按钮状态
+            loginBtn.disabled = false;
+            
             if (this.currentUser) {
                 loginBtn.textContent = '退出';
                 loginBtn.className = 'btn btn-logout';
