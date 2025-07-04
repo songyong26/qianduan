@@ -88,25 +88,8 @@ const piSDK = {
     async init() {
         if (isPiBrowser()) {
             console.log('检测到Pi浏览器环境，使用真实SDK');
-            // 等待Pi SDK完全加载和初始化
-            return new Promise((resolve, reject) => {
-                const checkPiSDK = () => {
-                    if (typeof window.Pi !== 'undefined' && window.Pi.authenticate) {
-                        console.log('Pi SDK已准备就绪');
-                        resolve();
-                    } else {
-                        console.log('等待Pi SDK加载...');
-                        setTimeout(checkPiSDK, 100);
-                    }
-                };
-                
-                // 设置超时，避免无限等待
-                setTimeout(() => {
-                    reject(new Error('Pi SDK加载超时'));
-                }, 10000);
-                
-                checkPiSDK();
-            });
+            // Pi浏览器环境，SDK已通过script标签加载
+            return Promise.resolve();
         } else {
             console.log('非Pi浏览器环境，使用模拟SDK');
             return Promise.resolve();
@@ -116,13 +99,6 @@ const piSDK = {
     async authenticate() {
         if (isPiBrowser()) {
             try {
-                console.log('开始Pi SDK认证...');
-                
-                // 检查Pi SDK是否可用
-                if (typeof window.Pi === 'undefined' || !window.Pi.authenticate) {
-                    throw new Error('Pi SDK未正确加载或初始化');
-                }
-                
                 // 在Pi浏览器中使用真实SDK进行认证
                 const scopes = ['username', 'payments'];
                 
@@ -132,27 +108,17 @@ const piSDK = {
                     // 这里可以处理未完成的支付逻辑
                 }
                 
-                console.log('调用Pi.authenticate，scopes:', scopes);
                 const auth = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
-                console.log('Pi SDK认证成功，返回数据:', auth);
-                
-                // 验证返回的数据结构
-                if (!auth || !auth.user || !auth.user.uid) {
-                    throw new Error('Pi SDK返回的认证数据格式不正确');
-                }
+                console.log('Pi SDK认证成功:', auth);
                 
                 return {
                     user: {
                         uid: auth.user.uid,
-                        username: auth.user.username || auth.user.uid
-                    },
-                    accessToken: auth.accessToken
+                        username: auth.user.username
+                    }
                 };
             } catch (error) {
-                console.error('Pi SDK认证失败，错误详情:', error);
-                console.error('错误类型:', typeof error);
-                console.error('错误消息:', error.message);
-                console.error('错误堆栈:', error.stack);
+                console.error('Pi SDK认证失败:', error);
                 throw error;
             }
         } else {
@@ -376,32 +342,17 @@ class VotingApp {
                 loginBtn.disabled = true;
                 
                 console.log('开始认证过程...');
-                
-                // 首先确保Pi SDK已经初始化
-                try {
-                    await piSDK.init();
-                    console.log('Pi SDK初始化完成');
-                } catch (initError) {
-                    console.error('Pi SDK初始化失败:', initError);
-                    loginBtn.textContent = originalText;
-                    loginBtn.disabled = false;
-                    showCustomAlert('Pi SDK初始化失败，请刷新页面重试', '初始化失败', '❌');
-                    return;
-                }
-                
                 let authResult = null;
                 try {
                     authResult = await piSDK.authenticate();
                     console.log('认证结果:', authResult);
                 } catch (authError) {
                     console.error('Pi SDK认证失败:', authError);
-                    loginBtn.textContent = originalText;
-                    loginBtn.disabled = false;
-                    
                     if (isPiBrowser()) {
                         // 在Pi浏览器环境下，认证失败应该阻止登录
-                        const errorMsg = authError.message || '认证失败';
-                        showCustomAlert(`Pi认证失败: ${errorMsg}`, '认证失败', '❌');
+                        loginBtn.textContent = originalText;
+                        loginBtn.disabled = false;
+                        showCustomAlert('Pi认证失败，请重试', '认证失败', '❌');
                         return;
                     } else {
                         // 在非Pi环境下，认证失败时使用模拟用户
@@ -435,8 +386,13 @@ class VotingApp {
                                 console.log('Token已保存到localStorage:', localStorage.getItem('authToken') ? '是' : '否');
                             } else {
                                 console.error('登录响应中没有token:', loginResponse);
-                                showCustomAlert('登录失败：服务器未返回有效令牌', '登录失败', '❌');
-                                return;
+                                // 在Pi浏览器环境下，即使没有token也继续登录流程
+                                if (isPiBrowser()) {
+                                    console.log('Pi浏览器环境下，即使没有token也继续登录');
+                                } else {
+                                    showCustomAlert('登录失败：服务器未返回有效令牌', '登录失败', '❌');
+                                    return;
+                                }
                             }
                             
                             // 同步用户积分数据
@@ -446,17 +402,10 @@ class VotingApp {
                         } catch (apiError) {
                             console.error('后端API登录失败:', apiError);
                             
-                            // 检查是否在Pi浏览器环境
+                            // 在Pi浏览器环境下，API连接失败时继续登录流程，不阻止用户登录
                             if (isPiBrowser()) {
-                                // 在Pi浏览器环境下，显示真实的连接错误
-                                console.log('Pi浏览器环境下API连接失败');
-                                setTimeout(() => {
-                                    showCustomAlert('无法连接到服务器，请检查网络连接', '连接失败', '❌');
-                                }, 100);
-                                // 在Pi浏览器环境下，API连接失败应该阻止登录
-                                loginBtn.textContent = originalText;
-                                loginBtn.disabled = false;
-                                return;
+                                console.log('Pi浏览器环境下API连接失败，继续本地登录流程');
+                                // 不显示错误提示，让用户能够正常使用基本功能
                             } else {
                                 // 在非Pi浏览器环境下，切换到本地模拟模式
                                 console.log('API连接失败，继续使用本地模拟模式');
