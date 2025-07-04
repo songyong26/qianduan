@@ -180,6 +180,20 @@ class VotingApp {
         this.pointsHistory = []; // 积分历史记录
         this.hiddenProjects = []; // 用户隐藏的项目列表
         this.adminUsers = ['sjf88888888']; // 管理员用户名列表
+        
+        // 初始化 JSONBin 存储服务
+        this.storage = new JSONBinStorage();
+        this.isOnline = navigator.onLine;
+        
+        // 监听网络状态变化
+        window.addEventListener('online', () => {
+            this.isOnline = true;
+            this.syncDataToRemote();
+        });
+        window.addEventListener('offline', () => {
+            this.isOnline = false;
+        });
+        
         this.init();
     }
 
@@ -190,10 +204,8 @@ class VotingApp {
                 await piSDK.init();
             }
             
-
-            
-            // 加载本地数据
-            this.loadLocalData();
+            // 加载数据（异步）
+            await this.loadLocalData();
             
             // 初始化UI
             this.initializeUI();
@@ -209,8 +221,65 @@ class VotingApp {
     
 
 
-    // 加载本地存储数据
-    loadLocalData() {
+    // 加载数据（优先从远程加载，失败时使用本地数据）
+    async loadLocalData() {
+        try {
+            // 显示加载状态
+            this.showLoadingStatus('正在加载数据...');
+            
+            if (this.isOnline) {
+                // 尝试从远程加载数据
+                await this.loadRemoteData();
+            } else {
+                // 离线时从本地加载
+                this.loadLocalStorageData();
+            }
+            
+            this.hideLoadingStatus();
+        } catch (error) {
+            console.error('加载数据失败:', error);
+            // 降级到本地存储
+            this.loadLocalStorageData();
+            this.hideLoadingStatus();
+        }
+    }
+    
+    // 从远程 JSONBin.io 加载数据
+    async loadRemoteData() {
+        try {
+            // 并行加载所有数据
+            const [projects, pendingProjects, pendingResults] = await Promise.all([
+                this.storage.loadData('votingProjects'),
+                this.storage.loadData('pendingProjects'),
+                this.storage.loadData('pendingResults')
+            ]);
+            
+            // 设置项目数据
+            this.projects = projects || [];
+            this.projects.forEach(project => {
+                if (!project.voteDetails) {
+                    project.voteDetails = [];
+                }
+                if (!project.votes) {
+                    project.votes = { yes: 0, no: 0 };
+                }
+            });
+            
+            this.pendingProjects = pendingProjects || [];
+            this.pendingResults = pendingResults || [];
+            
+            // 本地用户数据仍从 localStorage 加载
+            this.loadLocalUserData();
+            
+            console.log('远程数据加载成功');
+        } catch (error) {
+            console.error('远程数据加载失败:', error);
+            throw error;
+        }
+    }
+    
+    // 从本地存储加载数据
+    loadLocalStorageData() {
         try {
             // 加载已发布项目数据（全局共享）
             const savedProjects = localStorage.getItem('global_voting_projects');
@@ -238,7 +307,16 @@ class VotingApp {
             if (savedPendingResults) {
                 this.pendingResults = JSON.parse(savedPendingResults);
             }
-
+            
+            this.loadLocalUserData();
+        } catch (error) {
+            console.error('加载本地数据失败:', error);
+        }
+    }
+    
+    // 加载本地用户数据
+    loadLocalUserData() {
+        try {
             // 加载用户投票记录
             const savedVotes = localStorage.getItem('user_votes');
             if (savedVotes) {
@@ -278,12 +356,27 @@ class VotingApp {
                 this.hiddenProjects = JSON.parse(savedHiddenProjects);
             }
         } catch (error) {
-            console.error('加载本地数据失败:', error);
+            console.error('加载用户数据失败:', error);
         }
     }
 
-    // 保存数据到本地存储
-    saveLocalData() {
+    // 保存数据（同时保存到远程和本地）
+    async saveLocalData() {
+        try {
+            // 先保存到本地存储（确保数据不丢失）
+            this.saveToLocalStorage();
+            
+            // 如果在线，尝试同步到远程
+            if (this.isOnline) {
+                await this.syncDataToRemote();
+            }
+        } catch (error) {
+            console.error('保存数据失败:', error);
+        }
+    }
+    
+    // 保存到本地存储
+    saveToLocalStorage() {
         try {
             localStorage.setItem('global_voting_projects', JSON.stringify(this.projects));
             localStorage.setItem('global_pending_projects', JSON.stringify(this.pendingProjects));
@@ -297,8 +390,37 @@ class VotingApp {
                 localStorage.setItem('current_user', JSON.stringify(this.currentUser));
             }
         } catch (error) {
-            console.error('保存数据失败:', error);
+            console.error('保存到本地存储失败:', error);
         }
+    }
+    
+    // 同步数据到远程存储
+    async syncDataToRemote() {
+        try {
+            // 并行保存全局数据到远程
+            await Promise.all([
+                this.storage.saveData('votingProjects', this.projects),
+                this.storage.saveData('pendingProjects', this.pendingProjects),
+                this.storage.saveData('pendingResults', this.pendingResults)
+            ]);
+            
+            console.log('数据同步到远程成功');
+        } catch (error) {
+            console.error('同步数据到远程失败:', error);
+            // 不抛出错误，因为本地数据已保存
+        }
+    }
+    
+    // 显示加载状态
+    showLoadingStatus(message) {
+        // 可以在这里添加加载指示器
+        console.log(message);
+    }
+    
+    // 隐藏加载状态
+    hideLoadingStatus() {
+        // 隐藏加载指示器
+        console.log('数据加载完成');
     }
 
     // 初始化UI事件
