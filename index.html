@@ -167,53 +167,32 @@
         </main>
     </div>
 
-    <!-- 充值模态框 -->
+    <!-- Pi Network 充值模态框 -->
     <div id="rechargeModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>充值</h2>
+                <h2>Pi Network 充值</h2>
                 <span class="close" onclick="closeModal('rechargeModal')">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="address-section">
-                    <label>收币地址：</label>
-                    <div class="address-container">
-                        <div class="address-display" id="rechargeAddress">Pi1234567890abcdef...</div>
-                        <button class="btn btn-copy" onclick="copyAddress()">复制</button>
-                    </div>
-                </div>
                 <form id="rechargeForm">
                     <div class="form-group">
-                        <label for="rechargeUsername">用户名 *</label>
-                        <input type="text" id="rechargeUsername" pattern="[a-zA-Z0-9]+" title="只能输入数字和字母" required>
+                        <label for="rechargeAmount">充值金额 (Pi) *</label>
+                        <input type="number" id="rechargeAmount" min="1" step="1" placeholder="请输入充值金额" required>
+                        <small style="color: rgba(255,255,255,0.7); font-size: 12px;">最低充值金额：1 Pi</small>
                     </div>
-                    <div class="form-group">
-                        <label for="rechargeAmount">转币数量 *</label>
-                        <input type="number" id="rechargeAmount" min="1" step="1" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="transactionHash">交易哈希 *</label>
-                        <input type="text" id="transactionHash" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">提交申请</button>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">使用π钱包支付</button>
                 </form>
-                <div class="tutorial-section">
-                    <h3>充值教程</h3>
-                    <ol>
-                        <li>复制以上钱包地址</li>
-                        <li>进入你的钱包</li>
-                        <li>对此地址进行对应的转账</li>
-                        <li>转币成功后，回到此界面</li>
-                        <li>输入你的用户名</li>
-                        <li>输入所转数量</li>
-                        <li>输入交易哈希</li>
-                        <li>提交申请</li>
-                        <li>等待积分到账</li>
-                    </ol>
-                    <div class="recharge-info">
-                        <p><strong>充值积分比例：1pi=1积分</strong></p>
-                        <p><strong>转币只能转整数，非整数向下取整</strong></p>
-                    </div>
+                <div class="recharge-instructions" style="margin-top: 30px;">
+                    <h3>充值说明：</h3>
+                    <br>
+                    <ul>
+                        <li><strong>安全支付：</strong>使用 Pi Network 官方支付系统，安全可靠</li>
+                        <li><strong>即时到账：</strong>支付完成后积分立即到账</li>
+                        <li><strong>汇率固定：</strong>1 Pi = 1 积分</li>
+                        <li><strong>支付流程：</strong>点击支付按钮 → Pi 钱包确认 → 积分到账</li>
+                    </ul>
+
                 </div>
             </div>
         </div>

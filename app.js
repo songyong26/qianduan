@@ -126,7 +126,19 @@ const piSDK = {
                 // 处理未完成的支付回调
                 function onIncompletePaymentFound(payment) {
                     console.log('发现未完成的支付:', payment);
-                    // 这里可以处理未完成的支付逻辑
+                    
+                    // 检查支付类型是否为充值
+                    if (payment.metadata && payment.metadata.type === 'recharge') {
+                        showCustomAlert(
+                            `检测到未完成的充值支付\n金额: ${payment.amount} Pi\n\n请完成支付流程或取消支付。`,
+                            '未完成的支付',
+                            '💰'
+                        );
+                        
+                        // 可以选择自动恢复支付流程
+                        // 这里可以调用相应的处理函数来恢复支付
+                        handleIncompletePayment(payment);
+                    }
                 }
                 
                 const auth = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
@@ -389,7 +401,7 @@ class VotingApp {
         
         // 计算积分
         const totalPoints = this.userPoints;
-        const frozenPoints = this.calculateFrozenPoints();
+        const frozenPoints = this.frozenPoints; // 直接使用this.frozenPoints属性
         const availablePoints = totalPoints - frozenPoints;
         
         // 显示积分信息
@@ -540,53 +552,46 @@ class VotingApp {
         
         // 处理当前用户的积分变化
         if (this.currentUser) {
-            // 检查当前用户是否既是发起人又是投票者
-            const isCreatorAndVoter = project.creatorId === this.currentUser.uid && 
-                project.voteDetails.some(vote => vote.voter === this.currentUser.uid);
-            
-            // 1. 处理投票错误的用户：冻结积分划扣给项目发起人
+            // 第三：投票错误的用户被冻结积分要直接划扣到发起人账户的可用积分
             incorrectVoters.forEach(vote => {
                 if (vote.voter === this.currentUser.uid) {
-                    // 解冻积分（从冻结积分中减去）
+                    // 从冻结积分中减去（积分已被划扣，不返还）
                     this.frozenPoints -= vote.points;
-                    // 不增加用户积分（积分被划扣）
-                    this.addPointsHistory('vote_penalty', -vote.points, 
-                        `投票错误积分划扣 - ${project.title} (${vote.points}积分)`);
+                    this.addPointsHistory('vote_penalty', 0, 
+                        `投票错误积分划扣 - ${project.title} (${vote.points}积分被划扣)`);
                 }
             });
             
-            // 2. 处理投票正确的用户：解冻积分并获得奖励
+            // 第五：投票正确的用户，冻结积分要解冻，并且在可用积分和总积分准确更新
             correctVoters.forEach(vote => {
                 if (vote.voter === this.currentUser.uid) {
                     // 解冻原投票积分
                     this.frozenPoints -= vote.points;
-                    // 如果用户既是发起人又是投票者，奖励从自己的冻结积分中扣除，不额外增加积分
-                    if (isCreatorAndVoter) {
-                        // 只解冻原投票积分，不给额外奖励（因为奖励来自自己的冻结积分）
-                        this.userPoints += vote.points;
-                        this.addPointsHistory('vote_unfreeze', vote.points, 
-                            `投票正确积分解冻 - ${project.title} (${vote.points}积分)`);
-                    } else {
-                        // 获得与投票积分相等的奖励（从项目发起人的冻结积分中划扣）
-                        const reward = vote.points;
-                        // 增加用户积分：原积分解冻 + 奖励
-                        this.userPoints += vote.points + reward;
-                        this.addPointsHistory('vote_unfreeze', vote.points, 
-                            `投票正确积分解冻 - ${project.title} (${vote.points}积分)`);
-                        this.addPointsHistory('vote_reward', reward, 
-                            `投票奖励 - ${project.title} (${reward}积分)`);
-                    }
+                    this.userPoints += vote.points; // 解冻到可用积分
+                    this.addPointsHistory('vote_unfreeze', vote.points, 
+                        `投票正确积分解冻 - ${project.title} (${vote.points}积分)`);
                 }
             });
             
-            // 3. 处理项目发起人
+            // 第六：投票正确的用户奖励积分来源是发起人被冻结的积分
+            correctVoters.forEach(vote => {
+                if (vote.voter === this.currentUser.uid && vote.voter !== project.creatorId) {
+                    // 获得与投票积分相等的奖励（从项目发起人的冻结积分中划扣）
+                    const reward = vote.points;
+                    this.userPoints += reward;
+                    this.addPointsHistory('vote_reward', reward, 
+                        `投票奖励 - ${project.title} (${reward}积分)`);
+                }
+            });
+            
+            // 处理项目发起人
             if (project.creatorId === this.currentUser.uid) {
-                // 获得投票错误用户的积分
+                // 第三：获得投票错误用户的积分
                 this.userPoints += totalIncorrectPoints;
                 this.addPointsHistory('project_income', totalIncorrectPoints, 
                     `项目收入 - ${project.title} (${totalIncorrectPoints}积分)`);
                 
-                // 计算需要支付的奖励：只给非发起人的投票正确用户奖励
+                // 第六：支付给投票正确用户的奖励（不包括发起人自己）
                 let totalRewardsToOthers = 0;
                 correctVoters.forEach(vote => {
                     if (vote.voter !== this.currentUser.uid) {
@@ -594,24 +599,22 @@ class VotingApp {
                     }
                 });
                 
-                // 支付给其他投票正确用户的奖励
-                if (totalRewardsToOthers > 0) {
-                    this.userPoints -= totalRewardsToOthers;
-                    this.addPointsHistory('project_payout', -totalRewardsToOthers, 
-                        `项目奖励支出 - ${project.title} (${totalRewardsToOthers}积分)`);
-                }
+                // 从发起人冻结积分中支付奖励
+                this.frozenPoints -= totalRewardsToOthers;
+                this.addPointsHistory('project_payout', -totalRewardsToOthers, 
+                    `项目奖励支出 - ${project.title} (${totalRewardsToOthers}积分)`);
                 
-                // 解冻项目发起人的冻结积分
-                this.frozenPoints -= project.frozenPoints;
-                // 计算剩余积分：冻结积分 - 支付给其他投票正确用户的奖励
-                const remainingPoints = project.frozenPoints - totalRewardsToOthers;
-                if (remainingPoints > 0) {
-                    this.userPoints += remainingPoints;
-                    this.addPointsHistory('project_unfreeze', remainingPoints, 
-                        `项目剩余积分解冻 - ${project.title} (${remainingPoints}积分)`);
+                // 第二：项目完结后冻结积分分配完毕要把剩余的积分从冻结积分的地方解冻并转移到可用积分里面
+                const remainingFrozenPoints = project.frozenPoints - totalRewardsToOthers;
+                if (remainingFrozenPoints > 0) {
+                    this.frozenPoints -= remainingFrozenPoints;
+                    this.userPoints += remainingFrozenPoints;
+                    this.addPointsHistory('project_unfreeze', remainingFrozenPoints, 
+                        `项目剩余积分解冻 - ${project.title} (${remainingFrozenPoints}积分)`);
                 } else {
+                    // 如果没有剩余积分，只记录解冻操作
                     this.addPointsHistory('project_unfreeze', 0, 
-                        `项目冻结积分解冻 - ${project.title} (${project.frozenPoints}积分)`);
+                        `项目冻结积分解冻完成 - ${project.title}`);
                 }
             }
         }
@@ -630,6 +633,43 @@ class VotingApp {
         if (userPoints && this.currentUser) {
             const totalPoints = isNaN(this.userPoints) ? 0 : this.userPoints;
             userPoints.textContent = `积分: ${totalPoints}`;
+        }
+        
+        // 如果积分详情页面已打开，实时更新显示
+        this.updatePointsDetailIfOpen();
+    }
+    
+    // 更新已打开的积分详情页面
+    updatePointsDetailIfOpen() {
+        const modal = document.getElementById('pointsDetailModal');
+        if (modal && modal.style.display === 'block') {
+            const availablePointsDisplay = document.getElementById('availablePointsDisplay');
+            const frozenPointsDisplay = document.getElementById('frozenPointsDisplay');
+            
+            if (availablePointsDisplay && frozenPointsDisplay) {
+                const totalPoints = this.userPoints;
+                const frozenPoints = this.frozenPoints;
+                const availablePoints = totalPoints - frozenPoints;
+                
+                availablePointsDisplay.textContent = availablePoints;
+                frozenPointsDisplay.textContent = frozenPoints;
+            }
+        }
+        
+        // 如果提现页面已打开，也实时更新显示
+        const withdrawModal = document.getElementById('withdrawModal');
+        if (withdrawModal && withdrawModal.style.display === 'block') {
+            const availableBalanceElement = document.getElementById('availableBalance');
+            const frozenPointsElement = document.getElementById('frozenPointsInfo');
+            
+            if (availableBalanceElement) {
+                const availablePoints = this.userPoints - this.frozenPoints;
+                availableBalanceElement.textContent = availablePoints;
+            }
+            
+            if (frozenPointsElement) {
+                frozenPointsElement.textContent = `冻结积分：${this.frozenPoints} (暂时不可提现)`;
+            }
         }
     }
 
@@ -731,9 +771,10 @@ class VotingApp {
                 return;
             }
             
-            // 创建新项目
-            if (maxPoints > this.userPoints) {
-                showCustomAlert(`积分不足，当前积分：${this.userPoints}`, '积分不足', '💰');
+            // 检查可用积分是否足够（总积分 - 冻结积分）
+            const availablePoints = this.userPoints - this.frozenPoints;
+            if (maxPoints > availablePoints) {
+                showCustomAlert(`可用积分不足，当前可用积分：${availablePoints}`, '积分不足', '💰');
                 return;
             }
 
@@ -758,9 +799,10 @@ class VotingApp {
                 resultPublished: false // 是否已公布结果
             };
 
-            // 冻结积分（不扣除总积分，只增加冻结积分）
-            this.frozenPoints += maxPoints;
-            this.addPointsHistory('project_freeze', 0, `创建项目冻结积分 - ${title} (冻结${maxPoints}积分)`);
+            // 第一：创建项目时冻结积分要减掉，显示在冻结积分里面
+            this.userPoints -= maxPoints; // 从总积分中扣除
+            this.frozenPoints += maxPoints; // 增加到冻结积分
+            this.addPointsHistory('project_freeze', -maxPoints, `创建项目冻结积分 - ${title} (冻结${maxPoints}积分)`);
             
             // 添加项目
             this.projects.unshift(project);
@@ -857,9 +899,10 @@ class VotingApp {
             timestamp: new Date().toISOString()
         });
         
-        // 冻结投票积分（不扣除总积分，只增加冻结积分）
-        this.frozenPoints += votePoints;
-        this.addPointsHistory('vote_freeze', 0, `投票冻结积分 - ${project.title} (${option === 'yes' ? '是' : '否'}, 冻结${votePoints}积分)`);
+        // 第四：投票人参与投票的积分要减掉，体现在冻结积分里面
+        this.userPoints -= votePoints; // 从总积分中扣除
+        this.frozenPoints += votePoints; // 增加到冻结积分
+        this.addPointsHistory('vote_freeze', -votePoints, `投票冻结积分 - ${project.title} (${option === 'yes' ? '是' : '否'}, 冻结${votePoints}积分)`);
         
         this.saveLocalData();
         this.updateUserPointsDisplay();
@@ -950,16 +993,14 @@ class VotingApp {
         const container = document.getElementById('projectsList');
         if (!container) return;
 
-        // 只显示进行中且未公布结果的项目，并过滤掉被删除的项目，按创建时间倒序排列
+        // 显示所有进行中且未被暂停的项目，按创建时间倒序排列
         const allProjects = [...this.projects]
             .filter(project => {
                 const isActive = new Date(project.endTime) > new Date();
-                // 检查项目是否被任何用户删除（隐藏）
-                const isDeleted = this.hiddenProjects.some(hiddenKey => {
-                    const projectId = hiddenKey.split('_')[1];
-                    return projectId === project.id && hiddenKey.startsWith(project.creatorId + '_');
-                });
-                return isActive && !project.resultPublished && !isDeleted;
+                const isPaused = project.isPaused || false;
+                const isResultPublished = project.resultPublished || false;
+                // 只显示进行中、未暂停、未公布结果的项目
+                return isActive && !isPaused && !isResultPublished;
             })
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -1349,16 +1390,21 @@ async function publishResult(projectId, result) {
 
 // 显示充值模态框
 function showRechargeModal() {
+    if (!app.currentUser) {
+        showCustomAlert('请先登录', '登录提示', '🔐');
+        return;
+    }
+    
     document.getElementById('rechargeModal').style.display = 'block';
     
-    // 初始化充值表单事件
+    // 初始化Pi Network充值表单事件
     const rechargeForm = document.getElementById('rechargeForm');
     if (rechargeForm && !rechargeForm.hasEventListener) {
         rechargeForm.addEventListener('submit', handleRechargeSubmit);
         rechargeForm.hasEventListener = true;
     }
     
-    // 为转币数量输入框添加只能输入数字的限制
+    // 为充值金额输入框添加限制
     const amountInput = document.getElementById('rechargeAmount');
     if (amountInput && !amountInput.hasEventListener) {
         amountInput.addEventListener('input', function(e) {
@@ -1366,16 +1412,6 @@ function showRechargeModal() {
             this.value = this.value.replace(/[^0-9]/g, '');
         });
         amountInput.hasEventListener = true;
-    }
-    
-    // 为用户名输入框添加只能输入数字和字母的限制
-    const usernameInput = document.getElementById('rechargeUsername');
-    if (usernameInput && !usernameInput.hasEventListener) {
-        usernameInput.addEventListener('input', function(e) {
-            // 只允许输入数字和字母
-            this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
-        });
-        usernameInput.hasEventListener = true;
     }
 }
 
@@ -1426,46 +1462,152 @@ function fallbackCopyTextToClipboard(text) {
 }
 
 // 处理充值表单提交
+// Pi Network 支付流程实现
+async function createPiPayment(amount) {
+    try {
+        if (!isPiBrowser()) {
+            // 非Pi环境的模拟充值
+            showCustomAlert(`模拟充值成功！\n充值金额: ${amount} Pi\n积分将按1:1比例到账。`, '充值成功', '🎉');
+            
+            // 模拟添加积分
+            app.userPoints += amount;
+            app.addPointsHistory('recharge', amount, `Pi Network充值 ${amount} Pi`);
+            app.updateUserPointsDisplay();
+            app.saveLocalData();
+            
+            closeModal('rechargeModal');
+            return;
+        }
+        
+        // Pi环境的真实支付流程
+        const paymentData = {
+            amount: amount,
+            memo: `投票平台充值 ${amount} Pi`,
+            metadata: {
+                userId: app.currentUser.uid,
+                type: 'recharge',
+                timestamp: new Date().toISOString()
+            }
+        };
+        
+        // 阶段1: 创建支付
+        const payment = await window.Pi.createPayment(paymentData, {
+            onReadyForServerApproval: function(paymentId) {
+                console.log('支付创建成功，等待服务端批准:', paymentId);
+                // 这里应该调用你的后端API来批准支付
+                approvePaymentOnServer(paymentId, amount);
+            },
+            onReadyForServerCompletion: function(paymentId, txid) {
+                console.log('区块链交易完成，等待服务端确认:', paymentId, txid);
+                // 这里应该调用你的后端API来完成支付
+                completePaymentOnServer(paymentId, txid, amount);
+            },
+            onCancel: function(paymentId) {
+                console.log('支付被取消:', paymentId);
+                showCustomAlert('支付已取消', '支付提示', 'ℹ️');
+            },
+            onError: function(error, payment) {
+                console.error('支付错误:', error, payment);
+                showCustomAlert('支付过程中发生错误，请重试', '支付错误', '❌');
+            }
+        });
+        
+        console.log('支付流程启动:', payment);
+        
+    } catch (error) {
+        console.error('创建支付失败:', error);
+        showCustomAlert('创建支付失败，请重试', '支付错误', '❌');
+    }
+}
+
+// 模拟服务端批准支付（在真实环境中应该是后端API）
+async function approvePaymentOnServer(paymentId, amount) {
+    try {
+        console.log('模拟服务端批准支付:', paymentId);
+        // 在真实环境中，这里应该调用你的后端API
+        // 后端会调用 Pi Server API 来批准支付
+        
+        // 模拟批准成功
+        setTimeout(() => {
+            console.log('支付已批准，等待用户确认交易');
+        }, 1000);
+        
+    } catch (error) {
+        console.error('批准支付失败:', error);
+    }
+}
+
+// 模拟服务端完成支付（在真实环境中应该是后端API）
+async function completePaymentOnServer(paymentId, txid, amount) {
+    try {
+        console.log('模拟服务端完成支付:', paymentId, txid);
+        // 在真实环境中，这里应该调用你的后端API
+        // 后端会调用 Pi Server API 来完成支付并验证交易
+        
+        // 模拟完成成功，添加积分
+        app.userPoints += amount;
+        app.addPointsHistory('recharge', amount, `Pi Network充值 ${amount} Pi (TxID: ${txid})`);
+        app.updateUserPointsDisplay();
+        app.saveLocalData();
+        
+        showCustomAlert(`充值成功！\n充值金额: ${amount} Pi\n交易ID: ${txid}\n积分已到账`, '充值成功', '🎉');
+        closeModal('rechargeModal');
+        
+    } catch (error) {
+        console.error('完成支付失败:', error);
+        showCustomAlert('完成支付时发生错误', '支付错误', '❌');
+    }
+}
+
+// 处理未完成的支付
+function handleIncompletePayment(payment) {
+    try {
+        console.log('处理未完成的支付:', payment);
+        
+        // 根据支付状态决定如何处理
+        if (payment.status === 'pending') {
+            // 支付仍在等待中，可以继续等待或提示用户
+            console.log('支付仍在处理中，请耐心等待');
+        } else if (payment.status === 'cancelled') {
+            // 支付已取消，清理相关状态
+            console.log('支付已取消');
+        } else {
+            // 其他状态，尝试恢复支付流程
+            console.log('尝试恢复支付流程');
+        }
+        
+    } catch (error) {
+        console.error('处理未完成支付时发生错误:', error);
+    }
+}
+
+// 添加支付状态检查功能
+function checkPaymentStatus() {
+    if (isPiBrowser() && window.Pi) {
+        // 在Pi环境中检查是否有未完成的支付
+        console.log('检查支付状态...');
+    }
+}
+
+// 新的充值提交处理函数
 function handleRechargeSubmit(e) {
     e.preventDefault();
     
-    const username = document.getElementById('rechargeUsername').value.trim();
-    const amount = document.getElementById('rechargeAmount').value.trim();
-    const hash = document.getElementById('transactionHash').value.trim();
-    
-    // 验证表单
-    if (!username || !amount || !hash) {
-        showCustomAlert('请填写所有必填字段', '输入错误', '⚠️');
+    if (!app.currentUser) {
+        showCustomAlert('请先登录', '登录提示', '🔐');
         return;
     }
     
-    // 验证用户名格式
-    if (!/^[a-zA-Z0-9]+$/.test(username)) {
-        showCustomAlert('用户名只能包含数字和字母', '格式错误', '⚠️');
+    const amount = parseInt(document.getElementById('rechargeAmount').value);
+    
+    // 验证充值金额
+    if (isNaN(amount) || amount < 1) {
+        showCustomAlert('充值金额必须是大于等于1的整数', '输入错误', '⚠️');
         return;
     }
     
-    // 验证转币数量
-    const amountNum = parseInt(amount);
-    if (isNaN(amountNum) || amountNum < 1) {
-        showCustomAlert('转币数量必须是大于0的整数', '数量错误', '⚠️');
-        return;
-    }
-    
-    // 验证交易哈希
-    if (hash.length < 10) {
-        showCustomAlert('请输入有效的交易哈希', '输入错误', '⚠️');
-        return;
-    }
-    
-    // 模拟提交充值申请
-    showCustomAlert(`充值申请已提交！\n用户名: ${username}\n转币数量: ${amountNum} Pi\n交易哈希: ${hash}\n\n请等待1小时内处理完毕，积分将按1:1比例到账。`, '充值成功', '🎉');
-    
-    // 重置表单
-    document.getElementById('rechargeForm').reset();
-    
-    // 关闭模态框
-    closeModal('rechargeModal');
+    // 启动Pi支付流程
+    createPiPayment(amount);
 }
 
 // 显示提现模态框
@@ -1668,15 +1810,22 @@ async function deleteProject(projectId) {
     // 已公布结果的项目，积分已经在公布结果时处理过了
     if (!project.resultPublished) {
         const frozenPoints = project.frozenPoints || 0;
-        app.userPoints += frozenPoints;
+        app.userPoints += frozenPoints; // 返还积分到总积分
+        app.frozenPoints -= frozenPoints; // 减少冻结积分
         app.addPointsHistory('project_delete', frozenPoints, `删除项目 - ${project.title}`);
     }
     
-    // 将项目添加到当前用户的隐藏列表中，而不是完全删除
-    const hiddenProjectKey = `${app.currentUser.uid}_${projectId}`;
-    if (!app.hiddenProjects.includes(hiddenProjectKey)) {
-        app.hiddenProjects.push(hiddenProjectKey);
+    // 直接从项目数组中删除项目（全局删除）
+    const projectIndex = app.projects.findIndex(p => p.id === projectId);
+    if (projectIndex !== -1) {
+        app.projects.splice(projectIndex, 1);
     }
+    
+    // 同时清理相关的投票记录
+    app.userVotes = app.userVotes.filter(vote => vote.projectId !== projectId);
+    
+    // 从隐藏列表中移除相关记录（如果存在）
+    app.hiddenProjects = app.hiddenProjects.filter(hiddenKey => !hiddenKey.endsWith(`_${projectId}`));
     
     // 保存数据并更新显示
     app.saveLocalData();
