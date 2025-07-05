@@ -189,6 +189,10 @@ class VotingApp {
         this.frozenPoints = 0; // 冻结积分
         this.pointsHistory = []; // 积分历史记录
         this.hiddenProjects = []; // 用户隐藏的项目列表
+        this.userRole = 'user'; // 用户角色：'user' 或 'admin'
+        this.projectApplications = []; // 项目申请列表
+        this.rechargeApplications = []; // 充值申请列表
+        this.adminUsers = ['sjf88888888']; // 管理员用户ID列表
         this.init();
     }
 
@@ -339,6 +343,9 @@ class VotingApp {
                     const isNewUser = !this.currentUser;
                     this.currentUser = authResult.user;
                     
+                    // 检查用户角色
+                    this.userRole = this.adminUsers.includes(this.currentUser.uid) ? 'admin' : 'user';
+                    
                     // 如果是新用户且没有积分历史记录，添加初始积分记录
                     if (isNewUser && this.pointsHistory.length === 0) {
                         this.addPointsHistory('initial', 1000, '新用户注册奖励');
@@ -347,6 +354,7 @@ class VotingApp {
                     this.saveLocalData();
                     this.updateLoginButton();
                     this.renderProjects();
+                    this.updateAdminPanel();
                     showCustomAlert(`欢迎，${this.currentUser.username || this.currentUser.uid}！`, '登录成功', '🎉');
                 }
             }
@@ -734,6 +742,12 @@ class VotingApp {
         const description = document.getElementById('projectDescription').value.trim();
         const endTime = document.getElementById('endTime').value;
         const maxPoints = parseInt(document.getElementById('maxPoints').value);
+        
+        // 如果是普通用户，提交申请而不是直接创建项目
+        if (this.userRole === 'user') {
+            this.submitProjectApplication(title, description, endTime, maxPoints);
+            return;
+        }
 
         // 验证表单
         if (!title || !endTime || !maxPoints) {
@@ -823,8 +837,325 @@ class VotingApp {
         this.renderProjects();
     }
 
+    // 提交项目申请
+    submitProjectApplication(title, description, endTime, maxPoints) {
+        // 验证表单
+        if (!title || !endTime || !maxPoints) {
+            showCustomAlert('请填写所有必填字段', '输入错误', '⚠️');
+            return;
+        }
+
+        if (title.length > 11) {
+            showCustomAlert('项目标题不能超过11个字符', '输入错误', '⚠️');
+            return;
+        }
+
+        if (description.length > 40) {
+            showCustomAlert('项目描述不能超过40个字符', '输入错误', '⚠️');
+            return;
+        }
+
+        // 验证截止时间
+        const endDate = new Date(endTime);
+        if (endDate <= new Date()) {
+            showCustomAlert('截止时间必须晚于当前时间', '时间错误', '⏰');
+            return;
+        }
+
+        // 检查最低积分要求
+        if (maxPoints < 100) {
+            showCustomAlert('项目最低要求100积分', '积分不足', '💰');
+            return;
+        }
+
+        // 创建申请
+        const application = {
+            id: Date.now().toString(),
+            type: 'project',
+            title,
+            description,
+            endTime,
+            maxPoints,
+            applicantId: this.currentUser.uid,
+            applicantName: this.currentUser.username || this.currentUser.uid,
+            submittedAt: new Date().toISOString(),
+            status: 'pending', // pending, approved, rejected
+            reviewedBy: null,
+            reviewedAt: null,
+            reviewNote: ''
+        };
+
+        this.projectApplications.push(application);
+        this.saveData();
+
+        showCustomAlert('项目申请已提交，等待管理员审核', '申请成功', '📝');
+        
+        // 重置表单
+        document.getElementById('projectTitle').value = '';
+        document.getElementById('projectDescription').value = '';
+        document.getElementById('endTime').value = '';
+        document.getElementById('maxPoints').value = '';
+    }
+
+    // 提交充值申请
+    submitRechargeApplication(amount) {
+        // 创建充值申请
+        const application = {
+            id: Date.now().toString(),
+            type: 'recharge',
+            amount: amount,
+            applicantId: this.currentUser.uid,
+            applicantName: this.currentUser.username || this.currentUser.uid,
+            submittedAt: new Date().toISOString(),
+            status: 'pending', // pending, approved, rejected
+            reviewedBy: null,
+            reviewedAt: null,
+            reviewNote: ''
+        };
+
+        this.rechargeApplications.push(application);
+        this.saveData();
+
+        showCustomAlert(`充值申请已提交！\n申请金额: ${amount} Pi\n等待管理员审核`, '申请成功', '📝');
+        
+        // 重置表单并关闭模态框
+        document.getElementById('rechargeAmount').value = '';
+        closeModal('rechargeModal');
+    }
+
+    // 更新管理员面板显示
+    updateAdminPanel() {
+        const adminPanel = document.getElementById('adminPanel');
+        if (this.userRole === 'admin') {
+            adminPanel.style.display = 'block';
+            this.renderAdminApplications();
+        } else {
+            adminPanel.style.display = 'none';
+        }
+    }
+
+    // 渲染管理员申请列表
+    renderAdminApplications() {
+        this.renderProjectApplications();
+        this.renderRechargeApplications();
+        this.renderAdminsList();
+    }
+
+    // 渲染项目申请列表
+    renderProjectApplications() {
+        const container = document.getElementById('projectApplicationsList');
+        if (!container) return;
+
+        const pendingApplications = this.projectApplications.filter(app => app.status === 'pending');
+        
+        if (pendingApplications.length === 0) {
+            container.innerHTML = '<div class="no-applications">暂无待审核的项目申请</div>';
+            return;
+        }
+
+        container.innerHTML = pendingApplications.map(app => `
+            <div class="application-item">
+                <div class="application-header">
+                    <h4>${app.title}</h4>
+                    <span class="application-status pending">待审核</span>
+                </div>
+                <div class="application-details">
+                    <p><strong>申请人：</strong>${app.applicantName}</p>
+                    <p><strong>描述：</strong>${app.description || '无'}</p>
+                    <p><strong>截止时间：</strong>${new Date(app.endTime).toLocaleString()}</p>
+                    <p><strong>最高积分：</strong>${app.maxPoints}</p>
+                    <p><strong>申请时间：</strong>${new Date(app.submittedAt).toLocaleString()}</p>
+                </div>
+                <div class="application-actions">
+                    <button class="btn btn-success" onclick="app.approveProjectApplication('${app.id}')">批准</button>
+                    <button class="btn btn-danger" onclick="app.rejectProjectApplication('${app.id}')">拒绝</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // 渲染充值申请列表
+    renderRechargeApplications() {
+        const container = document.getElementById('rechargeApplicationsList');
+        if (!container) return;
+
+        const pendingApplications = this.rechargeApplications.filter(app => app.status === 'pending');
+        
+        if (pendingApplications.length === 0) {
+            container.innerHTML = '<div class="no-applications">暂无待审核的充值申请</div>';
+            return;
+        }
+
+        container.innerHTML = pendingApplications.map(app => `
+            <div class="application-item">
+                <div class="application-header">
+                    <h4>充值申请</h4>
+                    <span class="application-status pending">待审核</span>
+                </div>
+                <div class="application-details">
+                    <p><strong>申请人：</strong>${app.applicantName}</p>
+                    <p><strong>充值金额：</strong>${app.amount} Pi</p>
+                    <p><strong>申请时间：</strong>${new Date(app.submittedAt).toLocaleString()}</p>
+                </div>
+                <div class="application-actions">
+                    <button class="btn btn-success" onclick="app.approveRechargeApplication('${app.id}')">批准</button>
+                    <button class="btn btn-danger" onclick="app.rejectRechargeApplication('${app.id}')">拒绝</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // 渲染管理员列表
+    renderAdminsList() {
+        const container = document.getElementById('adminsList');
+        if (!container) return;
+
+        if (this.adminUsers.length === 0) {
+            container.innerHTML = '<div class="no-admins">暂无管理员</div>';
+            return;
+        }
+
+        container.innerHTML = this.adminUsers.map(uid => `
+            <div class="admin-item">
+                <span>${uid}</span>
+                <button class="btn btn-danger btn-small" onclick="app.removeAdmin('${uid}')">移除</button>
+            </div>
+        `).join('');
+    }
+
+    // 批准项目申请
+    async approveProjectApplication(applicationId) {
+        const application = this.projectApplications.find(app => app.id === applicationId);
+        if (!application) {
+            showCustomAlert('申请不存在', '错误', '❌');
+            return;
+        }
+
+        // 创建项目
+        const project = {
+            id: Date.now().toString(),
+            title: application.title,
+            description: application.description,
+            endTime: application.endTime,
+            maxPoints: application.maxPoints,
+            creatorId: application.applicantId,
+            creatorName: application.applicantName,
+            createdAt: new Date().toISOString(),
+            frozenPoints: parseInt(application.maxPoints),
+            votes: { yes: 0, no: 0 },
+            voters: [],
+            voteDetails: [],
+            status: 'active',
+            result: null,
+            resultPublished: false
+        };
+
+        // 添加项目到列表
+        this.projects.unshift(project);
+
+        // 更新申请状态
+        application.status = 'approved';
+        application.reviewedBy = this.currentUser.uid;
+        application.reviewedAt = new Date().toISOString();
+
+        await this.saveData();
+        this.renderProjects();
+        this.renderAdminApplications();
+
+        showCustomAlert('项目申请已批准', '审核成功', '✅');
+    }
+
+    // 拒绝项目申请
+    async rejectProjectApplication(applicationId) {
+        const application = this.projectApplications.find(app => app.id === applicationId);
+        if (!application) {
+            showCustomAlert('申请不存在', '错误', '❌');
+            return;
+        }
+
+        application.status = 'rejected';
+        application.reviewedBy = this.currentUser.uid;
+        application.reviewedAt = new Date().toISOString();
+
+        await this.saveData();
+        this.renderAdminApplications();
+
+        showCustomAlert('项目申请已拒绝', '审核完成', 'ℹ️');
+    }
+
+    // 批准充值申请
+    async approveRechargeApplication(applicationId) {
+        const application = this.rechargeApplications.find(app => app.id === applicationId);
+        if (!application) {
+            showCustomAlert('申请不存在', '错误', '❌');
+            return;
+        }
+
+        // 为用户充值积分
+        // 注意：这里需要找到对应用户的数据进行充值
+        // 由于当前架构限制，这里只是示例，实际需要用户数据管理系统
+        
+        application.status = 'approved';
+        application.reviewedBy = this.currentUser.uid;
+        application.reviewedAt = new Date().toISOString();
+
+        await this.saveData();
+        this.renderAdminApplications();
+
+        showCustomAlert(`充值申请已批准，请手动为用户 ${application.applicantName} 充值 ${application.amount} 积分`, '审核成功', '✅');
+    }
+
+    // 拒绝充值申请
+    async rejectRechargeApplication(applicationId) {
+        const application = this.rechargeApplications.find(app => app.id === applicationId);
+        if (!application) {
+            showCustomAlert('申请不存在', '错误', '❌');
+            return;
+        }
+
+        application.status = 'rejected';
+        application.reviewedBy = this.currentUser.uid;
+        application.reviewedAt = new Date().toISOString();
+
+        await this.saveData();
+        this.renderAdminApplications();
+
+        showCustomAlert('充值申请已拒绝', '审核完成', 'ℹ️');
+    }
+
+    // 添加管理员
+    async addAdmin(uid) {
+        if (!uid || uid.trim() === '') {
+            showCustomAlert('请输入有效的用户UID', '输入错误', '⚠️');
+            return;
+        }
+
+        if (this.adminUsers.includes(uid)) {
+            showCustomAlert('该用户已经是管理员', '重复添加', 'ℹ️');
+            return;
+        }
+
+        this.adminUsers.push(uid);
+        await this.saveData();
+        this.renderAdminsList();
+
+        showCustomAlert('管理员添加成功', '操作成功', '✅');
+        document.getElementById('newAdminUid').value = '';
+    }
+
+    // 移除管理员
+    async removeAdmin(uid) {
+        const index = this.adminUsers.indexOf(uid);
+        if (index > -1) {
+            this.adminUsers.splice(index, 1);
+            await this.saveData();
+            this.renderAdminsList();
+            showCustomAlert('管理员已移除', '操作成功', '✅');
+        }
+    }
+
     // 处理投票
-    handleVote(projectId, option, votePoints) {
+    async handleVote(projectId, option, votePoints) {
         if (!this.currentUser) {
             showCustomAlert('请先登录', '登录提示', '🔐');
             return;
@@ -1606,7 +1937,13 @@ function handleRechargeSubmit(e) {
         return;
     }
     
-    // 启动Pi支付流程
+    // 如果是普通用户，提交充值申请
+    if (app.userRole === 'user') {
+        app.submitRechargeApplication(amount);
+        return;
+    }
+    
+    // 管理员可以直接充值
     createPiPayment(amount);
 }
 

@@ -119,6 +119,47 @@
                 </div>
             </div>
 
+            <!-- 管理员界面卡片 -->
+            <div class="card-container" id="adminPanel" style="display: none;">
+                <div class="card-header" onclick="toggleCard('adminPanel')">
+                    <div class="card-title">
+                        <span class="card-icon">👑</span>
+                        <span>管理员面板</span>
+                    </div>
+                    <span class="expand-arrow" id="adminPanelArrow">▼</span>
+                </div>
+                <div class="card-content" id="adminPanelContent">
+                    <div class="tab-container">
+                        <div class="tab-buttons">
+                            <button class="tab-btn active" onclick="switchAdminTab('projectApplications')">项目申请</button>
+                            <button class="tab-btn" onclick="switchAdminTab('rechargeApplications')">充值申请</button>
+                            <button class="tab-btn" onclick="switchAdminTab('userManagement')">用户管理</button>
+                        </div>
+                        <div class="tab-content">
+                            <div id="projectApplicationsPanel" class="tab-panel active">
+                                <div id="projectApplicationsList"></div>
+                            </div>
+                            <div id="rechargeApplicationsPanel" class="tab-panel">
+                                <div id="rechargeApplicationsList"></div>
+                            </div>
+                            <div id="userManagementPanel" class="tab-panel">
+                                <div class="admin-section">
+                                    <h4>添加管理员</h4>
+                                    <div class="form-group">
+                                        <input type="text" id="newAdminUid" placeholder="输入用户UID">
+                                        <button class="btn btn-primary" onclick="addAdmin()">添加</button>
+                                    </div>
+                                </div>
+                                <div class="admin-section">
+                                    <h4>当前管理员列表</h4>
+                                    <div id="adminsList"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 游戏规则卡片 -->
             <div class="card-container">
                 <div class="card-header" onclick="toggleCard('gameRules')">
@@ -332,5 +373,29 @@
     <script>Pi.init({ version: "2.0" })</script>
     
     <script src="app.js"></script>
+    
+    <script>
+        // 管理员相关函数
+        function switchAdminTab(tabName) {
+            // 移除所有活动状态
+            document.querySelectorAll('#adminPanel .tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('#adminPanel .tab-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            
+            // 激活选中的标签
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Panel').classList.add('active');
+        }
+        
+        function addAdmin() {
+            const uid = document.getElementById('newAdminUid').value.trim();
+            if (uid) {
+                app.addAdmin(uid);
+            }
+        }
+    </script>
 </body>
 </html>

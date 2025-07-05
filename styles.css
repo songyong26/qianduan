@@ -1349,3 +1349,207 @@ body {
         box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
     }
 }
+
+/* 管理员界面样式 */
+#adminPanel {
+    display: none;
+}
+
+.admin-tabs {
+    display: flex;
+    background: rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 20px;
+    gap: 4px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 12px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: rgba(255,255,255,0.7);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.tab-btn.active {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.tab-btn:hover:not(.active) {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.9);
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+.application-item {
+    background: rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.application-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.application-info h4 {
+    color: #FCD34D;
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+.application-info p {
+    color: rgba(255,255,255,0.8);
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+
+.application-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-approve {
+    background: #10B981;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-approve:hover {
+    background: #059669;
+    transform: translateY(-1px);
+}
+
+.btn-reject {
+    background: #EF4444;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-reject:hover {
+    background: #DC2626;
+    transform: translateY(-1px);
+}
+
+.admin-form {
+    background: rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.admin-form input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.1);
+    color: white;
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.admin-form input::placeholder {
+    color: rgba(255,255,255,0.6);
+}
+
+.admin-form input:focus {
+    outline: none;
+    border-color: #FCD34D;
+    box-shadow: 0 0 0 2px rgba(252, 211, 77, 0.2);
+}
+
+.admin-list {
+    background: rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.admin-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.admin-item:last-child {
+    border-bottom: none;
+}
+
+.admin-uid {
+    color: #FCD34D;
+    font-weight: 500;
+}
+
+.btn-remove {
+    background: #EF4444;
+    color: white;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-remove:hover {
+    background: #DC2626;
+    transform: translateY(-1px);
+}
+
+.empty-state {
+    text-align: center;
+    color: rgba(255,255,255,0.6);
+    font-style: italic;
+    padding: 20px;
+}
+
+.application-details {
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 8px;
+}
+
+.application-details p {
+    margin-bottom: 4px;
+    font-size: 13px;
+}
+
+.application-details strong {
+    color: #FCD34D;
+}
