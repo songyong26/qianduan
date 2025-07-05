@@ -331,44 +331,6 @@
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <script>Pi.init({ version: "2.0" })</script>
     
-    <!-- Firebase SDK -->
-    <script type="module">
-        // Import the functions you need from the SDKs you need
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getDatabase, ref, set, get, onValue, push, remove, update } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
-        
-        // Your web app's Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyCFo-1e-N9rCacCHrbdMo7IprFtFgHudQ8",
-            authDomain: "toupiao-f2403.firebaseapp.com",
-            databaseURL: "https://toupiao-f2403-default-rtdb.asia-southeast1.firebasedatabase.app/",
-            projectId: "toupiao-f2403",
-            storageBucket: "toupiao-f2403.firebasestorage.app",
-            messagingSenderId: "450957680225",
-            appId: "1:450957680225:web:4b5a0734c97825b5f7d420",
-            measurementId: "G-84Q8J3ET07"
-        };
-        
-        // Initialize Firebase
-        const firebaseApp = initializeApp(firebaseConfig);
-        const database = getDatabase(firebaseApp);
-        
-        // Make Firebase available globally
-        window.firebase = {
-            database,
-            ref,
-            set,
-            get,
-            onValue,
-            push,
-            remove,
-            update
-        };
-        
-        // Load the main app after Firebase is initialized
-        const script = document.createElement('script');
-        script.src = 'app.js';
-        document.head.appendChild(script);
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>

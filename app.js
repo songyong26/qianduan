@@ -1,110 +1,3 @@
-// Firebase数据管理类
-class FirebaseDataManager {
-    constructor() {
-        this.database = null;
-        this.isInitialized = false;
-        this.initPromise = this.init();
-    }
-
-    async init() {
-        try {
-            // 等待Firebase初始化
-            while (!window.firebase) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-            }
-            this.database = window.firebase.database;
-            this.isInitialized = true;
-            console.log('Firebase数据管理器初始化成功');
-        } catch (error) {
-            console.error('Firebase数据管理器初始化失败:', error);
-            throw error;
-        }
-    }
-
-    async ensureInitialized() {
-        if (!this.isInitialized) {
-            await this.initPromise;
-        }
-    }
-
-    // 获取数据
-    async getData(path) {
-        await this.ensureInitialized();
-        try {
-            const snapshot = await window.firebase.get(window.firebase.ref(this.database, path));
-            return snapshot.exists() ? snapshot.val() : null;
-        } catch (error) {
-            console.error(`获取数据失败 (${path}):`, error);
-            return null;
-        }
-    }
-
-    // 设置数据
-    async setData(path, data) {
-        await this.ensureInitialized();
-        try {
-            await window.firebase.set(window.firebase.ref(this.database, path), data);
-            return true;
-        } catch (error) {
-            console.error(`设置数据失败 (${path}):`, error);
-            return false;
-        }
-    }
-
-    // 更新数据
-    async updateData(path, updates) {
-        await this.ensureInitialized();
-        try {
-            await window.firebase.update(window.firebase.ref(this.database, path), updates);
-            return true;
-        } catch (error) {
-            console.error(`更新数据失败 (${path}):`, error);
-            return false;
-        }
-    }
-
-    // 推送新数据（生成唯一ID）
-    async pushData(path, data) {
-        await this.ensureInitialized();
-        try {
-            const newRef = window.firebase.push(window.firebase.ref(this.database, path), data);
-            return newRef.key;
-        } catch (error) {
-            console.error(`推送数据失败 (${path}):`, error);
-            return null;
-        }
-    }
-
-    // 删除数据
-    async removeData(path) {
-        await this.ensureInitialized();
-        try {
-            await window.firebase.remove(window.firebase.ref(this.database, path));
-            return true;
-        } catch (error) {
-            console.error(`删除数据失败 (${path}):`, error);
-            return false;
-        }
-    }
-
-    // 监听数据变化
-    async onDataChange(path, callback) {
-        await this.ensureInitialized();
-        try {
-            const ref = window.firebase.ref(this.database, path);
-            window.firebase.onValue(ref, (snapshot) => {
-                const data = snapshot.exists() ? snapshot.val() : null;
-                callback(data);
-            });
-        } catch (error) {
-            console.error(`监听数据变化失败 (${path}):`, error);
-        }
-    }
-}
-
-// 创建全局Firebase数据管理器实例
-const firebaseManager = new FirebaseDataManager();
-
 // 自定义弹窗函数
 function showCustomAlert(message, title = '提示', icon = 'ℹ️') {
     const modal = document.getElementById('customAlertModal');
@@ -306,8 +199,10 @@ class VotingApp {
                 await piSDK.init();
             }
             
-            // 加载数据（Firebase + localStorage）
-            await this.loadData();
+
+            
+            // 加载本地数据
+            this.loadLocalData();
             
             // 初始化UI
             this.initializeUI();
@@ -323,165 +218,8 @@ class VotingApp {
     
 
 
-    // 加载数据（从Firebase和localStorage）
-    async loadData() {
-        try {
-            // 首先尝试从localStorage加载用户特定数据（向后兼容）
-            this.loadUserDataFromLocal();
-            
-            // 从Firebase加载全局数据
-            await this.loadGlobalDataFromFirebase();
-            
-            // 设置数据监听器
-            this.setupDataListeners();
-            
-        } catch (error) {
-            console.error('加载数据失败:', error);
-            // 如果Firebase加载失败，回退到localStorage
-            this.loadLocalDataFallback();
-        }
-    }
-    
-    // 从localStorage加载用户特定数据
-    loadUserDataFromLocal() {
-        try {
-            // 加载用户信息
-            const savedUser = localStorage.getItem('current_user');
-            if (savedUser) {
-                this.currentUser = JSON.parse(savedUser);
-            }
-            
-            // 加载用户积分（如果用户已登录）
-            if (this.currentUser) {
-                const userKey = this.getUserKey();
-                const savedPoints = localStorage.getItem(`user_points_${userKey}`);
-                if (savedPoints) {
-                    const points = parseInt(savedPoints);
-                    this.userPoints = isNaN(points) ? 1000 : points;
-                }
-                
-                // 加载冻结积分
-                const savedFrozenPoints = localStorage.getItem(`frozen_points_${userKey}`);
-                if (savedFrozenPoints) {
-                    const frozenPoints = parseInt(savedFrozenPoints);
-                    this.frozenPoints = isNaN(frozenPoints) ? 0 : frozenPoints;
-                }
-                
-                // 加载积分历史记录
-                const savedHistory = localStorage.getItem(`points_history_${userKey}`);
-                if (savedHistory) {
-                    this.pointsHistory = JSON.parse(savedHistory);
-                }
-                
-                // 加载用户投票记录
-                const savedVotes = localStorage.getItem(`user_votes_${userKey}`);
-                if (savedVotes) {
-                    this.userVotes = JSON.parse(savedVotes);
-                }
-                
-                // 加载隐藏项目列表
-                const savedHiddenProjects = localStorage.getItem(`hidden_projects_${userKey}`);
-                if (savedHiddenProjects) {
-                    this.hiddenProjects = JSON.parse(savedHiddenProjects);
-                }
-            }
-        } catch (error) {
-            console.error('从localStorage加载用户数据失败:', error);
-        }
-    }
-    
-    // 从Firebase加载全局数据
-    async loadGlobalDataFromFirebase() {
-        try {
-            // 加载项目数据
-            const projectsData = await firebaseManager.getData('projects');
-            if (projectsData) {
-                this.projects = Object.values(projectsData);
-                // 确保所有项目都有必要的属性
-                this.projects.forEach(project => {
-                    if (!project.voteDetails) {
-                        project.voteDetails = [];
-                    }
-                    if (!project.votes) {
-                        project.votes = { yes: 0, no: 0 };
-                    }
-                });
-            }
-            
-            // 如果用户已登录，加载用户特定数据
-            if (this.currentUser) {
-                await this.loadUserDataFromFirebase();
-            }
-            
-        } catch (error) {
-            console.error('从Firebase加载全局数据失败:', error);
-        }
-    }
-    
-    // 从Firebase加载用户特定数据
-    async loadUserDataFromFirebase() {
-        if (!this.currentUser) return;
-        
-        try {
-            const userKey = this.getUserKey();
-            
-            // 加载用户积分
-            const userPoints = await firebaseManager.getData(`users/${userKey}/points`);
-            if (userPoints !== null) {
-                this.userPoints = userPoints;
-            }
-            
-            // 加载冻结积分
-            const frozenPoints = await firebaseManager.getData(`users/${userKey}/frozenPoints`);
-            if (frozenPoints !== null) {
-                this.frozenPoints = frozenPoints;
-            }
-            
-            // 加载积分历史记录
-            const pointsHistory = await firebaseManager.getData(`users/${userKey}/pointsHistory`);
-            if (pointsHistory) {
-                this.pointsHistory = Object.values(pointsHistory).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            }
-            
-            // 加载用户投票记录
-            const userVotes = await firebaseManager.getData(`users/${userKey}/votes`);
-            if (userVotes) {
-                this.userVotes = Object.values(userVotes);
-            }
-            
-            // 加载隐藏项目列表
-            const hiddenProjects = await firebaseManager.getData(`users/${userKey}/hiddenProjects`);
-            if (hiddenProjects) {
-                this.hiddenProjects = Object.values(hiddenProjects);
-            }
-            
-        } catch (error) {
-            console.error('从Firebase加载用户数据失败:', error);
-        }
-    }
-    
-    // 设置数据监听器
-    setupDataListeners() {
-        // 监听项目数据变化
-        firebaseManager.onDataChange('projects', (data) => {
-            if (data) {
-                this.projects = Object.values(data);
-                // 确保所有项目都有必要的属性
-                this.projects.forEach(project => {
-                    if (!project.voteDetails) {
-                        project.voteDetails = [];
-                    }
-                    if (!project.votes) {
-                        project.votes = { yes: 0, no: 0 };
-                    }
-                });
-                this.renderProjects();
-            }
-        });
-    }
-    
-    // 回退到localStorage（兼容性）
-    loadLocalDataFallback() {
+    // 加载本地存储数据
+    loadLocalData() {
         try {
             // 加载项目数据
             const savedProjects = localStorage.getItem('voting_projects');
@@ -540,113 +278,22 @@ class VotingApp {
             console.error('加载本地数据失败:', error);
         }
     }
-    
-    // 获取用户唯一标识
-    getUserKey() {
-        return this.currentUser ? (this.currentUser.uid || this.currentUser.username || 'anonymous') : 'anonymous';
-    }
 
-    // 保存数据到Firebase和localStorage
-    async saveData() {
+    // 保存数据到本地存储
+    saveLocalData() {
         try {
-            // 保存到localStorage（向后兼容）
-            this.saveToLocalStorage();
-            
-            // 保存到Firebase
-            await this.saveToFirebase();
-            
-        } catch (error) {
-            console.error('保存数据失败:', error);
-        }
-    }
-    
-    // 保存到localStorage
-    saveToLocalStorage() {
-        try {
-            // 保存用户信息
-            if (this.currentUser) {
-                localStorage.setItem('current_user', JSON.stringify(this.currentUser));
-                
-                const userKey = this.getUserKey();
-                // 保存用户特定数据
-                localStorage.setItem(`user_points_${userKey}`, this.userPoints.toString());
-                localStorage.setItem(`frozen_points_${userKey}`, this.frozenPoints.toString());
-                localStorage.setItem(`points_history_${userKey}`, JSON.stringify(this.pointsHistory));
-                localStorage.setItem(`user_votes_${userKey}`, JSON.stringify(this.userVotes));
-                localStorage.setItem(`hidden_projects_${userKey}`, JSON.stringify(this.hiddenProjects));
-            }
-            
-            // 保存全局数据（兼容性）
             localStorage.setItem('voting_projects', JSON.stringify(this.projects));
             localStorage.setItem('user_votes', JSON.stringify(this.userVotes));
             localStorage.setItem('user_points', this.userPoints.toString());
             localStorage.setItem('frozen_points', this.frozenPoints.toString());
             localStorage.setItem('points_history', JSON.stringify(this.pointsHistory));
             localStorage.setItem('hidden_projects', JSON.stringify(this.hiddenProjects));
-            
-        } catch (error) {
-            console.error('保存到localStorage失败:', error);
-        }
-    }
-    
-    // 保存到Firebase
-    async saveToFirebase() {
-        try {
-            // 保存项目数据（全局）
-            if (this.projects && this.projects.length > 0) {
-                const projectsObj = {};
-                this.projects.forEach((project, index) => {
-                    projectsObj[project.id || `project_${index}`] = project;
-                });
-                await firebaseManager.setData('projects', projectsObj);
-            }
-            
-            // 如果用户已登录，保存用户特定数据
             if (this.currentUser) {
-                const userKey = this.getUserKey();
-                
-                // 保存用户积分
-                await firebaseManager.setData(`users/${userKey}/points`, this.userPoints);
-                
-                // 保存冻结积分
-                await firebaseManager.setData(`users/${userKey}/frozenPoints`, this.frozenPoints);
-                
-                // 保存积分历史记录
-                if (this.pointsHistory && this.pointsHistory.length > 0) {
-                    const historyObj = {};
-                    this.pointsHistory.forEach((record, index) => {
-                        historyObj[`history_${index}_${Date.now()}`] = record;
-                    });
-                    await firebaseManager.setData(`users/${userKey}/pointsHistory`, historyObj);
-                }
-                
-                // 保存用户投票记录
-                if (this.userVotes && this.userVotes.length > 0) {
-                    const votesObj = {};
-                    this.userVotes.forEach((vote, index) => {
-                        votesObj[`vote_${vote.projectId}_${Date.now()}`] = vote;
-                    });
-                    await firebaseManager.setData(`users/${userKey}/votes`, votesObj);
-                }
-                
-                // 保存隐藏项目列表
-                if (this.hiddenProjects && this.hiddenProjects.length > 0) {
-                    const hiddenObj = {};
-                    this.hiddenProjects.forEach((projectId, index) => {
-                        hiddenObj[`hidden_${index}`] = projectId;
-                    });
-                    await firebaseManager.setData(`users/${userKey}/hiddenProjects`, hiddenObj);
-                }
+                localStorage.setItem('current_user', JSON.stringify(this.currentUser));
             }
-            
         } catch (error) {
-            console.error('保存到Firebase失败:', error);
+            console.error('保存数据失败:', error);
         }
-    }
-    
-    // 保存数据到本地存储（兼容性方法）
-    saveLocalData() {
-        this.saveToLocalStorage();
     }
 
     // 初始化UI事件
@@ -697,7 +344,7 @@ class VotingApp {
                         this.addPointsHistory('initial', 1000, '新用户注册奖励');
                     }
                     
-                    await this.saveData();
+                    this.saveLocalData();
                     this.updateLoginButton();
                     this.renderProjects();
                     showCustomAlert(`欢迎，${this.currentUser.username || this.currentUser.uid}！`, '登录成功', '🎉');
@@ -972,7 +619,7 @@ class VotingApp {
             }
         }
         
-        await this.saveData();
+        this.saveLocalData();
         this.updateUserPointsDisplay();
         this.renderProjects();
         
@@ -1074,7 +721,7 @@ class VotingApp {
     }
 
     // 处理创建项目
-    async handleCreateProject(e) {
+    handleCreateProject(e) {
         e.preventDefault();
         
         if (!this.currentUser) {
@@ -1164,7 +811,7 @@ class VotingApp {
         }
 
         // 保存数据并更新显示
-        await this.saveData();
+        this.saveLocalData();
         this.updateUserPointsDisplay();
 
         // 重置表单
@@ -1177,7 +824,7 @@ class VotingApp {
     }
 
     // 处理投票
-    async handleVote(projectId, option, votePoints) {
+    handleVote(projectId, option, votePoints) {
         if (!this.currentUser) {
             showCustomAlert('请先登录', '登录提示', '🔐');
             return;
@@ -1257,7 +904,7 @@ class VotingApp {
         this.frozenPoints += votePoints; // 增加到冻结积分
         this.addPointsHistory('vote_freeze', -votePoints, `投票冻结积分 - ${project.title} (${option === 'yes' ? '是' : '否'}, 冻结${votePoints}积分)`);
         
-        await this.saveData();
+        this.saveLocalData();
         this.updateUserPointsDisplay();
         this.renderProjects();
         
@@ -1266,7 +913,7 @@ class VotingApp {
     }
 
     // 处理提现
-    async handleWithdraw(e) {
+    handleWithdraw(e) {
         e.preventDefault();
         
         if (!this.currentUser) {
@@ -1315,7 +962,7 @@ class VotingApp {
         this.userPoints -= totalDeduction;
         this.addPointsHistory('withdraw', -totalDeduction, `提现 ${amount} 积分 (含手续费 ${fee})`);
         
-        await this.saveData();
+        this.saveLocalData();
         this.updateUserPointsDisplay();
         
         // 关闭模态框
@@ -1706,7 +1353,7 @@ function selectVoteOption(option) {
     }
 }
 
-async function submitVote(projectId) {
+function submitVote(projectId) {
     if (!selectedVoteOption) {
         showCustomAlert('请选择投票选项', '选择错误', '⚠️');
         return;
@@ -1718,7 +1365,7 @@ async function submitVote(projectId) {
         return;
     }
     
-    await app.handleVote(projectId, selectedVoteOption, votePoints);
+    app.handleVote(projectId, selectedVoteOption, votePoints);
     selectedVoteOption = null;
 }
 
@@ -1826,7 +1473,7 @@ async function createPiPayment(amount) {
             app.userPoints += amount;
             app.addPointsHistory('recharge', amount, `Pi Network充值 ${amount} Pi`);
             app.updateUserPointsDisplay();
-            await app.saveData();
+            app.saveLocalData();
             
             closeModal('rechargeModal');
             return;
@@ -1901,7 +1548,7 @@ async function completePaymentOnServer(paymentId, txid, amount) {
         app.userPoints += amount;
         app.addPointsHistory('recharge', amount, `Pi Network充值 ${amount} Pi (TxID: ${txid})`);
         app.updateUserPointsDisplay();
-        await app.saveData();
+        app.saveLocalData();
         
         showCustomAlert(`充值成功！\n充值金额: ${amount} Pi\n交易ID: ${txid}\n积分已到账`, '充值成功', '🎉');
         closeModal('rechargeModal');
@@ -2181,7 +1828,7 @@ async function deleteProject(projectId) {
     app.hiddenProjects = app.hiddenProjects.filter(hiddenKey => !hiddenKey.endsWith(`_${projectId}`));
     
     // 保存数据并更新显示
-    await app.saveData();
+    app.saveLocalData();
     app.updateUserPointsDisplay();
     app.renderProjects();
     
@@ -2224,7 +1871,7 @@ async function deleteParticipatedProject(projectId) {
         app.hiddenProjects.push(hiddenProjectKey);
     }
     
-    await app.saveData();
+    app.saveLocalData();
     app.renderProjects();
     
     showCustomAlert('项目已从参与列表中删除', '删除成功', '🗑️');
@@ -2407,7 +2054,7 @@ async function pauseProject(projectId) {
     const confirmed = await showCustomConfirm(`确定要暂停项目"${project.title}"吗？暂停后其他用户将无法投票。`, '确认暂停项目', '⏸️');
     if (confirmed) {
         project.isPaused = true;
-        await app.saveData();
+        app.saveLocalData();
         app.renderProjects();
         showCustomAlert('项目已暂停', '暂停成功', '⏸️');
     }
@@ -2450,7 +2097,7 @@ async function restartProject(projectId) {
     const confirmed = await showCustomConfirm(`确定要重启项目"${project.title}"吗？重启后其他用户可以继续投票。`, '确认重启项目', '▶️');
     if (confirmed) {
         project.isPaused = false;
-        await app.saveData();
+        app.saveLocalData();
         app.renderProjects();
         showCustomAlert('项目已重启', '重启成功', '▶️');
     }
