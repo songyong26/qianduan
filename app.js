@@ -171,35 +171,12 @@ const piSDK = {
 class VotingApp {
     constructor() {
         this.currentUser = null;
-        this.projects = []; // 已发布的项目
-        this.pendingProjects = []; // 待审核的项目
-        this.pendingResults = []; // 待审核的公布结果请求
+        this.projects = [];
         this.userVotes = [];
         this.userPoints = 1000; // 初始积分
         this.frozenPoints = 0; // 冻结积分
         this.pointsHistory = []; // 积分历史记录
         this.hiddenProjects = []; // 用户隐藏的项目列表
-        this.adminUsers = ['sjf88888888']; // 管理员用户名列表
-        
-        // 初始化 JSONBin 存储服务
-        this.storage = new JSONBinStorage();
-        this.isOnline = navigator.onLine;
-        
-        // 数据刷新定时器
-        this.refreshTimer = null;
-        this.refreshInterval = 30000; // 30秒刷新一次
-        
-        // 监听网络状态变化
-        window.addEventListener('online', () => {
-            this.isOnline = true;
-            this.syncDataToRemote();
-            this.startAutoRefresh(); // 网络恢复时启动自动刷新
-        });
-        window.addEventListener('offline', () => {
-            this.isOnline = false;
-            this.stopAutoRefresh(); // 网络断开时停止自动刷新
-        });
-        
         this.init();
     }
 
@@ -210,19 +187,16 @@ class VotingApp {
                 await piSDK.init();
             }
             
-            // 加载数据（异步）
-            await this.loadLocalData();
+
+            
+            // 加载本地数据
+            this.loadLocalData();
             
             // 初始化UI
             this.initializeUI();
             
             // 渲染项目列表
             this.renderProjects();
-            
-            // 启动自动刷新（仅在在线时）
-            if (this.isOnline) {
-                this.startAutoRefresh();
-            }
             
             console.log('应用初始化完成');
         } catch (error) {
@@ -232,68 +206,11 @@ class VotingApp {
     
 
 
-    // 加载数据（优先从远程加载，失败时使用本地数据）
-    async loadLocalData() {
+    // 加载本地存储数据
+    loadLocalData() {
         try {
-            // 显示加载状态
-            this.showLoadingStatus('正在加载数据...');
-            
-            if (this.isOnline) {
-                // 尝试从远程加载数据
-                await this.loadRemoteData();
-            } else {
-                // 离线时从本地加载
-                this.loadLocalStorageData();
-            }
-            
-            this.hideLoadingStatus();
-        } catch (error) {
-            console.error('加载数据失败:', error);
-            // 降级到本地存储
-            this.loadLocalStorageData();
-            this.hideLoadingStatus();
-        }
-    }
-    
-    // 从远程 JSONBin.io 加载数据
-    async loadRemoteData() {
-        try {
-            // 并行加载所有数据
-            const [projects, pendingProjects, pendingResults] = await Promise.all([
-                this.storage.loadData('votingProjects'),
-                this.storage.loadData('pendingProjects'),
-                this.storage.loadData('pendingResults')
-            ]);
-            
-            // 设置项目数据
-            this.projects = projects || [];
-            this.projects.forEach(project => {
-                if (!project.voteDetails) {
-                    project.voteDetails = [];
-                }
-                if (!project.votes) {
-                    project.votes = { yes: 0, no: 0 };
-                }
-            });
-            
-            this.pendingProjects = pendingProjects || [];
-            this.pendingResults = pendingResults || [];
-            
-            // 本地用户数据仍从 localStorage 加载
-            this.loadLocalUserData();
-            
-            console.log('远程数据加载成功');
-        } catch (error) {
-            console.error('远程数据加载失败:', error);
-            throw error;
-        }
-    }
-    
-    // 从本地存储加载数据
-    loadLocalStorageData() {
-        try {
-            // 加载已发布项目数据（全局共享）
-            const savedProjects = localStorage.getItem('global_voting_projects');
+            // 加载项目数据
+            const savedProjects = localStorage.getItem('voting_projects');
             if (savedProjects) {
                 this.projects = JSON.parse(savedProjects);
                 // 确保所有项目都有必要的属性
@@ -307,27 +224,6 @@ class VotingApp {
                 });
             }
 
-            // 加载待审核项目数据（全局共享）
-            const savedPendingProjects = localStorage.getItem('global_pending_projects');
-            if (savedPendingProjects) {
-                this.pendingProjects = JSON.parse(savedPendingProjects);
-            }
-
-            // 加载待审核的公布结果请求（全局共享）
-            const savedPendingResults = localStorage.getItem('global_pending_results');
-            if (savedPendingResults) {
-                this.pendingResults = JSON.parse(savedPendingResults);
-            }
-            
-            this.loadLocalUserData();
-        } catch (error) {
-            console.error('加载本地数据失败:', error);
-        }
-    }
-    
-    // 加载本地用户数据
-    loadLocalUserData() {
-        try {
             // 加载用户投票记录
             const savedVotes = localStorage.getItem('user_votes');
             if (savedVotes) {
@@ -367,96 +263,14 @@ class VotingApp {
                 this.hiddenProjects = JSON.parse(savedHiddenProjects);
             }
         } catch (error) {
-            console.error('加载用户数据失败:', error);
+            console.error('加载本地数据失败:', error);
         }
     }
 
-    // 启动自动刷新
-    startAutoRefresh() {
-        if (this.refreshTimer) {
-            clearInterval(this.refreshTimer);
-        }
-        
-        this.refreshTimer = setInterval(async () => {
-            if (this.isOnline) {
-                try {
-                    console.log('自动刷新数据...');
-                    await this.refreshData();
-                } catch (error) {
-                    console.error('自动刷新失败:', error);
-                }
-            }
-        }, this.refreshInterval);
-        
-        console.log('自动刷新已启动，间隔:', this.refreshInterval / 1000, '秒');
-    }
-    
-    // 停止自动刷新
-    stopAutoRefresh() {
-        if (this.refreshTimer) {
-            clearInterval(this.refreshTimer);
-            this.refreshTimer = null;
-            console.log('自动刷新已停止');
-        }
-    }
-    
-    // 刷新数据（仅刷新共享数据，不影响用户个人数据）
-    async refreshData() {
+    // 保存数据到本地存储
+    saveLocalData() {
         try {
-            // 只刷新共享数据：项目、待审核项目、待审核结果
-            const [projects, pendingProjects, pendingResults] = await Promise.all([
-                this.storage.loadData('votingProjects', false), // 强制从远程加载
-                this.storage.loadData('pendingProjects', false),
-                this.storage.loadData('pendingResults', false)
-            ]);
-            
-            // 更新共享数据
-            this.projects = projects || [];
-            this.projects.forEach(project => {
-                if (!project.voteDetails) {
-                    project.voteDetails = [];
-                }
-                if (!project.votes) {
-                    project.votes = { yes: 0, no: 0 };
-                }
-            });
-            
-            this.pendingProjects = pendingProjects || [];
-            this.pendingResults = pendingResults || [];
-            
-            // 重新渲染界面
-            this.renderProjects();
-            if (this.isAdmin()) {
-                this.renderAdminPanel();
-            }
-            
-            console.log('数据刷新成功');
-        } catch (error) {
-            console.error('数据刷新失败:', error);
-        }
-    }
-    
-    // 保存数据（同时保存到远程和本地）
-    async saveLocalData() {
-        try {
-            // 先保存到本地存储（确保数据不丢失）
-            this.saveToLocalStorage();
-            
-            // 如果在线，尝试同步到远程
-            if (this.isOnline) {
-                await this.syncDataToRemote();
-            }
-        } catch (error) {
-            console.error('保存数据失败:', error);
-        }
-    }
-    
-    // 保存到本地存储
-    saveToLocalStorage() {
-        try {
-            localStorage.setItem('global_voting_projects', JSON.stringify(this.projects));
-            localStorage.setItem('global_pending_projects', JSON.stringify(this.pendingProjects));
-            localStorage.setItem('global_pending_results', JSON.stringify(this.pendingResults));
+            localStorage.setItem('voting_projects', JSON.stringify(this.projects));
             localStorage.setItem('user_votes', JSON.stringify(this.userVotes));
             localStorage.setItem('user_points', this.userPoints.toString());
             localStorage.setItem('frozen_points', this.frozenPoints.toString());
@@ -466,45 +280,16 @@ class VotingApp {
                 localStorage.setItem('current_user', JSON.stringify(this.currentUser));
             }
         } catch (error) {
-            console.error('保存到本地存储失败:', error);
+            console.error('保存数据失败:', error);
         }
-    }
-    
-    // 同步数据到远程存储
-    async syncDataToRemote() {
-        try {
-            // 并行保存全局数据到远程
-            await Promise.all([
-                this.storage.saveData('votingProjects', this.projects),
-                this.storage.saveData('pendingProjects', this.pendingProjects),
-                this.storage.saveData('pendingResults', this.pendingResults)
-            ]);
-            
-            console.log('数据同步到远程成功');
-        } catch (error) {
-            console.error('同步数据到远程失败:', error);
-            // 不抛出错误，因为本地数据已保存
-        }
-    }
-    
-    // 显示加载状态
-    showLoadingStatus(message) {
-        // 可以在这里添加加载指示器
-        console.log(message);
-    }
-    
-    // 隐藏加载状态
-    hideLoadingStatus() {
-        // 隐藏加载指示器
-        console.log('数据加载完成');
     }
 
     // 初始化UI事件
     initializeUI() {
-        // 创建项目表单
+        // 创建项目表单提交
         const createForm = document.getElementById('createProjectForm');
         if (createForm) {
-            createForm.addEventListener('submit', (e) => this.handleSubmitProject(e));
+            createForm.addEventListener('submit', (e) => this.handleCreateProject(e));
         }
 
         // 提现表单提交
@@ -520,115 +305,8 @@ class VotingApp {
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
             endTimeInput.min = now.toISOString().slice(0, 16);
         }
-    }
 
-    // 检查是否为管理员
-    isAdmin() {
-        if (!this.currentUser) return false;
-        const username = this.currentUser.username || this.currentUser.uid;
-        return this.adminUsers.includes(username);
-    }
-
-    // 全局用户积分管理 - 冻结用户积分
-    freezeUserPoints(userId, points, description) {
-        try {
-            // 获取全局用户积分数据
-            const globalUserPoints = JSON.parse(localStorage.getItem('global_user_points') || '{}');
-            const globalFrozenPoints = JSON.parse(localStorage.getItem('global_frozen_points') || '{}');
-            const globalPointsHistory = JSON.parse(localStorage.getItem('global_points_history') || '{}');
-            
-            // 初始化用户数据（如果不存在）
-            if (!globalUserPoints[userId]) {
-                globalUserPoints[userId] = 1000; // 默认初始积分
-            }
-            if (!globalFrozenPoints[userId]) {
-                globalFrozenPoints[userId] = 0;
-            }
-            if (!globalPointsHistory[userId]) {
-                globalPointsHistory[userId] = [];
-            }
-            
-            // 检查用户积分是否足够
-            if (globalUserPoints[userId] < points) {
-                console.warn(`用户 ${userId} 积分不足，无法冻结 ${points} 积分`);
-                return false;
-            }
-            
-            // 冻结积分
-            globalFrozenPoints[userId] += points;
-            
-            // 添加积分历史记录
-            const historyItem = {
-                id: Date.now(),
-                type: 'project_freeze',
-                points: 0,
-                description: description,
-                timestamp: new Date().toISOString(),
-                balance: globalUserPoints[userId]
-            };
-            globalPointsHistory[userId].unshift(historyItem);
-            
-            // 限制历史记录数量
-            if (globalPointsHistory[userId].length > 100) {
-                globalPointsHistory[userId] = globalPointsHistory[userId].slice(0, 100);
-            }
-            
-            // 保存到localStorage
-            localStorage.setItem('global_user_points', JSON.stringify(globalUserPoints));
-            localStorage.setItem('global_frozen_points', JSON.stringify(globalFrozenPoints));
-            localStorage.setItem('global_points_history', JSON.stringify(globalPointsHistory));
-            
-            return true;
-        } catch (error) {
-            console.error('冻结用户积分失败:', error);
-            return false;
-        }
-    }
-
-    // 全局用户积分管理 - 解冻用户积分
-    unfreezeUserPoints(userId, points, description) {
-        try {
-            const globalFrozenPoints = JSON.parse(localStorage.getItem('global_frozen_points') || '{}');
-            const globalPointsHistory = JSON.parse(localStorage.getItem('global_points_history') || '{}');
-            
-            if (!globalFrozenPoints[userId]) {
-                globalFrozenPoints[userId] = 0;
-            }
-            if (!globalPointsHistory[userId]) {
-                globalPointsHistory[userId] = [];
-            }
-            
-            // 解冻积分
-            globalFrozenPoints[userId] = Math.max(0, globalFrozenPoints[userId] - points);
-            
-            // 添加积分历史记录
-            const historyItem = {
-                id: Date.now(),
-                type: 'project_unfreeze',
-                points: 0,
-                description: description,
-                timestamp: new Date().toISOString(),
-                balance: JSON.parse(localStorage.getItem('global_user_points') || '{}')[userId] || 1000
-            };
-            globalPointsHistory[userId].unshift(historyItem);
-            
-            // 保存到localStorage
-            localStorage.setItem('global_frozen_points', JSON.stringify(globalFrozenPoints));
-            localStorage.setItem('global_points_history', JSON.stringify(globalPointsHistory));
-            
-            return true;
-        } catch (error) {
-            console.error('解冻用户积分失败:', error);
-            return false;
-        }
-    }
-
-    // 显示/隐藏管理员面板
-    toggleAdminPanel() {
-        const adminPanel = document.getElementById('adminPanel');
-        if (adminPanel) {
-            adminPanel.style.display = this.isAdmin() ? 'block' : 'none';
-        }
+        // 项目标题输入框不再限制输入，只在提交时验证
     }
 
     // 处理登录/退出
@@ -771,7 +449,7 @@ class VotingApp {
         }
         
         if (project.creatorId !== this.currentUser.uid) {
-            showCustomAlert('只有项目创建者可以提交公布结果申请', '权限不足', '🚫');
+            showCustomAlert('只有项目创建者可以公布结果', '权限不足', '🚫');
             return;
         }
         
@@ -782,7 +460,7 @@ class VotingApp {
         });
         
         if (isDeleted) {
-            showCustomAlert('该项目已被删除，无法提交公布结果申请', '操作失败', '❌');
+            showCustomAlert('该项目已被删除，无法公布结果', '操作失败', '❌');
             return;
         }
         
@@ -791,12 +469,7 @@ class VotingApp {
             return;
         }
         
-        // 检查是否已经提交过公布结果申请
-        const existingRequest = this.pendingResults.find(r => r.projectId === projectId && r.status === 'pending');
-        if (existingRequest) {
-            showCustomAlert('已提交过公布结果申请，请等待管理员审核', '提示', 'ℹ️');
-            return;
-        }
+        // 移除项目结束时间限制，允许有投票时就可以公布结果
         
         const modal = document.getElementById('publishResultModal');
         const content = document.getElementById('publishResultContent');
@@ -815,59 +488,15 @@ class VotingApp {
                     <div>总计：${totalVotes} 积分</div>
                 </div>
                 <p>冻结积分：${project.frozenPoints || 0}</p>
-                <p>请选择实际结果并提交审核：</p>
+                <p>请选择实际结果：</p>
                 <div class="result-options">
-                    <button class="btn-result" onclick="submitResultForReview('${projectId}', 'yes')">提交结果：是</button>
-                    <button class="btn-result" onclick="submitResultForReview('${projectId}', 'no')">提交结果：否</button>
+                    <button class="btn-result" onclick="publishResult('${projectId}', 'yes')">是</button>
+                    <button class="btn-result" onclick="publishResult('${projectId}', 'no')">否</button>
                 </div>
-                <p style="color: #ffc107; font-size: 12px; margin-top: 10px;">注意：提交后需要管理员审核通过才能正式公布结果并结算积分</p>
             </div>
         `;
         
         modal.style.display = 'block';
-    }
-
-    // 提交公布结果审核请求
-    submitResultForReview(projectId, result) {
-        const project = this.projects.find(p => p.id === projectId);
-        if (!project) {
-            showCustomAlert('项目不存在', '错误', '❌');
-            return;
-        }
-        
-        if (project.creatorId !== this.currentUser.uid) {
-            showCustomAlert('只有项目创建者可以提交公布结果申请', '权限不足', '🚫');
-            return;
-        }
-        
-        // 检查是否已经提交过申请
-        const existingRequest = this.pendingResults.find(r => r.projectId === projectId && r.status === 'pending');
-        if (existingRequest) {
-            showCustomAlert('已提交过公布结果申请，请等待管理员审核', '提示', 'ℹ️');
-            return;
-        }
-        
-        // 创建审核请求
-        const resultRequest = {
-            id: 'result_' + Date.now(),
-            projectId: projectId,
-            projectTitle: project.title,
-            creatorId: project.creatorId,
-            creatorName: this.currentUser.username || this.currentUser.uid,
-            result: result,
-            submittedAt: new Date().toISOString(),
-            status: 'pending', // pending, approved, rejected
-            reviewedAt: null,
-            reviewedBy: null,
-            rejectReason: null
-        };
-        
-        this.pendingResults.push(resultRequest);
-        this.saveLocalData();
-        this.renderAdminPanel();
-        
-        closeModal('publishResultModal');
-        showCustomAlert(`公布结果申请已提交！\n项目：${project.title}\n结果：${result === 'yes' ? '是' : '否'}\n\n请等待管理员审核。`, '提交成功', '📋');
     }
 
     // 公布项目结果并分配奖励
@@ -1036,11 +665,6 @@ class VotingApp {
                 // 登录后显示充值和提现按钮
                 if (rechargeBtn) rechargeBtn.style.display = 'inline-block';
                 if (withdrawBtn) withdrawBtn.style.display = 'inline-block';
-                
-                // 检查管理员权限并显示管理员面板
-                this.toggleAdminPanel();
-                this.renderAdminPanel();
-                this.renderMySubmissions();
             } else {
                 loginBtn.textContent = '登录';
                 loginBtn.className = 'btn btn-primary';
@@ -1052,15 +676,12 @@ class VotingApp {
                 // 未登录时隐藏充值和提现按钮
                 if (rechargeBtn) rechargeBtn.style.display = 'none';
                 if (withdrawBtn) withdrawBtn.style.display = 'none';
-                
-                // 隐藏管理员面板
-                this.toggleAdminPanel();
             }
         }
     }
 
-    // 处理提交项目审核
-    handleSubmitProject(e) {
+    // 处理创建项目
+    handleCreateProject(e) {
         e.preventDefault();
         
         if (!this.currentUser) {
@@ -1068,6 +689,7 @@ class VotingApp {
             return;
         }
 
+        const formData = new FormData(e.target);
         const title = document.getElementById('projectTitle').value.trim();
         const description = document.getElementById('projectDescription').value.trim();
         const endTime = document.getElementById('endTime').value;
@@ -1096,344 +718,67 @@ class VotingApp {
             return;
         }
 
-        // 检查最低积分要求
-        if (maxPoints < 100) {
-            showCustomAlert('项目最低要求100积分', '积分不足', '💰');
+        // 创建新项目（移除编辑功能）
+        if (this.editingProjectId) {
+            showCustomAlert('编辑模式下无法创建新项目，请先取消编辑', '操作提示', 'ℹ️');
             return;
         }
         
-        // 检查用户积分是否足够（使用全局用户积分管理）
-        const globalUserPoints = JSON.parse(localStorage.getItem('global_user_points') || '{}');
-        const userTotalPoints = globalUserPoints[this.currentUser.uid] || 1000; // 默认初始积分
-        
-        if (maxPoints > userTotalPoints) {
-            showCustomAlert(`积分不足，当前积分：${userTotalPoints}`, '积分不足', '💰');
-            return;
-        }
-        
-        // 检查用户可用积分（总积分 - 冻结积分）
-        const globalFrozenPoints = JSON.parse(localStorage.getItem('global_frozen_points') || '{}');
-        const userFrozenPoints = globalFrozenPoints[this.currentUser.uid] || 0;
-        const availablePoints = userTotalPoints - userFrozenPoints;
-        
-        if (maxPoints > availablePoints) {
-            showCustomAlert(`可用积分不足，当前可用积分：${availablePoints}（总积分：${userTotalPoints}，冻结积分：${userFrozenPoints}）`, '积分不足', '💰');
-            return;
+        {
+            // 检查最低积分要求
+            if (maxPoints < 100) {
+                showCustomAlert('项目最低要求100积分', '积分不足', '💰');
+                return;
+            }
+            
+            // 创建新项目
+            if (maxPoints > this.userPoints) {
+                showCustomAlert(`积分不足，当前积分：${this.userPoints}`, '积分不足', '💰');
+                return;
+            }
+
+            const project = {
+                id: Date.now().toString(),
+                title,
+                description,
+                endTime,
+                maxPoints,
+                creatorId: this.currentUser.uid,
+                creatorName: this.currentUser.username || this.currentUser.uid,
+                createdAt: new Date().toISOString(),
+                frozenPoints: parseInt(maxPoints), // 冻结的积分
+                votes: {
+                    yes: 0,
+                    no: 0
+                },
+                voters: [],
+                voteDetails: [], // 投票详情
+                status: 'active',
+                result: null, // 发起人公布的结果
+                resultPublished: false // 是否已公布结果
+            };
+
+            // 冻结积分（不扣除总积分，只增加冻结积分）
+            this.frozenPoints += maxPoints;
+            this.addPointsHistory('project_freeze', 0, `创建项目冻结积分 - ${title} (冻结${maxPoints}积分)`);
+            
+            // 添加项目
+            this.projects.unshift(project);
+            
+            showCustomAlert(`项目创建成功！已冻结${maxPoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '创建成功', '🎉');
         }
 
-        // 创建待审核项目
-        const pendingProject = {
-            id: Date.now().toString(),
-            title,
-            description,
-            endTime,
-            maxPoints,
-            creatorId: this.currentUser.uid,
-            creatorName: this.currentUser.username || this.currentUser.uid,
-            submittedAt: new Date().toISOString(),
-            status: 'pending', // pending, approved, rejected
-            reviewedAt: null,
-            reviewedBy: null,
-            rejectReason: null
-        };
-
-        // 添加到待审核列表
-        this.pendingProjects.unshift(pendingProject);
-        
-        // 保存数据
+        // 保存数据并更新显示
         this.saveLocalData();
-        
+        this.updateUserPointsDisplay();
+
         // 重置表单
         e.target.reset();
         
-        // 更新显示
-        this.renderAdminPanel();
-        this.renderMySubmissions();
-        
-        showCustomAlert('项目已提交审核，请等待管理员审核通过后发布', '提交成功', '📝');
-    }
-
-    // 渲染管理员审核面板
-    renderAdminPanel() {
-        if (!this.isAdmin()) return;
-        
-        const pendingCount = document.getElementById('pendingCount');
-        const publishedCount = document.getElementById('publishedCount');
-        const pendingList = document.getElementById('pendingProjectsList');
-        
-        if (pendingCount) {
-            const pending = this.pendingProjects.filter(p => p.status === 'pending').length;
-            const pendingResults = this.pendingResults.filter(r => r.status === 'pending').length;
-            pendingCount.textContent = pending + pendingResults;
-        }
-        
-        if (publishedCount) {
-            publishedCount.textContent = this.projects.length;
-        }
-        
-        if (pendingList) {
-            const pendingProjects = this.pendingProjects.filter(p => p.status === 'pending');
-            const pendingResults = this.pendingResults.filter(r => r.status === 'pending');
-            
-            let content = '';
-            
-            // 显示待审核项目
-            if (pendingProjects.length > 0) {
-                content += '<h4 style="margin: 10px 0; color: #333;">📋 待审核项目</h4>';
-                content += pendingProjects.map(project => `
-                    <div class="pending-project-item">
-                        <div class="pending-project-header">
-                            <div class="pending-project-title">${project.title}</div>
-                            <div class="pending-project-status">待审核</div>
-                        </div>
-                        <div class="pending-project-info">
-                            <div>提交者：${project.creatorName}</div>
-                            <div>描述：${project.description || '无'}</div>
-                            <div>截止时间：${new Date(project.endTime).toLocaleString('zh-CN')}</div>
-                            <div>所需积分：${project.maxPoints}</div>
-                            <div>提交时间：${new Date(project.submittedAt).toLocaleString('zh-CN')}</div>
-                        </div>
-                        <div class="pending-project-actions">
-                            <button class="btn-approve" onclick="app.approveProject('${project.id}')">通过</button>
-                            <button class="btn-reject" onclick="app.rejectProject('${project.id}')">拒绝</button>
-                        </div>
-                    </div>
-                `).join('');
-            }
-            
-            // 显示待审核公布结果
-            if (pendingResults.length > 0) {
-                content += '<h4 style="margin: 20px 0 10px 0; color: #333;">📊 待审核公布结果</h4>';
-                content += pendingResults.map(result => `
-                    <div class="pending-project-item">
-                        <div class="pending-project-header">
-                            <div class="pending-project-title">${result.projectTitle}</div>
-                            <div class="pending-project-status">待审核结果</div>
-                        </div>
-                        <div class="pending-project-info">
-                            <div>提交者：${result.creatorName}</div>
-                            <div>公布结果：${result.result === 'yes' ? '是' : '否'}</div>
-                            <div>提交时间：${new Date(result.submittedAt).toLocaleString('zh-CN')}</div>
-                        </div>
-                        <div class="pending-project-actions">
-                            <button class="btn-approve" onclick="app.approveResultPublication('${result.id}')">通过</button>
-                            <button class="btn-reject" onclick="app.rejectResultPublication('${result.id}')">拒绝</button>
-                        </div>
-                    </div>
-                `).join('');
-            }
-            
-            if (pendingProjects.length === 0 && pendingResults.length === 0) {
-                content = '<div class="no-pending">暂无待审核项目和结果</div>';
-            }
-            
-            pendingList.innerHTML = content;
-        }
-    }
-
-    // 审核通过项目
-    approveProject(projectId) {
-        if (!this.isAdmin()) {
-            showCustomAlert('权限不足', '错误', '❌');
-            return;
-        }
-        
-        const projectIndex = this.pendingProjects.findIndex(p => p.id === projectId);
-        if (projectIndex === -1) {
-            showCustomAlert('项目不存在', '错误', '❌');
-            return;
-        }
-        
-        const pendingProject = this.pendingProjects[projectIndex];
-        
-        // 创建正式项目
-        const project = {
-            id: pendingProject.id,
-            title: pendingProject.title,
-            description: pendingProject.description,
-            endTime: pendingProject.endTime,
-            maxPoints: pendingProject.maxPoints,
-            creatorId: pendingProject.creatorId,
-            creatorName: pendingProject.creatorName,
-            createdAt: new Date().toISOString(),
-            frozenPoints: parseInt(pendingProject.maxPoints),
-            votes: { yes: 0, no: 0 },
-            voters: [],
-            voteDetails: [],
-            status: 'active',
-            result: null,
-            resultPublished: false,
-            approvedBy: this.currentUser.username || this.currentUser.uid,
-            approvedAt: new Date().toISOString()
-        };
-        
-        // 添加到正式项目列表
-        this.projects.unshift(project);
-        
-        // 更新待审核项目状态
-        pendingProject.status = 'approved';
-        pendingProject.reviewedAt = new Date().toISOString();
-        pendingProject.reviewedBy = this.currentUser.username || this.currentUser.uid;
-        
-        // 冻结项目创建者的积分（全局用户积分管理）
-        this.freezeUserPoints(pendingProject.creatorId, pendingProject.maxPoints, `项目审核通过冻结积分 - ${pendingProject.title}`);
-        
-        // 如果当前用户就是项目创建者，更新当前用户的积分显示
-        if (pendingProject.creatorId === this.currentUser.uid) {
-            this.frozenPoints += pendingProject.maxPoints;
-            this.addPointsHistory('project_freeze', 0, `项目审核通过冻结积分 - ${pendingProject.title} (冻结${pendingProject.maxPoints}积分)`);
-        }
-        
-        this.saveLocalData();
+        // 刷新显示
+        console.log('项目创建后，当前项目数量:', this.projects.length);
+        console.log('最新项目:', this.projects[0]);
         this.renderProjects();
-        this.renderAdminPanel();
-        this.renderMySubmissions();
-        
-        showCustomAlert(`项目"${pendingProject.title}"审核通过，已发布`, '审核成功', '✅');
-    }
-
-    // 拒绝项目
-    rejectProject(projectId) {
-        if (!this.isAdmin()) {
-            showCustomAlert('权限不足', '错误', '❌');
-            return;
-        }
-        
-        const reason = prompt('请输入拒绝原因：');
-        if (!reason) return;
-        
-        const projectIndex = this.pendingProjects.findIndex(p => p.id === projectId);
-        if (projectIndex === -1) {
-            showCustomAlert('项目不存在', '错误', '❌');
-            return;
-        }
-        
-        const pendingProject = this.pendingProjects[projectIndex];
-        
-        // 更新项目状态
-        pendingProject.status = 'rejected';
-        pendingProject.reviewedAt = new Date().toISOString();
-        pendingProject.reviewedBy = this.currentUser.username || this.currentUser.uid;
-        pendingProject.rejectReason = reason;
-        
-        // 解冻项目创建者的积分（全局用户积分管理）
-        this.unfreezeUserPoints(pendingProject.creatorId, pendingProject.maxPoints, `项目审核拒绝解冻积分 - ${pendingProject.title}`);
-        
-        // 如果当前用户就是项目创建者，更新当前用户的积分显示
-        if (pendingProject.creatorId === this.currentUser.uid) {
-            this.frozenPoints = Math.max(0, this.frozenPoints - pendingProject.maxPoints);
-            this.addPointsHistory('project_unfreeze', 0, `项目审核拒绝解冻积分 - ${pendingProject.title} (解冻${pendingProject.maxPoints}积分)`);
-        }
-        
-        this.saveLocalData();
-        this.renderAdminPanel();
-        this.renderMySubmissions();
-        
-        showCustomAlert(`项目"${pendingProject.title}"已拒绝`, '审核完成', '❌');
-    }
-
-    // 审核通过公布结果申请
-    approveResultPublication(resultId) {
-        if (!this.isAdmin()) {
-            showCustomAlert('权限不足', '错误', '❌');
-            return;
-        }
-        
-        const resultIndex = this.pendingResults.findIndex(r => r.id === resultId);
-        if (resultIndex === -1) {
-            showCustomAlert('申请不存在', '错误', '❌');
-            return;
-        }
-        
-        const resultRequest = this.pendingResults[resultIndex];
-        
-        // 更新申请状态
-        resultRequest.status = 'approved';
-        resultRequest.reviewedAt = new Date().toISOString();
-        resultRequest.reviewedBy = this.currentUser.username || this.currentUser.uid;
-        
-        // 执行实际的公布结果操作
-        this.publishProjectResult(resultRequest.projectId, resultRequest.result);
-        
-        this.saveLocalData();
-        this.renderAdminPanel();
-        this.renderProjects();
-        this.renderMyProjects();
-        
-        showCustomAlert(`项目"${resultRequest.projectTitle}"的公布结果申请已通过`, '审核成功', '✅');
-    }
-
-    // 拒绝公布结果申请
-    rejectResultPublication(resultId) {
-        if (!this.isAdmin()) {
-            showCustomAlert('权限不足', '错误', '❌');
-            return;
-        }
-        
-        const reason = prompt('请输入拒绝原因：');
-        if (!reason) return;
-        
-        const resultIndex = this.pendingResults.findIndex(r => r.id === resultId);
-        if (resultIndex === -1) {
-            showCustomAlert('申请不存在', '错误', '❌');
-            return;
-        }
-        
-        const resultRequest = this.pendingResults[resultIndex];
-        
-        // 更新申请状态
-        resultRequest.status = 'rejected';
-        resultRequest.reviewedAt = new Date().toISOString();
-        resultRequest.reviewedBy = this.currentUser.username || this.currentUser.uid;
-        resultRequest.rejectReason = reason;
-        
-        this.saveLocalData();
-        this.renderAdminPanel();
-        
-        showCustomAlert(`项目"${resultRequest.projectTitle}"的公布结果申请已拒绝`, '审核完成', '❌');
-    }
-
-    // 渲染我提交的项目
-    renderMySubmissions() {
-        if (!this.currentUser) return;
-        
-        const mySubmissionsList = document.getElementById('mySubmissionsList');
-        if (!mySubmissionsList) return;
-        
-        const mySubmissions = this.pendingProjects.filter(p => p.creatorId === this.currentUser.uid);
-        
-        if (mySubmissions.length === 0) {
-            mySubmissionsList.innerHTML = '<div class="no-submissions">暂无提交的项目</div>';
-        } else {
-            mySubmissionsList.innerHTML = mySubmissions.map(project => {
-                let statusClass = 'status-pending';
-                let statusText = '待审核';
-                
-                if (project.status === 'approved') {
-                    statusClass = 'status-approved';
-                    statusText = '已通过';
-                } else if (project.status === 'rejected') {
-                    statusClass = 'status-rejected';
-                    statusText = '已拒绝';
-                }
-                
-                return `
-                    <div class="submission-item">
-                        <div class="submission-header">
-                            <div class="submission-title">${project.title}</div>
-                            <div class="submission-status ${statusClass}">${statusText}</div>
-                        </div>
-                        <div class="submission-info">描述：${project.description || '无'}</div>
-                        <div class="submission-info">截止时间：${new Date(project.endTime).toLocaleString('zh-CN')}</div>
-                        <div class="submission-info">所需积分：${project.maxPoints}</div>
-                        <div class="submission-info">提交时间：${new Date(project.submittedAt).toLocaleString('zh-CN')}</div>
-                        ${project.reviewedAt ? `<div class="submission-info">审核时间：${new Date(project.reviewedAt).toLocaleString('zh-CN')}</div>` : ''}
-                        ${project.reviewedBy ? `<div class="submission-info">审核人：${project.reviewedBy}</div>` : ''}
-                        ${project.rejectReason ? `<div class="submission-info" style="color: #ff6b6b;">拒绝原因：${project.rejectReason}</div>` : ''}
-                    </div>
-                `;
-            }).join('');
-        }
     }
 
     // 处理投票
@@ -1665,134 +1010,77 @@ class VotingApp {
             return;
         }
 
-        // 我创建的项目（包括已发布的和待审核的）
+        // 我创建的项目（过滤掉隐藏的项目）
         const createdProjects = this.projects.filter(p => {
             const isMyProject = p.creatorId === this.currentUser.uid;
             const hiddenKey = `${this.currentUser.uid}_${p.id}`;
             const isHidden = this.hiddenProjects.includes(hiddenKey);
             return isMyProject && !isHidden;
         });
-        
-        // 我提交的待审核项目（只显示待审核和已拒绝的，已通过的不显示因为会在已发布中显示）
-        const mySubmissions = this.pendingProjects.filter(p => 
-            p.creatorId === this.currentUser.uid && p.status !== 'approved'
-        );
-        
         const createdContainer = document.getElementById('createdProjects');
         
-        // 合并显示已发布项目和待审核项目
-        let allMyProjects = [];
-        
-        // 添加待审核项目（不包括已通过的）
-        mySubmissions.forEach(project => {
-            let statusClass = 'status-pending';
-            let statusText = '待审核';
-            let statusColor = '#856404';
-            
-            if (project.status === 'rejected') {
-                statusClass = 'status-rejected';
-                statusText = '已拒绝';
-                statusColor = '#721c24';
-            }
-            
-            allMyProjects.push({
-                ...project,
-                isPending: true,
-                statusClass,
-                statusText,
-                statusColor,
-                sortTime: new Date(project.submittedAt)
-            });
-        });
-        
-        // 添加已发布项目
-        createdProjects.forEach(project => {
-            let statusText = '进行中';
-            let statusColor = '#dc3545';
-            let statusClass = 'status-active';
-            
-            // 检查是否有待审核的公布结果申请
-            const hasPendingResult = this.pendingResults.some(r => r.projectId === project.id && r.status === 'pending');
-            
-            // 如果项目已公布结果，显示为已结束
-            if (project.resultPublished) {
-                statusText = '已结束';
-                statusColor = '#6c757d';
-                statusClass = 'status-ended';
-            } else if (hasPendingResult) {
-                // 如果有待审核的公布结果申请，显示为待公布结果
-                statusText = '待公布结果';
-                statusColor = '#ffc107';
-                statusClass = 'status-pending-result';
-            }
-            
-            allMyProjects.push({
-                ...project,
-                isPending: false,
-                statusClass,
-                statusText,
-                statusColor,
-                hasPendingResult,
-                sortTime: new Date(project.createdAt)
-            });
-        });
-        
-        // 按时间倒序排列
-        allMyProjects.sort((a, b) => b.sortTime - a.sortTime);
-        
-        if (allMyProjects.length === 0) {
+        if (createdProjects.length === 0) {
             createdContainer.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">您还没有创建任何项目</p>';
         } else {
-            createdContainer.innerHTML = allMyProjects.map(project => {
-                if (project.isPending) {
-                    // 待审核项目的显示
-                    return `
-                        <div class="project-card pending-project">
-                            <div class="project-header">
-                                <h3 class="project-title">${project.title}</h3>
-                                <span class="project-status ${project.statusClass}" style="color: ${project.statusColor};">${project.statusText}</span>
+            createdContainer.innerHTML = createdProjects.map(project => {
+                const totalVotes = (project.votes?.yes || 0) + (project.votes?.no || 0);
+                const endDate = new Date(project.endTime).toLocaleString('zh-CN', {
+                    year: '2-digit',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                const isActive = new Date(project.endTime) > new Date();
+                
+                // 计算参与人数（不重复计算同一用户）
+                const participantCount = [...new Set(project.voteDetails?.map(vote => vote.voter) || [])].length;
+                
+                // 判断项目状态和背景颜色
+                const isResultPublished = project.resultPublished;
+                const hasVotes = totalVotes > 0;
+                const isInProgress = isActive && !isResultPublished;
+                
+                // 设置背景颜色：已公布结果为灰色，进行中为红色
+                const backgroundColor = isResultPublished ? 'rgba(128, 128, 128, 0.3)' : (isInProgress ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 255, 255, 0.1)');
+                
+                // 判断项目是否被暂停
+                const isPaused = project.isPaused || false;
+                
+                return `
+                    <div class="project-item" style="background: ${backgroundColor};">
+                        <div class="project-title">${project.title} 
+                            ${project.resultPublished ? 
+                                `<span style="color: #dc3545; position: absolute; top: 10px; right: 10px; font-size: 12px; font-weight: bold;">[已结束]</span>` : 
+                                `<span style="color: #dc3545; position: absolute; top: 10px; right: 10px; font-size: 12px; font-weight: bold;">[${isPaused ? '暂停' : '进行中'}]</span>`
+                            }
+                        </div>
+                        <div class="project-description">${project.description}</div>
+                        <div class="project-meta">
+                            <span>截止：${endDate}${project.resultPublished ? ` <span style="background-color: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; position: absolute; right: 10px;">项目结果: ${project.result === 'yes' ? '是' : '否'}</span>` : ''}</span>
+                        </div>
+                        <div class="project-meta">
+                            <span>是：${project.votes?.yes || 0}票</span>
+                            <span>否：${project.votes?.no || 0}票</span>
+                            <span>参与人数：${formatLargeNumber(participantCount)}人</span>
+                        </div>
+                        <div class="project-actions" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center;">
+                                ${!project.resultPublished ? 
+                                    `<button style="font-size: 14px; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; background-color: ${isPaused ? '#28a745' : '#ffc107'}; color: black; font-family: inherit; font-weight: normal;" onclick="${isPaused ? 'restartProject' : 'pauseProject'}('${project.id}')">${isPaused ? '重启项目' : '暂停项目'}</button>` : 
+                                    ''
+                                }
                             </div>
-                            <div class="project-info">
-                                <div class="project-description">${project.description || '无描述'}</div>
-                                <div class="project-details">
-                                    <div>截止时间：${new Date(project.endTime).toLocaleString('zh-CN')}</div>
-                                    <div>所需积分：${project.maxPoints}</div>
-                                    <div>提交时间：${new Date(project.submittedAt).toLocaleString('zh-CN')}</div>
-                                    ${project.reviewedAt ? `<div>审核时间：${new Date(project.reviewedAt).toLocaleString('zh-CN')}</div>` : ''}
-                                    ${project.reviewedBy ? `<div>审核人：${project.reviewedBy}</div>` : ''}
-                                    ${project.rejectReason ? `<div style="color: #ff6b6b;">拒绝原因：${project.rejectReason}</div>` : ''}
-                                </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                ${!project.resultPublished && totalVotes > 0 ? `<button class="btn-publish" onclick="showPublishResultModal('${project.id}')">公布结果</button>` : ''}
+                                ${(totalVotes === 0 || project.resultPublished) ? `<button class="btn-delete" onclick="deleteProject('${project.id}')">删除</button>` : ''}
                             </div>
                         </div>
-                    `;
-                } else {
-                    // 已发布项目的显示
-                    return `
-                        <div class="project-card published-project">
-                            <div class="project-header">
-                                <h3 class="project-title">${project.title}</h3>
-                                <span class="project-status ${project.statusClass}" style="color: ${project.statusColor};">${project.statusText}</span>
-                            </div>
-                            <div class="project-info">
-                                <div class="project-description">${project.description || '无描述'}</div>
-                                <div class="project-details">
-                                    <div>截止时间：${new Date(project.endTime).toLocaleString('zh-CN')}</div>
-                                    <div>所需积分：${project.maxPoints}</div>
-                                    <div>创建时间：${new Date(project.createdAt).toLocaleString('zh-CN')}</div>
-                                    <div>参与人数：${project.voteDetails ? project.voteDetails.length : 0}</div>
-                                </div>
-                            </div>
-                            <div class="project-actions">
-                                ${project.resultPublished ? `<button onclick="deleteProject('${project.id}')" class="btn-delete">删除</button>` : ((project.voteDetails && project.voteDetails.length > 0) ? '' : `<button onclick="deleteProject('${project.id}')" class="btn-delete">删除</button>`)}
-                                ${project.resultPublished ? '' : (project.hasPendingResult ? `<button class="btn-publish" style="opacity: 0.5; cursor: not-allowed;" disabled>公布结果(审核中)</button>` : `<button onclick="app.showPublishResult('${project.id}')" class="btn-publish">公布结果</button>`)}
-                            </div>
-                        </div>
-                    `;
-                }
+                    </div>
+                `;
             }).join('');
         }
-        
-        
+
         // 我参与的项目
         const participatedProjectIds = [...new Set(this.userVotes
             .filter(vote => vote.userId === this.currentUser.uid)
@@ -1896,68 +1184,6 @@ document.addEventListener('DOMContentLoaded', () => {
 function handleLogin() {
     if (app) {
         app.handleLogin();
-    }
-}
-
-// 手动刷新管理员数据
-async function refreshAdminData() {
-    if (!app || !app.isAdmin()) {
-        showCustomAlert('权限不足', '错误', '❌');
-        return;
-    }
-    
-    const refreshStatus = document.getElementById('refreshStatus');
-    const refreshBtn = document.querySelector('.btn-refresh');
-    
-    try {
-        // 显示刷新状态
-        if (refreshStatus) {
-            refreshStatus.style.display = 'block';
-            refreshStatus.textContent = '正在刷新数据...';
-        }
-        if (refreshBtn) {
-            refreshBtn.disabled = true;
-            refreshBtn.textContent = '🔄 刷新中...';
-        }
-        
-        // 执行数据刷新
-        await app.refreshData();
-        
-        // 显示成功状态
-        if (refreshStatus) {
-            refreshStatus.textContent = '数据刷新成功！';
-            refreshStatus.style.color = '#28a745';
-        }
-        
-        // 2秒后隐藏状态
-        setTimeout(() => {
-            if (refreshStatus) {
-                refreshStatus.style.display = 'none';
-            }
-        }, 2000);
-        
-    } catch (error) {
-        console.error('手动刷新失败:', error);
-        
-        // 显示错误状态
-        if (refreshStatus) {
-            refreshStatus.textContent = '刷新失败，请重试';
-            refreshStatus.style.color = '#dc3545';
-        }
-        
-        // 3秒后隐藏状态
-        setTimeout(() => {
-            if (refreshStatus) {
-                refreshStatus.style.display = 'none';
-            }
-        }, 3000);
-        
-    } finally {
-        // 恢复按钮状态
-        if (refreshBtn) {
-            refreshBtn.disabled = false;
-            refreshBtn.textContent = '🔄 刷新';
-        }
     }
 }
 
@@ -2111,18 +1337,6 @@ function showPublishResultModal(projectId) {
     app.showPublishResult(projectId);
 }
 
-// 提交公布结果审核申请的全局函数
-async function submitResultForReview(projectId, result) {
-    // 显示确认提示
-    const resultText = result === 'yes' ? '是' : '否';
-    const confirmed = await showCustomConfirm(`确认提交公布结果申请吗？\n\n结果：${resultText}\n\n提交后需要等待管理员审核通过。`, '确认提交申请', '📋');
-    
-    if (confirmed) {
-        app.submitResultForReview(projectId, result);
-    }
-}
-
-// 原有的直接公布结果函数（现在主要用于管理员审核通过后的内部调用）
 async function publishResult(projectId, result) {
     // 显示确认提示
     const resultText = result === 'yes' ? '是' : '否';
