@@ -39,18 +39,68 @@ class ApiClient {
             }
         };
         
-        try {
-            const response = await fetch(url, finalOptions);
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.message || `HTTP error! status: ${response.status}`);
+        // 设置超时时间（默认30秒）
+        const timeout = options.timeout || 30000;
+        const maxRetries = options.maxRetries || 3;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`API请求尝试 ${attempt}/${maxRetries}: ${url}`);
+                
+                // 创建带超时的fetch请求
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
+                
+                const response = await fetch(url, {
+                    ...finalOptions,
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                // 检查响应状态
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+                    
+                    // 对于某些错误状态，不进行重试
+                    if (response.status === 401 || response.status === 403 || response.status === 404) {
+                        throw new Error(errorMessage);
+                    }
+                    
+                    // 服务器错误或网络错误，可以重试
+                    if (attempt === maxRetries) {
+                        throw new Error(errorMessage);
+                    }
+                    
+                    console.warn(`请求失败，将在 ${attempt * 1000}ms 后重试:`, errorMessage);
+                    await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+                    continue;
+                }
+                
+                const data = await response.json();
+                console.log(`API请求成功 (尝试 ${attempt}/${maxRetries}):`, endpoint);
+                return data;
+                
+            } catch (error) {
+                console.error(`API请求失败 (尝试 ${attempt}/${maxRetries}):`, error.message);
+                
+                // 如果是最后一次尝试，抛出错误
+                if (attempt === maxRetries) {
+                    // 提供更友好的错误信息
+                    if (error.name === 'AbortError') {
+                        throw new Error('请求超时，请检查网络连接');
+                    } else if (error.message.includes('Failed to fetch')) {
+                        throw new Error('网络连接失败，请检查网络设置');
+                    } else {
+                        throw error;
+                    }
+                }
+                
+                // 等待后重试
+                console.log(`等待 ${attempt * 1000}ms 后重试...`);
+                await new Promise(resolve => setTimeout(resolve, attempt * 1000));
             }
-            
-            return data;
-        } catch (error) {
-            console.error('API请求失败:', error);
-            throw error;
         }
     }
     
@@ -165,10 +215,16 @@ function isPiBrowser() {
                        typeof window.webkit !== 'undefined' ||
                        typeof window.ReactNativeWebView !== 'undefined';
         
-        const isPiEnvironment = hasNativePiFeatures || (isMobile && isInApp && hasPiAPI);
+        // 检查当前域名是否为生产环境
+        const isProductionDomain = window.location.hostname === 'test.toupiao01.top';
+        
+        // 在生产环境中，如果有Pi API就认为是Pi环境
+        const isPiEnvironment = isProductionDomain ? hasPiAPI : (hasNativePiFeatures || (isMobile && isInApp && hasPiAPI));
         
         console.log('环境检测结果:', {
             userAgent: navigator.userAgent,
+            hostname: window.location.hostname,
+            isProductionDomain,
             hasPiAPI,
             hasNativePiFeatures,
             isMobile,
@@ -222,17 +278,58 @@ const piSDK = {
                     }
                 }
                 
-                const auth = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+                // 检查网络连接状态
+                if (!navigator.onLine) {
+                    throw new Error('网络连接不可用，请检查网络设置');
+                }
+                
+                console.log('开始Pi SDK认证...');
+                const auth = await Promise.race([
+                    window.Pi.authenticate(scopes, onIncompletePaymentFound),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Pi认证超时，请重试')), 30000)
+                    )
+                ]);
                 console.log('Pi SDK认证成功:', auth);
                 
-                // 调用后端API进行认证
-                const backendAuth = await ApiClient.post(`${API_CONFIG.ENDPOINTS.AUTH}/pi-authenticate`, {
-                    piUserId: auth.user.uid,
-                    username: auth.user.username
-                });
+                // 验证认证结果
+                if (!auth || !auth.user || !auth.user.uid) {
+                    throw new Error('Pi认证返回数据无效');
+                }
+                
+                // 调用后端API进行认证，增加重试机制
+                let backendAuth;
+                let retryCount = 0;
+                const maxRetries = 3;
+                
+                while (retryCount < maxRetries) {
+                    try {
+                        console.log(`尝试后端认证 (${retryCount + 1}/${maxRetries})...`);
+                        backendAuth = await Promise.race([
+                            ApiClient.post(`${API_CONFIG.ENDPOINTS.AUTH}/pi-auth`, {
+                                pi_uid: auth.user.uid,
+                                username: auth.user.username
+                            }),
+                            new Promise((_, reject) => 
+                                setTimeout(() => reject(new Error('后端认证请求超时')), 15000)
+                            )
+                        ]);
+                        break; // 成功则跳出循环
+                    } catch (error) {
+                        retryCount++;
+                        console.error(`后端认证失败 (尝试 ${retryCount}/${maxRetries}):`, error);
+                        
+                        if (retryCount >= maxRetries) {
+                            throw new Error(`后端认证失败，已重试${maxRetries}次: ${error.message}`);
+                        }
+                        
+                        // 等待后重试
+                        await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+                    }
+                }
                 
                 // 保存认证token
-                if (backendAuth.token) {
+                if (backendAuth && backendAuth.token) {
                     localStorage.setItem('auth_token', backendAuth.token);
                 }
                 
@@ -241,19 +338,34 @@ const piSDK = {
                         uid: auth.user.uid,
                         username: auth.user.username
                     },
-                    backendUser: backendAuth.user
+                    backendUser: backendAuth ? backendAuth.user : null
                 };
             } catch (error) {
                 console.error('Pi SDK认证失败:', error);
-                throw error;
+                
+                // 提供更详细的错误信息
+                let errorMessage = '登录操作失败';
+                if (error.message.includes('网络')) {
+                    errorMessage = '网络连接问题，请检查网络后重试';
+                } else if (error.message.includes('超时')) {
+                    errorMessage = '请求超时，请重试';
+                } else if (error.message.includes('后端认证')) {
+                    errorMessage = '服务器连接失败，请稍后重试';
+                } else if (error.message.includes('Pi认证')) {
+                    errorMessage = 'Pi认证失败，请重试';
+                } else {
+                    errorMessage = `登录失败: ${error.message}`;
+                }
+                
+                throw new Error(errorMessage);
             }
         } else {
             // 非Pi浏览器环境，使用测试账号
             console.log('使用测试账号登录');
             try {
                 // 调用后端API进行测试认证
-                const backendAuth = await ApiClient.post(`${API_CONFIG.ENDPOINTS.AUTH}/pi-authenticate`, {
-                    piUserId: 'test_user_123',
+                const backendAuth = await ApiClient.post(`${API_CONFIG.ENDPOINTS.AUTH}/pi-auth`, {
+                    pi_uid: 'test_user_123',
                     username: 'TestUser'
                 });
                 
@@ -491,55 +603,83 @@ class VotingApp {
                 this.renderProjects();
                 showCustomAlert('已退出登录', '退出成功', '✅');
             } else {
-                // 登录
-                const authResult = await piSDK.authenticate();
-                if (authResult && authResult.user) {
-                    this.currentUser = authResult.user;
-                    
-                    // 如果有后端用户数据，更新用户信息和积分
-                    if (authResult.backendUser) {
-                        this.userPoints = authResult.backendUser.points || 1000;
-                        this.frozenPoints = authResult.backendUser.frozen_points || 0;
+                // 显示登录中状态
+                const loginBtn = document.getElementById('loginBtn');
+                const originalText = loginBtn ? loginBtn.textContent : '';
+                if (loginBtn) {
+                    loginBtn.textContent = '登录中...';
+                    loginBtn.disabled = true;
+                }
+                
+                try {
+                    // 登录
+                    const authResult = await piSDK.authenticate();
+                    if (authResult && authResult.user) {
+                        this.currentUser = authResult.user;
                         
-                        // 获取用户积分历史
-                        try {
-                            const pointsHistory = await ApiClient.get(`${API_CONFIG.ENDPOINTS.USERS}/points-history`);
-                            this.pointsHistory = pointsHistory.data || [];
-                        } catch (error) {
-                            console.error('获取积分历史失败:', error);
-                        }
-                        
-                        // 获取用户项目和投票数据
-                        try {
-                            const [userProjects, userVotes] = await Promise.all([
-                                ApiClient.get(`${API_CONFIG.ENDPOINTS.USERS}/projects`),
-                                ApiClient.get(`${API_CONFIG.ENDPOINTS.USERS}/votes`)
-                            ]);
+                        // 如果有后端用户数据，更新用户信息和积分
+                        if (authResult.backendUser) {
+                            this.userPoints = authResult.backendUser.points || 1000;
+                            this.frozenPoints = authResult.backendUser.frozen_points || 0;
                             
-                            // 这里可以处理用户的项目和投票数据
-                            console.log('用户项目:', userProjects.data);
-                            console.log('用户投票:', userVotes.data);
-                        } catch (error) {
-                            console.error('获取用户数据失败:', error);
+                            // 获取用户积分历史
+                            try {
+                                const pointsHistory = await ApiClient.get(`${API_CONFIG.ENDPOINTS.USERS}/points-history`);
+                                this.pointsHistory = pointsHistory.data || [];
+                            } catch (error) {
+                                console.error('获取积分历史失败:', error);
+                            }
+                            
+                            // 获取用户项目和投票数据
+                            try {
+                                const [userProjects, userVotes] = await Promise.all([
+                                    ApiClient.get(`${API_CONFIG.ENDPOINTS.USERS}/projects`),
+                                    ApiClient.get(`${API_CONFIG.ENDPOINTS.USERS}/votes`)
+                                ]);
+                                
+                                // 这里可以处理用户的项目和投票数据
+                                console.log('用户项目:', userProjects.data);
+                                console.log('用户投票:', userVotes.data);
+                            } catch (error) {
+                                console.error('获取用户数据失败:', error);
+                            }
+                        } else {
+                            // 如果没有后端数据，使用本地数据
+                            if (this.pointsHistory.length === 0) {
+                                this.addPointsHistory('initial', 1000, '新用户注册奖励');
+                            }
                         }
+                        
+                        this.saveLocalData();
+                        this.updateLoginButton();
+                        this.updateUserPointsDisplay();
+                        await this.loadProjectsFromBackend(); // 从后端加载项目数据
+                        this.renderProjects();
+                        showCustomAlert(`欢迎，${this.currentUser.username || this.currentUser.uid}！`, '登录成功', '🎉');
                     } else {
-                        // 如果没有后端数据，使用本地数据
-                        if (this.pointsHistory.length === 0) {
-                            this.addPointsHistory('initial', 1000, '新用户注册奖励');
-                        }
+                        throw new Error('认证结果无效');
                     }
-                    
-                    this.saveLocalData();
-                    this.updateLoginButton();
-                    this.updateUserPointsDisplay();
-                    await this.loadProjectsFromBackend(); // 从后端加载项目数据
-                    this.renderProjects();
-                    showCustomAlert(`欢迎，${this.currentUser.username || this.currentUser.uid}！`, '登录成功', '🎉');
+                } finally {
+                    // 恢复登录按钮状态
+                    if (loginBtn) {
+                        loginBtn.textContent = originalText || '登录';
+                        loginBtn.disabled = false;
+                    }
                 }
             }
         } catch (error) {
             console.error('登录操作失败:', error);
-            showCustomAlert('登录操作失败，请重试', '登录失败', '❌');
+            
+            // 恢复登录按钮状态
+            const loginBtn = document.getElementById('loginBtn');
+            if (loginBtn) {
+                loginBtn.textContent = '登录';
+                loginBtn.disabled = false;
+            }
+            
+            // 显示具体的错误信息
+            const errorMessage = error.message || '登录操作失败，请重试';
+            showCustomAlert(errorMessage, '登录失败', '❌');
         }
     }
 
