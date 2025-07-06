@@ -1238,11 +1238,12 @@ class VotingApp {
         try {
             // 调用后端API进行投票
             const voteData = {
-                option: option,
+                project_id: parseInt(projectId),
+                vote_option: option,
                 points: votePoints
             };
 
-            const response = await ApiClient.post(`${API_CONFIG.ENDPOINTS.PROJECTS}/${projectId}/vote`, voteData);
+            const response = await ApiClient.post(`${API_CONFIG.ENDPOINTS.VOTES}`, voteData);
             
             if (response.success && response.data) {
                 // 投票成功，更新本地状态
