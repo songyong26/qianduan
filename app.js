@@ -1141,27 +1141,28 @@ class VotingApp {
             const response = await ApiClient.post(API_CONFIG.ENDPOINTS.PROJECTS, projectData);
             console.log('项目创建响应:', response);
             
-            if (response.success && response.data) {
+            if (response && (response.project || response.data)) {
                 // 创建成功，更新本地状态
+                const projectData = response.project || response.data;
                 const project = {
-                    id: response.data.id.toString(),
-                    title: response.data.title,
-                    description: response.data.description,
-                    endTime: response.data.end_time,
-                    maxPoints: response.data.max_points,
-                    creatorId: response.data.creator_id,
-                    creatorName: response.data.creator_name || this.currentUser.username || this.currentUser.uid,
-                    createdAt: response.data.created_at,
-                    frozenPoints: response.data.max_points,
+                    id: projectData.id.toString(),
+                    title: projectData.title,
+                    description: projectData.description,
+                    endTime: projectData.end_time,
+                    maxPoints: projectData.max_points,
+                    creatorId: projectData.creator_id || this.currentUser.uid,
+                    creatorName: projectData.creator_name || this.currentUser.username || this.currentUser.uid,
+                    createdAt: projectData.created_at,
+                    frozenPoints: projectData.max_points,
                     votes: {
-                        yes: response.data.yes_votes || 0,
-                        no: response.data.no_votes || 0
+                        yes: projectData.yes_votes || 0,
+                        no: projectData.no_votes || 0
                     },
                     voters: [],
                     voteDetails: [],
-                    status: response.data.status || 'active',
-                    result: response.data.result,
-                    resultPublished: response.data.result_published || false
+                    status: projectData.status || 'active',
+                    result: projectData.result,
+                    resultPublished: projectData.result_published || false
                 };
 
                 // 第一：创建项目时冻结积分要减掉，显示在冻结积分里面
