@@ -1121,6 +1121,14 @@ class VotingApp {
         }
 
         try {
+            // 显示创建中状态
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn ? submitBtn.textContent : '';
+            if (submitBtn) {
+                submitBtn.textContent = '创建中...';
+                submitBtn.disabled = true;
+            }
+            
             // 调用后端API创建项目
             const projectData = {
                 title,
@@ -1129,7 +1137,9 @@ class VotingApp {
                 max_points: maxPoints
             };
 
+            console.log('正在创建项目:', projectData);
             const response = await ApiClient.post(API_CONFIG.ENDPOINTS.PROJECTS, projectData);
+            console.log('项目创建响应:', response);
             
             if (response.success && response.data) {
                 // 创建成功，更新本地状态
@@ -1159,9 +1169,6 @@ class VotingApp {
                 this.frozenPoints += maxPoints;
                 this.addPointsHistory('project_freeze', -maxPoints, `创建项目冻结积分 - ${title} (冻结${maxPoints}积分)`);
                 
-                // 添加项目到本地列表
-                this.projects.unshift(project);
-                
                 showCustomAlert(`项目创建成功！已冻结${maxPoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '创建成功', '🎉');
                 
                 // 保存数据并更新显示
@@ -1171,14 +1178,48 @@ class VotingApp {
                 // 重置表单
                 e.target.reset();
                 
+                // 重新从后端加载项目数据以确保数据同步
+                await this.loadProjectsFromBackend();
+                
                 // 刷新显示
                 this.renderProjects();
+                
+                // 恢复按钮状态
+                if (submitBtn) {
+                    submitBtn.textContent = originalText || '创建项目';
+                    submitBtn.disabled = false;
+                }
             } else {
+                // 恢复按钮状态
+                if (submitBtn) {
+                    submitBtn.textContent = originalText || '创建项目';
+                    submitBtn.disabled = false;
+                }
                 showCustomAlert(response.message || '创建项目失败', '创建失败', '❌');
             }
         } catch (error) {
             console.error('创建项目失败:', error);
-            showCustomAlert('网络错误，创建项目失败', '网络错误', '❌');
+            
+            // 恢复按钮状态
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.textContent = originalText || '创建项目';
+                submitBtn.disabled = false;
+            }
+            
+            // 提供更详细的错误信息
+            let errorMessage = '创建项目失败';
+            if (error.message) {
+                if (error.message.includes('timeout') || error.message.includes('网络')) {
+                    errorMessage = 'Pi浏览器网络连接超时，请检查网络后重试';
+                } else if (error.message.includes('500')) {
+                    errorMessage = '服务器暂时不可用，请稍后重试';
+                } else {
+                    errorMessage = `创建失败: ${error.message}`;
+                }
+            }
+            
+            showCustomAlert(errorMessage, '创建失败', '❌');
         }
     }
 
