@@ -1141,7 +1141,7 @@ class VotingApp {
             const response = await ApiClient.post(API_CONFIG.ENDPOINTS.PROJECTS, projectData);
             console.log('项目创建响应:', response);
             
-            if (response && (response.project || response.data)) {
+            if (response && response.success && (response.project || response.data)) {
                 // 创建成功，从后端获取最新的用户积分信息
                 try {
                     const userResponse = await ApiClient.get(`${API_CONFIG.ENDPOINTS.USERS}/profile`);
