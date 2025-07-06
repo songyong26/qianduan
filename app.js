@@ -1141,13 +1141,13 @@ class VotingApp {
             const response = await ApiClient.post(API_CONFIG.ENDPOINTS.PROJECTS, projectData);
             console.log('项目创建响应:', response);
             
-            if (response && response.success && (response.project || response.data)) {
+            if (response && (response.success || response.message) && (response.project || response.data)) {
                 // 创建成功，从后端获取最新的用户积分信息
                 try {
                     const userResponse = await ApiClient.get(`${API_CONFIG.ENDPOINTS.USERS}/profile`);
-                    if (userResponse.success && userResponse.data) {
-                        this.userPoints = userResponse.data.points || this.userPoints;
-                        this.frozenPoints = userResponse.data.frozen_points || this.frozenPoints;
+                    if (userResponse && (userResponse.success || userResponse.data)) {
+                        this.userPoints = userResponse.data?.points || this.userPoints;
+                        this.frozenPoints = userResponse.data?.frozen_points || this.frozenPoints;
                     }
                 } catch (error) {
                     console.error('获取用户积分信息失败:', error);
@@ -1184,7 +1184,7 @@ class VotingApp {
                     submitBtn.textContent = originalText || '创建项目';
                     submitBtn.disabled = false;
                 }
-                showCustomAlert(response.message || '创建项目失败', '创建失败', '❌');
+                showCustomAlert(response.error || response.message || '创建项目失败', '创建失败', '❌');
             }
         } catch (error) {
             console.error('创建项目失败:', error);
@@ -1275,7 +1275,7 @@ class VotingApp {
 
             const response = await ApiClient.post(`${API_CONFIG.ENDPOINTS.VOTES}`, voteData);
             
-            if (response.success && response.data) {
+            if (response.message && response.vote) {
                 // 投票成功，更新本地状态
                 const vote = {
                     projectId,
@@ -1309,7 +1309,7 @@ class VotingApp {
                 showCustomAlert(`投票成功！已冻结${votePoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '投票成功', '🎉');
                 closeModal('voteModal');
             } else {
-                showCustomAlert(response.message || '投票失败', '投票失败', '❌');
+                showCustomAlert(response.error || response.message || '投票失败', '投票失败', '❌');
             }
         } catch (error) {
             console.error('投票失败:', error);
@@ -1368,7 +1368,7 @@ class VotingApp {
 
             const response = await ApiClient.post(API_CONFIG.ENDPOINTS.WITHDRAW, withdrawData);
             
-            if (response.success && response.data) {
+            if (response.message || response.success) {
                 // 提现申请成功，更新本地状态
                 const fee = Math.floor(amount * 0.1);
                 const totalDeduction = amount + fee;
@@ -1385,7 +1385,7 @@ class VotingApp {
                 
                 showCustomAlert(`提现申请已提交！\n提现金额：${amount}\n手续费：${fee}\n预计1小时内到账`, '提现成功', '🎉');
             } else {
-                showCustomAlert(response.message || '提现申请失败', '提现失败', '❌');
+                showCustomAlert(response.error || response.message || '提现申请失败', '提现失败', '❌');
             }
         } catch (error) {
             console.error('提现申请失败:', error);
