@@ -1142,32 +1142,20 @@ class VotingApp {
             console.log('项目创建响应:', response);
             
             if (response && (response.project || response.data)) {
-                // 创建成功，更新本地状态
-                const projectData = response.project || response.data;
-                const project = {
-                    id: projectData.id.toString(),
-                    title: projectData.title,
-                    description: projectData.description,
-                    endTime: projectData.end_time,
-                    maxPoints: projectData.max_points,
-                    creatorId: projectData.creator_id || this.currentUser.uid,
-                    creatorName: projectData.creator_name || this.currentUser.username || this.currentUser.uid,
-                    createdAt: projectData.created_at,
-                    frozenPoints: projectData.max_points,
-                    votes: {
-                        yes: projectData.yes_votes || 0,
-                        no: projectData.no_votes || 0
-                    },
-                    voters: [],
-                    voteDetails: [],
-                    status: projectData.status || 'active',
-                    result: projectData.result,
-                    resultPublished: projectData.result_published || false
-                };
-
-                // 第一：创建项目时冻结积分要减掉，显示在冻结积分里面
-                this.userPoints -= maxPoints;
-                this.frozenPoints += maxPoints;
+                // 创建成功，从后端获取最新的用户积分信息
+                try {
+                    const userResponse = await ApiClient.get(`${API_CONFIG.ENDPOINTS.USERS}/profile`);
+                    if (userResponse.success && userResponse.data) {
+                        this.userPoints = userResponse.data.points || this.userPoints;
+                        this.frozenPoints = userResponse.data.frozen_points || this.frozenPoints;
+                    }
+                } catch (error) {
+                    console.error('获取用户积分信息失败:', error);
+                    // 如果获取失败，使用本地计算
+                    this.userPoints -= maxPoints;
+                    this.frozenPoints += maxPoints;
+                }
+                
                 this.addPointsHistory('project_freeze', -maxPoints, `创建项目冻结积分 - ${title} (冻结${maxPoints}积分)`);
                 
                 showCustomAlert(`项目创建成功！已冻结${maxPoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '创建成功', '🎉');
