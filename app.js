@@ -1,3 +1,84 @@
+// API 配置
+const API_CONFIG = {
+    BASE_URL: 'https://houduan.onrender.com/api',
+    ENDPOINTS: {
+        AUTH: '/auth',
+        USERS: '/users',
+        PROJECTS: '/projects',
+        VOTES: '/votes',
+        PAYMENTS: '/payments',
+        WITHDRAW: '/payments/withdraw',
+        RECHARGE: '/payments/recharge',
+        ADMIN: '/admin'
+    }
+};
+
+// API 请求工具函数
+class ApiClient {
+    static async request(endpoint, options = {}) {
+        const url = `${API_CONFIG.BASE_URL}${endpoint}`;
+        const defaultOptions = {
+            headers: {
+                'Content-Type': 'application/json',
+                ...(options.headers || {})
+            }
+        };
+        
+        // 添加认证token
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+            defaultOptions.headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const finalOptions = {
+            ...defaultOptions,
+            ...options,
+            headers: {
+                ...defaultOptions.headers,
+                ...(options.headers || {})
+            }
+        };
+        
+        try {
+            const response = await fetch(url, finalOptions);
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.message || `HTTP error! status: ${response.status}`);
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('API请求失败:', error);
+            throw error;
+        }
+    }
+    
+    static async get(endpoint, options = {}) {
+        return this.request(endpoint, { ...options, method: 'GET' });
+    }
+    
+    static async post(endpoint, data, options = {}) {
+        return this.request(endpoint, {
+            ...options,
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    }
+    
+    static async put(endpoint, data, options = {}) {
+        return this.request(endpoint, {
+            ...options,
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    }
+    
+    static async delete(endpoint, options = {}) {
+        return this.request(endpoint, { ...options, method: 'DELETE' });
+    }
+}
+
 // 自定义弹窗函数
 function showCustomAlert(message, title = '提示', icon = 'ℹ️') {
     const modal = document.getElementById('customAlertModal');
@@ -144,11 +225,23 @@ const piSDK = {
                 const auth = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
                 console.log('Pi SDK认证成功:', auth);
                 
+                // 调用后端API进行认证
+                const backendAuth = await ApiClient.post(`${API_CONFIG.ENDPOINTS.AUTH}/pi-authenticate`, {
+                    piUserId: auth.user.uid,
+                    username: auth.user.username
+                });
+                
+                // 保存认证token
+                if (backendAuth.token) {
+                    localStorage.setItem('auth_token', backendAuth.token);
+                }
+                
                 return {
                     user: {
                         uid: auth.user.uid,
                         username: auth.user.username
-                    }
+                    },
+                    backendUser: backendAuth.user
                 };
             } catch (error) {
                 console.error('Pi SDK认证失败:', error);
@@ -157,24 +250,58 @@ const piSDK = {
         } else {
             // 非Pi浏览器环境，使用测试账号
             console.log('使用测试账号登录');
-            return Promise.resolve({ 
-                user: { 
-                    uid: 'test_user_123', 
-                    username: 'TestUser' 
-                } 
-            });
+            try {
+                // 调用后端API进行测试认证
+                const backendAuth = await ApiClient.post(`${API_CONFIG.ENDPOINTS.AUTH}/pi-authenticate`, {
+                    piUserId: 'test_user_123',
+                    username: 'TestUser'
+                });
+                
+                // 保存认证token
+                if (backendAuth.token) {
+                    localStorage.setItem('auth_token', backendAuth.token);
+                }
+                
+                return {
+                    user: {
+                        uid: 'test_user_123',
+                        username: 'TestUser'
+                    },
+                    backendUser: backendAuth.user
+                };
+            } catch (error) {
+                console.error('后端认证失败:', error);
+                // 如果后端认证失败，仍然返回测试用户
+                return Promise.resolve({ 
+                    user: { 
+                        uid: 'test_user_123', 
+                        username: 'TestUser' 
+                    } 
+                });
+            }
         }
     },
     
     async signOut() {
-        if (isPiBrowser()) {
-            // Pi浏览器环境的登出逻辑
-            console.log('Pi浏览器环境登出');
-            return Promise.resolve();
-        } else {
-            // 非Pi浏览器环境的登出逻辑
-            console.log('测试环境登出');
-            return Promise.resolve();
+        try {
+            // 调用后端API登出
+            const token = localStorage.getItem('auth_token');
+            if (token) {
+                await ApiClient.post(`${API_CONFIG.ENDPOINTS.AUTH}/logout`);
+            }
+        } catch (error) {
+            console.error('后端登出失败:', error);
+        } finally {
+            // 清除本地存储的token
+            localStorage.removeItem('auth_token');
+            
+            if (isPiBrowser()) {
+                // Pi浏览器环境的登出逻辑
+                console.log('Pi浏览器环境登出');
+            } else {
+                // 非Pi浏览器环境的登出逻辑
+                console.log('测试环境登出');
+            }
         }
     }
 };
@@ -279,6 +406,37 @@ class VotingApp {
         }
     }
 
+    // 从后端加载项目数据
+    async loadProjectsFromBackend() {
+        try {
+            const response = await ApiClient.get(`${API_CONFIG.ENDPOINTS.PROJECTS}`);
+            if (response.success && response.data) {
+                this.projects = response.data.map(project => ({
+                    id: project.id.toString(),
+                    title: project.title,
+                    description: project.description,
+                    creatorId: project.creator_id,
+                    creatorName: project.creator_name || 'Unknown',
+                    endTime: project.end_time,
+                    maxPoints: project.max_points,
+                    votes: {
+                        yes: project.yes_votes || 0,
+                        no: project.no_votes || 0
+                    },
+                    voteDetails: project.vote_details || [],
+                    resultPublished: project.result_published || false,
+                    result: project.result,
+                    isPaused: project.status === 'paused',
+                    createdAt: project.created_at
+                }));
+                console.log('从后端加载项目数据成功:', this.projects.length, '个项目');
+            }
+        } catch (error) {
+            console.error('从后端加载项目数据失败:', error);
+            // 如果后端加载失败，保持使用本地数据
+        }
+    }
+
     // 保存数据到本地存储
     saveLocalData() {
         try {
@@ -336,16 +494,45 @@ class VotingApp {
                 // 登录
                 const authResult = await piSDK.authenticate();
                 if (authResult && authResult.user) {
-                    const isNewUser = !this.currentUser;
                     this.currentUser = authResult.user;
                     
-                    // 如果是新用户且没有积分历史记录，添加初始积分记录
-                    if (isNewUser && this.pointsHistory.length === 0) {
-                        this.addPointsHistory('initial', 1000, '新用户注册奖励');
+                    // 如果有后端用户数据，更新用户信息和积分
+                    if (authResult.backendUser) {
+                        this.userPoints = authResult.backendUser.points || 1000;
+                        this.frozenPoints = authResult.backendUser.frozen_points || 0;
+                        
+                        // 获取用户积分历史
+                        try {
+                            const pointsHistory = await ApiClient.get(`${API_CONFIG.ENDPOINTS.USERS}/points-history`);
+                            this.pointsHistory = pointsHistory.data || [];
+                        } catch (error) {
+                            console.error('获取积分历史失败:', error);
+                        }
+                        
+                        // 获取用户项目和投票数据
+                        try {
+                            const [userProjects, userVotes] = await Promise.all([
+                                ApiClient.get(`${API_CONFIG.ENDPOINTS.USERS}/projects`),
+                                ApiClient.get(`${API_CONFIG.ENDPOINTS.USERS}/votes`)
+                            ]);
+                            
+                            // 这里可以处理用户的项目和投票数据
+                            console.log('用户项目:', userProjects.data);
+                            console.log('用户投票:', userVotes.data);
+                        } catch (error) {
+                            console.error('获取用户数据失败:', error);
+                        }
+                    } else {
+                        // 如果没有后端数据，使用本地数据
+                        if (this.pointsHistory.length === 0) {
+                            this.addPointsHistory('initial', 1000, '新用户注册奖励');
+                        }
                     }
                     
                     this.saveLocalData();
                     this.updateLoginButton();
+                    this.updateUserPointsDisplay();
+                    await this.loadProjectsFromBackend(); // 从后端加载项目数据
                     this.renderProjects();
                     showCustomAlert(`欢迎，${this.currentUser.username || this.currentUser.uid}！`, '登录成功', '🎉');
                 }
@@ -512,7 +699,7 @@ class VotingApp {
     }
 
     // 公布项目结果并分配奖励
-    publishProjectResult(projectId, result) {
+    async publishProjectResult(projectId, result) {
         const project = this.projects.find(p => p.id === projectId);
         if (!project) {
             showCustomAlert('项目不存在', '错误', '❌');
@@ -530,101 +717,117 @@ class VotingApp {
             return;
         }
         
-        // 设置结果
-        project.result = result;
-        project.resultPublished = true;
-        
-        // 分类投票用户：正确投票和错误投票
-        let correctVoters = [];
-        let incorrectVoters = [];
-        let totalCorrectPoints = 0;
-        let totalIncorrectPoints = 0;
-        
-        project.voteDetails.forEach(vote => {
-            if (vote.option === result) {
-                correctVoters.push(vote);
-                totalCorrectPoints += vote.points;
-            } else {
-                incorrectVoters.push(vote);
-                totalIncorrectPoints += vote.points;
-            }
-        });
-        
-        // 处理当前用户的积分变化
-        if (this.currentUser) {
-            // 第三：投票错误的用户被冻结积分要直接划扣到发起人账户的可用积分
-            incorrectVoters.forEach(vote => {
-                if (vote.voter === this.currentUser.uid) {
-                    // 从冻结积分中减去（积分已被划扣，不返还）
-                    this.frozenPoints -= vote.points;
-                    this.addPointsHistory('vote_penalty', 0, 
-                        `投票错误积分划扣 - ${project.title} (${vote.points}积分被划扣)`);
-                }
-            });
+        try {
+            // 调用后端API公布结果
+            const publishData = {
+                result: result
+            };
+
+            const response = await ApiClient.post(`${API_CONFIG.ENDPOINTS.PROJECTS}/${projectId}/publish`, publishData);
             
-            // 第五：投票正确的用户，冻结积分要解冻，并且在可用积分和总积分准确更新
-            correctVoters.forEach(vote => {
-                if (vote.voter === this.currentUser.uid) {
-                    // 解冻原投票积分
-                    this.frozenPoints -= vote.points;
-                    this.userPoints += vote.points; // 解冻到可用积分
-                    this.addPointsHistory('vote_unfreeze', vote.points, 
-                        `投票正确积分解冻 - ${project.title} (${vote.points}积分)`);
-                }
-            });
-            
-            // 第六：投票正确的用户奖励积分来源是发起人被冻结的积分
-            correctVoters.forEach(vote => {
-                if (vote.voter === this.currentUser.uid && vote.voter !== project.creatorId) {
-                    // 获得与投票积分相等的奖励（从项目发起人的冻结积分中划扣）
-                    const reward = vote.points;
-                    this.userPoints += reward;
-                    this.addPointsHistory('vote_reward', reward, 
-                        `投票奖励 - ${project.title} (${reward}积分)`);
-                }
-            });
-            
-            // 处理项目发起人
-            if (project.creatorId === this.currentUser.uid) {
-                // 第三：获得投票错误用户的积分
-                this.userPoints += totalIncorrectPoints;
-                this.addPointsHistory('project_income', totalIncorrectPoints, 
-                    `项目收入 - ${project.title} (${totalIncorrectPoints}积分)`);
+            if (response.success && response.data) {
+                // 公布成功，更新本地状态
+                project.result = result;
+                project.resultPublished = true;
                 
-                // 第六：支付给投票正确用户的奖励（不包括发起人自己）
-                let totalRewardsToOthers = 0;
-                correctVoters.forEach(vote => {
-                    if (vote.voter !== this.currentUser.uid) {
-                        totalRewardsToOthers += vote.points;
+                // 分类投票用户：正确投票和错误投票
+                let correctVoters = [];
+                let incorrectVoters = [];
+                let totalCorrectPoints = 0;
+                let totalIncorrectPoints = 0;
+                
+                project.voteDetails.forEach(vote => {
+                    if (vote.option === result) {
+                        correctVoters.push(vote);
+                        totalCorrectPoints += vote.points;
+                    } else {
+                        incorrectVoters.push(vote);
+                        totalIncorrectPoints += vote.points;
                     }
                 });
                 
-                // 从发起人冻结积分中支付奖励
-                this.frozenPoints -= totalRewardsToOthers;
-                this.addPointsHistory('project_payout', -totalRewardsToOthers, 
-                    `项目奖励支出 - ${project.title} (${totalRewardsToOthers}积分)`);
-                
-                // 第二：项目完结后冻结积分分配完毕要把剩余的积分从冻结积分的地方解冻并转移到可用积分里面
-                const remainingFrozenPoints = project.frozenPoints - totalRewardsToOthers;
-                if (remainingFrozenPoints > 0) {
-                    this.frozenPoints -= remainingFrozenPoints;
-                    this.userPoints += remainingFrozenPoints;
-                    this.addPointsHistory('project_unfreeze', remainingFrozenPoints, 
-                        `项目剩余积分解冻 - ${project.title} (${remainingFrozenPoints}积分)`);
-                } else {
-                    // 如果没有剩余积分，只记录解冻操作
-                    this.addPointsHistory('project_unfreeze', 0, 
-                        `项目冻结积分解冻完成 - ${project.title}`);
+                // 处理当前用户的积分变化
+                if (this.currentUser) {
+                    // 第三：投票错误的用户被冻结积分要直接划扣到发起人账户的可用积分
+                    incorrectVoters.forEach(vote => {
+                        if (vote.voter === this.currentUser.uid) {
+                            // 从冻结积分中减去（积分已被划扣，不返还）
+                            this.frozenPoints -= vote.points;
+                            this.addPointsHistory('vote_penalty', 0, 
+                                `投票错误积分划扣 - ${project.title} (${vote.points}积分被划扣)`);
+                        }
+                    });
+                    
+                    // 第五：投票正确的用户，冻结积分要解冻，并且在可用积分和总积分准确更新
+                    correctVoters.forEach(vote => {
+                        if (vote.voter === this.currentUser.uid) {
+                            // 解冻原投票积分
+                            this.frozenPoints -= vote.points;
+                            this.userPoints += vote.points; // 解冻到可用积分
+                            this.addPointsHistory('vote_unfreeze', vote.points, 
+                                `投票正确积分解冻 - ${project.title} (${vote.points}积分)`);
+                        }
+                    });
+                    
+                    // 第六：投票正确的用户奖励积分来源是发起人被冻结的积分
+                    correctVoters.forEach(vote => {
+                        if (vote.voter === this.currentUser.uid && vote.voter !== project.creatorId) {
+                            // 获得与投票积分相等的奖励（从项目发起人的冻结积分中划扣）
+                            const reward = vote.points;
+                            this.userPoints += reward;
+                            this.addPointsHistory('vote_reward', reward, 
+                                `投票奖励 - ${project.title} (${reward}积分)`);
+                        }
+                    });
+                    
+                    // 处理项目发起人
+                    if (project.creatorId === this.currentUser.uid) {
+                        // 第三：获得投票错误用户的积分
+                        this.userPoints += totalIncorrectPoints;
+                        this.addPointsHistory('project_income', totalIncorrectPoints, 
+                            `项目收入 - ${project.title} (${totalIncorrectPoints}积分)`);
+                        
+                        // 第六：支付给投票正确用户的奖励（不包括发起人自己）
+                        let totalRewardsToOthers = 0;
+                        correctVoters.forEach(vote => {
+                            if (vote.voter !== this.currentUser.uid) {
+                                totalRewardsToOthers += vote.points;
+                            }
+                        });
+                        
+                        // 从发起人冻结积分中支付奖励
+                        this.frozenPoints -= totalRewardsToOthers;
+                        this.addPointsHistory('project_payout', -totalRewardsToOthers, 
+                            `项目奖励支出 - ${project.title} (${totalRewardsToOthers}积分)`);
+                        
+                        // 第二：项目完结后冻结积分分配完毕要把剩余的积分从冻结积分的地方解冻并转移到可用积分里面
+                        const remainingFrozenPoints = project.frozenPoints - totalRewardsToOthers;
+                        if (remainingFrozenPoints > 0) {
+                            this.frozenPoints -= remainingFrozenPoints;
+                            this.userPoints += remainingFrozenPoints;
+                            this.addPointsHistory('project_unfreeze', remainingFrozenPoints, 
+                                `项目剩余积分解冻 - ${project.title} (${remainingFrozenPoints}积分)`);
+                        } else {
+                            // 如果没有剩余积分，只记录解冻操作
+                            this.addPointsHistory('project_unfreeze', 0, 
+                                `项目冻结积分解冻完成 - ${project.title}`);
+                        }
+                    }
                 }
+                
+                this.saveLocalData();
+                this.updateUserPointsDisplay();
+                this.renderProjects();
+                
+                closeModal('publishResultModal');
+                showCustomAlert(`结果公布成功！\n投票正确：${correctVoters.length}人\n投票错误：${incorrectVoters.length}人\n积分重新分配完成。`, '公布成功', '🎉');
+            } else {
+                showCustomAlert(response.message || '公布结果失败', '公布失败', '❌');
             }
+        } catch (error) {
+            console.error('公布结果失败:', error);
+            showCustomAlert('网络错误，公布结果失败', '网络错误', '❌');
         }
-        
-        this.saveLocalData();
-        this.updateUserPointsDisplay();
-        this.renderProjects();
-        
-        closeModal('publishResultModal');
-        showCustomAlert(`结果公布成功！\n投票正确：${correctVoters.length}人\n投票错误：${incorrectVoters.length}人\n积分重新分配完成。`, '公布成功', '🎉');
     }
 
     // 更新用户积分显示
@@ -721,7 +924,7 @@ class VotingApp {
     }
 
     // 处理创建项目
-    handleCreateProject(e) {
+    async handleCreateProject(e) {
         e.preventDefault();
         
         if (!this.currentUser) {
@@ -764,67 +967,83 @@ class VotingApp {
             return;
         }
         
-        {
-            // 检查最低积分要求
-            if (maxPoints < 100) {
-                showCustomAlert('项目最低要求100积分', '积分不足', '💰');
-                return;
-            }
-            
-            // 检查可用积分是否足够（总积分 - 冻结积分）
-            const availablePoints = this.userPoints - this.frozenPoints;
-            if (maxPoints > availablePoints) {
-                showCustomAlert(`可用积分不足，当前可用积分：${availablePoints}`, '积分不足', '💰');
-                return;
-            }
-
-            const project = {
-                id: Date.now().toString(),
-                title,
-                description,
-                endTime,
-                maxPoints,
-                creatorId: this.currentUser.uid,
-                creatorName: this.currentUser.username || this.currentUser.uid,
-                createdAt: new Date().toISOString(),
-                frozenPoints: parseInt(maxPoints), // 冻结的积分
-                votes: {
-                    yes: 0,
-                    no: 0
-                },
-                voters: [],
-                voteDetails: [], // 投票详情
-                status: 'active',
-                result: null, // 发起人公布的结果
-                resultPublished: false // 是否已公布结果
-            };
-
-            // 第一：创建项目时冻结积分要减掉，显示在冻结积分里面
-            this.userPoints -= maxPoints; // 从总积分中扣除
-            this.frozenPoints += maxPoints; // 增加到冻结积分
-            this.addPointsHistory('project_freeze', -maxPoints, `创建项目冻结积分 - ${title} (冻结${maxPoints}积分)`);
-            
-            // 添加项目
-            this.projects.unshift(project);
-            
-            showCustomAlert(`项目创建成功！已冻结${maxPoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '创建成功', '🎉');
+        // 检查最低积分要求
+        if (maxPoints < 100) {
+            showCustomAlert('项目最低要求100积分', '积分不足', '💰');
+            return;
+        }
+        
+        // 检查可用积分是否足够（总积分 - 冻结积分）
+        const availablePoints = this.userPoints - this.frozenPoints;
+        if (maxPoints > availablePoints) {
+            showCustomAlert(`可用积分不足，当前可用积分：${availablePoints}`, '积分不足', '💰');
+            return;
         }
 
-        // 保存数据并更新显示
-        this.saveLocalData();
-        this.updateUserPointsDisplay();
+        try {
+            // 调用后端API创建项目
+            const projectData = {
+                title,
+                description,
+                end_time: new Date(endTime).toISOString(),
+                max_points: maxPoints
+            };
 
-        // 重置表单
-        e.target.reset();
-        
-        // 刷新显示
-        console.log('项目创建后，当前项目数量:', this.projects.length);
-        console.log('最新项目:', this.projects[0]);
-        this.renderProjects();
+            const response = await ApiClient.post(API_CONFIG.ENDPOINTS.PROJECTS, projectData);
+            
+            if (response.success && response.data) {
+                // 创建成功，更新本地状态
+                const project = {
+                    id: response.data.id.toString(),
+                    title: response.data.title,
+                    description: response.data.description,
+                    endTime: response.data.end_time,
+                    maxPoints: response.data.max_points,
+                    creatorId: response.data.creator_id,
+                    creatorName: response.data.creator_name || this.currentUser.username || this.currentUser.uid,
+                    createdAt: response.data.created_at,
+                    frozenPoints: response.data.max_points,
+                    votes: {
+                        yes: response.data.yes_votes || 0,
+                        no: response.data.no_votes || 0
+                    },
+                    voters: [],
+                    voteDetails: [],
+                    status: response.data.status || 'active',
+                    result: response.data.result,
+                    resultPublished: response.data.result_published || false
+                };
+
+                // 第一：创建项目时冻结积分要减掉，显示在冻结积分里面
+                this.userPoints -= maxPoints;
+                this.frozenPoints += maxPoints;
+                this.addPointsHistory('project_freeze', -maxPoints, `创建项目冻结积分 - ${title} (冻结${maxPoints}积分)`);
+                
+                // 添加项目到本地列表
+                this.projects.unshift(project);
+                
+                showCustomAlert(`项目创建成功！已冻结${maxPoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '创建成功', '🎉');
+                
+                // 保存数据并更新显示
+                this.saveLocalData();
+                this.updateUserPointsDisplay();
+
+                // 重置表单
+                e.target.reset();
+                
+                // 刷新显示
+                this.renderProjects();
+            } else {
+                showCustomAlert(response.message || '创建项目失败', '创建失败', '❌');
+            }
+        } catch (error) {
+            console.error('创建项目失败:', error);
+            showCustomAlert('网络错误，创建项目失败', '网络错误', '❌');
+        }
     }
 
     // 处理投票
-    handleVote(projectId, option, votePoints) {
+    async handleVote(projectId, option, votePoints) {
         if (!this.currentUser) {
             showCustomAlert('请先登录', '登录提示', '🔐');
             return;
@@ -846,8 +1065,6 @@ class VotingApp {
             showCustomAlert('该项目已被删除，无法投票', '操作失败', '❌');
             return;
         }
-
-        // 允许多次投票，移除已投票检查
 
         // 检查项目是否已结束
         if (new Date(project.endTime) <= new Date()) {
@@ -878,42 +1095,59 @@ class VotingApp {
             return;
         }
 
-        // 记录投票
-        const vote = {
-            projectId,
-            userId: this.currentUser.uid,
-            option,
-            points: votePoints,
-            timestamp: new Date().toISOString()
-        };
+        try {
+            // 调用后端API进行投票
+            const voteData = {
+                option: option,
+                points: votePoints
+            };
 
-        this.userVotes.push(vote);
-        project.votes[option] += votePoints;
-        project.voters.push(this.currentUser.uid);
-        
-        // 记录投票详情
-        project.voteDetails.push({
-            voter: this.currentUser.uid,
-            option: option,
-            points: votePoints,
-            timestamp: new Date().toISOString()
-        });
-        
-        // 第四：投票人参与投票的积分要减掉，体现在冻结积分里面
-        this.userPoints -= votePoints; // 从总积分中扣除
-        this.frozenPoints += votePoints; // 增加到冻结积分
-        this.addPointsHistory('vote_freeze', -votePoints, `投票冻结积分 - ${project.title} (${option === 'yes' ? '是' : '否'}, 冻结${votePoints}积分)`);
-        
-        this.saveLocalData();
-        this.updateUserPointsDisplay();
-        this.renderProjects();
-        
-        showCustomAlert(`投票成功！已冻结${votePoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '投票成功', '🎉');
-        closeModal('voteModal');
+            const response = await ApiClient.post(`${API_CONFIG.ENDPOINTS.PROJECTS}/${projectId}/vote`, voteData);
+            
+            if (response.success && response.data) {
+                // 投票成功，更新本地状态
+                const vote = {
+                    projectId,
+                    userId: this.currentUser.uid,
+                    option,
+                    points: votePoints,
+                    timestamp: new Date().toISOString()
+                };
+
+                this.userVotes.push(vote);
+                project.votes[option] += votePoints;
+                project.voters.push(this.currentUser.uid);
+                
+                // 记录投票详情
+                project.voteDetails.push({
+                    voter: this.currentUser.uid,
+                    option: option,
+                    points: votePoints,
+                    timestamp: new Date().toISOString()
+                });
+                
+                // 第四：投票人参与投票的积分要减掉，体现在冻结积分里面
+                this.userPoints -= votePoints;
+                this.frozenPoints += votePoints;
+                this.addPointsHistory('vote_freeze', -votePoints, `投票冻结积分 - ${project.title} (${option === 'yes' ? '是' : '否'}, 冻结${votePoints}积分)`);
+                
+                this.saveLocalData();
+                this.updateUserPointsDisplay();
+                this.renderProjects();
+                
+                showCustomAlert(`投票成功！已冻结${votePoints}积分，当前可用积分：${this.userPoints - this.frozenPoints}`, '投票成功', '🎉');
+                closeModal('voteModal');
+            } else {
+                showCustomAlert(response.message || '投票失败', '投票失败', '❌');
+            }
+        } catch (error) {
+            console.error('投票失败:', error);
+            showCustomAlert('网络错误，投票失败', '网络错误', '❌');
+        }
     }
 
     // 处理提现
-    handleWithdraw(e) {
+    async handleWithdraw(e) {
         e.preventDefault();
         
         if (!this.currentUser) {
@@ -954,21 +1188,38 @@ class VotingApp {
             return;
         }
         
-        // 计算手续费
-        const fee = Math.floor(amount * 0.1);
-        const totalDeduction = amount + fee;
-        
-        // 扣除积分
-        this.userPoints -= totalDeduction;
-        this.addPointsHistory('withdraw', -totalDeduction, `提现 ${amount} 积分 (含手续费 ${fee})`);
-        
-        this.saveLocalData();
-        this.updateUserPointsDisplay();
-        
-        // 关闭模态框
-        closeModal('withdrawModal');
-        
-        showCustomAlert(`提现申请已提交！\n提现金额：${amount}\n手续费：${fee}\n预计1小时内到账`, '提现成功', '🎉');
+        try {
+            // 调用后端API申请提现
+            const withdrawData = {
+                address: address,
+                amount: amount
+            };
+
+            const response = await ApiClient.post(API_CONFIG.ENDPOINTS.WITHDRAW, withdrawData);
+            
+            if (response.success && response.data) {
+                // 提现申请成功，更新本地状态
+                const fee = Math.floor(amount * 0.1);
+                const totalDeduction = amount + fee;
+                
+                // 扣除积分
+                this.userPoints -= totalDeduction;
+                this.addPointsHistory('withdraw', -totalDeduction, `提现 ${amount} 积分 (含手续费 ${fee})`);
+                
+                this.saveLocalData();
+                this.updateUserPointsDisplay();
+                
+                // 关闭模态框
+                closeModal('withdrawModal');
+                
+                showCustomAlert(`提现申请已提交！\n提现金额：${amount}\n手续费：${fee}\n预计1小时内到账`, '提现成功', '🎉');
+            } else {
+                showCustomAlert(response.message || '提现申请失败', '提现失败', '❌');
+            }
+        } catch (error) {
+            console.error('提现申请失败:', error);
+            showCustomAlert('网络错误，提现申请失败', '网络错误', '❌');
+        }
     }
     
     // 获取冻结积分（直接返回属性值）
@@ -1520,42 +1771,61 @@ async function createPiPayment(amount) {
     }
 }
 
-// 模拟服务端批准支付（在真实环境中应该是后端API）
+// 服务端批准支付
 async function approvePaymentOnServer(paymentId, amount) {
     try {
-        console.log('模拟服务端批准支付:', paymentId);
-        // 在真实环境中，这里应该调用你的后端API
-        // 后端会调用 Pi Server API 来批准支付
+        console.log('调用后端API批准支付:', paymentId);
         
-        // 模拟批准成功
-        setTimeout(() => {
+        const approveData = {
+            payment_id: paymentId,
+            amount: amount
+        };
+        
+        const response = await ApiClient.post(`${API_CONFIG.ENDPOINTS.RECHARGE}/approve`, approveData);
+        
+        if (response.success) {
             console.log('支付已批准，等待用户确认交易');
-        }, 1000);
+        } else {
+            console.error('批准支付失败:', response.message);
+            showCustomAlert('支付批准失败，请重试', '支付错误', '❌');
+        }
         
     } catch (error) {
         console.error('批准支付失败:', error);
+        showCustomAlert('网络错误，支付批准失败', '网络错误', '❌');
     }
 }
 
-// 模拟服务端完成支付（在真实环境中应该是后端API）
+// 服务端完成支付
 async function completePaymentOnServer(paymentId, txid, amount) {
     try {
-        console.log('模拟服务端完成支付:', paymentId, txid);
-        // 在真实环境中，这里应该调用你的后端API
-        // 后端会调用 Pi Server API 来完成支付并验证交易
+        console.log('调用后端API完成支付:', paymentId, txid);
         
-        // 模拟完成成功，添加积分
-        app.userPoints += amount;
-        app.addPointsHistory('recharge', amount, `Pi Network充值 ${amount} Pi (TxID: ${txid})`);
-        app.updateUserPointsDisplay();
-        app.saveLocalData();
+        const completeData = {
+            payment_id: paymentId,
+            txid: txid,
+            amount: amount
+        };
         
-        showCustomAlert(`充值成功！\n充值金额: ${amount} Pi\n交易ID: ${txid}\n积分已到账`, '充值成功', '🎉');
-        closeModal('rechargeModal');
+        const response = await ApiClient.post(`${API_CONFIG.ENDPOINTS.RECHARGE}/complete`, completeData);
+        
+        if (response.success && response.data) {
+            // 充值成功，更新本地状态
+            app.userPoints += amount;
+            app.addPointsHistory('recharge', amount, `Pi Network充值 ${amount} Pi (TxID: ${txid})`);
+            app.updateUserPointsDisplay();
+            app.saveLocalData();
+            
+            showCustomAlert(`充值成功！\n充值金额: ${amount} Pi\n交易ID: ${txid}\n积分已到账`, '充值成功', '🎉');
+            closeModal('rechargeModal');
+        } else {
+            console.error('完成支付失败:', response.message);
+            showCustomAlert('充值确认失败，请联系客服', '充值失败', '❌');
+        }
         
     } catch (error) {
         console.error('完成支付失败:', error);
-        showCustomAlert('完成支付时发生错误', '支付错误', '❌');
+        showCustomAlert('网络错误，充值确认失败', '网络错误', '❌');
     }
 }
 
