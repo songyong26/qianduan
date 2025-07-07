@@ -317,7 +317,7 @@
                 <div className="mt-auto pt-1 flex justify-between items-end">
                     {/* --- LEFT CONTROLS --- */}
                     <div>
-                        {isCreator && isMyCreatedView && project.status !== 'finished' && project.status !== 'pending_review' && project.status !== 'review_passed' && project.status !== 'review_failed' && (
+                        {isCreator && isMyCreatedView && project.status !== 'finished' && project.status !== 'pending_review' && project.status !== 'review_passed' && project.status !== 'review_failed' && (yesRemain > 0 || noRemain > 0) && (
                             <button 
                                 onClick={() => {
                                   const action = project.status === 'paused' ? '重启' : '暂停';
@@ -646,20 +646,21 @@
         };
 
         const handleLogin = () => {
-          // Pi Network 登录
           const scopes = ['username', 'payments'];
           function onIncompletePaymentFound(payment) {
-            // 可选：处理未完成的支付
             console.log('Incomplete payment found:', payment);
           }
-          if (window.Pi) {
+          // 新增：调试信息
+          console.log('window.Pi:', window.Pi);
+          console.log('typeof window.Pi:', typeof window.Pi);
+          console.log('typeof window.Pi.authenticate:', typeof window.Pi?.authenticate);
+          if (window.Pi && typeof window.Pi.authenticate === 'function') {
             Pi.authenticate(scopes, onIncompletePaymentFound)
               .then(function(auth) {
-                // 登录成功，auth包含user信息
                 setIsLoggedIn(true);
                 setUserInfo({
                   username: auth.user.username,
-                  points: 1000, // 可根据实际业务调整
+                  points: 1000,
                   frozenPoints: 0,
                   pointDetails: [
                     { time: new Date().toLocaleString(), type: '初始积分', amount: 1000, balance: 1000, remark: '系统发放' }
@@ -667,7 +668,6 @@
                 });
               })
               .catch(function(error) {
-                // 登录失败
                 showConfirm({
                   title: '登录失败',
                   content: error && error.message ? error.message : 'Pi登录失败，请重试',
@@ -675,10 +675,22 @@
                 });
               });
           } else {
+            // 新增：非Pi环境或SDK加载失败时弹窗提示
             showConfirm({
-              title: '环境错误',
-              content: '请在Pi浏览器中打开本应用！',
-              confirmText: '确定'
+              title: '模拟登录',
+              content: '当前非 Pi 浏览器或 Pi SDK 加载失败，已自动切换为测试账户。',
+              confirmText: '确定',
+              onConfirm: () => {
+                setIsLoggedIn(true);
+                setUserInfo({
+                  username: 'TestUser',
+                  points: 1000,
+                  frozenPoints: 0,
+                  pointDetails: [
+                    { time: new Date().toLocaleString(), type: '初始积分', amount: 1000, balance: 1000, remark: '系统发放' }
+                  ]
+                });
+              }
             });
           }
         };
