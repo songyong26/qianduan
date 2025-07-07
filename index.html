@@ -641,6 +641,27 @@
           });
         };
 
+        // 新增：页面初始化时自动恢复登录状态
+        useEffect(() => {
+          const savedLogin = localStorage.getItem('isLoggedIn');
+          const savedUser = localStorage.getItem('userInfo');
+          if (savedLogin === 'true' && savedUser) {
+            setIsLoggedIn(true);
+            try {
+              setUserInfo(JSON.parse(savedUser));
+            } catch (e) {
+              // 解析失败则清空
+              setUserInfo({ username: null, points: 0, frozenPoints: 0, pointDetails: [] });
+            }
+          }
+        }, []);
+
+        // 新增：每次登录状态或用户信息变化时自动保存到localStorage
+        useEffect(() => {
+          localStorage.setItem('isLoggedIn', isLoggedIn ? 'true' : 'false');
+          localStorage.setItem('userInfo', JSON.stringify(userInfo));
+        }, [isLoggedIn, userInfo]);
+
         const handleAccordionClick = (id) => {
           setOpenAccordion(prevId => (prevId === id ? null : id));
         };
@@ -708,6 +729,9 @@
                 });
                 setOpenAccordion('all_projects');
                 setShowPointsDetail(false);
+                // 新增：清除localStorage
+                localStorage.removeItem('isLoggedIn');
+                localStorage.removeItem('userInfo');
               }
             });
         };
