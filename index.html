@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>投票平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <script>Pi.init({ version: "2.0" })</script>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+      }
+      input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+        filter: invert(1) brightness(0.8) sepia(1) hue-rotate(220deg) saturate(5);
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.3s ease-out forwards;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 1.5px;
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #a78bfa;
+        border-radius: 4px;
+      }
+      .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: #a78bfa transparent;
+        -ms-overflow-style: scrollbar;
+        overflow-y: scroll !important;
+      }
+      .all-projects-header-flex { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+      .all-projects-title { display: flex; align-items: center; gap: 0.5rem; }
+      .all-projects-stats { display: flex; align-items: center; gap: 2rem; color: #fde047; font-weight: bold; font-size: 1.1rem; }
+      .all-projects-stats-inner { display: flex; align-items: center; gap: 2rem; color: #fde047; font-weight: bold; font-size: 1.1rem; margin-bottom: 1rem; margin-top: 0; }
+    </style>
+</head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState, useEffect, FC, SVGProps, ReactNode } = React;
+
+      // --- ICONS ---
+      const VotingIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
+          <path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+        </svg>
+      );
+
+      const AllProjectsIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" {...props}>
+          <path d="M4 14h4v-4H4v4zm0 5h4v-4H4v4zM4 9h4V5H4v4zm5 5h12v-4H9v4zm0 5h12v-4H9v4zM9 5v4h12V5H9z"/>
+        </svg>
+      );
+
+      const CreateProjectIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" {...props}>
+          <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 14h-2v2h-2v-2H10v-2h2v-2h2v2h2v2zm-3-7V3.5L18.5 9H13z"/>
+        </svg>
+      );
+
+      const MyProjectsIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" {...props}>
+          <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
+        </svg>
+      );
+
+      const GameRulesIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" {...props}>
+          <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM16 18H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+        </svg>
+      );
+
+      const ChevronDownIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" {...props}>
+          <path d="m6 9 6 6 6-6"/>
+        </svg>
+      );
+
+      // --- ACCORDION ITEM COMPONENT ---
+      const AccordionItem = ({ icon, title, isOpen, onClick, children }) => {
+        return (
+          <div className="w-full">
+            <button
+              onClick={onClick}
+              className={`w-full flex items-center justify-between p-4 bg-purple-500/30 backdrop-blur-md text-yellow-400 font-bold text-lg border border-purple-400/30 shadow-lg transition-all duration-300 ${isOpen ? 'rounded-t-2xl' : 'rounded-2xl'}`}
+            >
+              <div className="flex items-center gap-4">
+                {icon}
+                <span>{title}</span>
+              </div>
+              <ChevronDownIcon
+                className={`w-6 h-6 text-white/80 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            <div
+              className={`grid transition-all duration-300 ease-in-out ${
+                isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+              }`}
+            >
+              <div className="overflow-hidden">
+                <div className="p-4 bg-purple-900/40 rounded-b-2xl text-white/90 shadow-lg border-x border-b border-purple-400/30 backdrop-blur-md">
+                  {children}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      };
+      
+      // --- REUSABLE PROJECT CARD ---
+      const ProjectCard = ({ project, currentUser, isMyCreatedView, onVote, onDelete, onPublish, onTogglePause, showConfirm, isParticipatedView, onRemoveParticipated, setPublishDialog }) => {
+        const [isVotingOpen, setIsVotingOpen] = useState(false);
+        const [votePoints, setVotePoints] = useState(1);
+        
+        const isCreator = project.creator === currentUser;
+
+        // 统计当前项目已投积分（需支持多选项积分累加）
+        // 假设项目结构有votes: { yes: number, no: number } 或 votes: { [option]: number }
+        let totalVotedPoints = 0;
+        if (project.votes && typeof project.votes === 'object') {
+          totalVotedPoints = Object.values(project.votes).reduce((sum, v) => sum + (parseInt(v, 10) || 0), 0);
+        } else if (typeof project.votedPoints === 'number') {
+          totalVotedPoints = project.votedPoints;
+        } else {
+          totalVotedPoints = project.participantCount || 0; // 兼容旧数据
+        }
+        const yesVoted = (project.votes && project.votes['是']) ? project.votes['是'] : 0;
+        const noVoted = (project.votes && project.votes['否']) ? project.votes['否'] : 0;
+        const yesRemain = Math.max(0, (project.maxPoints || 0) - yesVoted);
+        const noRemain = Math.max(0, (project.maxPoints || 0) - noVoted);
+        const currentMaxAvailablePoints = Math.max(yesRemain, noRemain);
+
+        const selectedChoice = isVotingOpen ? votePoints > 0 ? (votePoints === '是' ? '是' : '否') : '是' : '是';
+        const selectedOption = selectedChoice;
+        const alreadyVotedSelected = (project.votes && project.votes[selectedOption]) ? project.votes[selectedOption] : 0;
+        const remainSelected = Math.max(0, (project.maxPoints || 0) - alreadyVotedSelected);
+
+        const handleInternalVoteSubmit = (choice) => {
+            const pointsToVote = parseInt(votePoints, 10);
+            if (isNaN(pointsToVote) || pointsToVote < 1) {
+                showConfirm({
+                  title: '投票提示',
+                  content: '投票积分不能少于1',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+            }
+            const alreadyVoted = (project.votes && project.votes[choice]) ? project.votes[choice] : 0;
+            if (alreadyVoted + pointsToVote > (project.maxPoints || 0)) {
+                showConfirm({
+                  title: '投票提示',
+                  content: `该选项剩余可投积分为${(project.maxPoints || 0) - alreadyVoted}，请重新输入！`,
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+            }
+            if (pointsToVote > currentMaxAvailablePoints) {
+                showConfirm({
+                  title: '投票提示',
+                  content: `投票积分不能超过当前最高可投积分: ${currentMaxAvailablePoints}`,
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+            }
+            // 使用自定义弹窗确认
+            showConfirm({
+              title: `确认投票`,
+              content: `确定要投"${choice}"吗？本次将消耗${pointsToVote}积分。`,
+              onConfirm: () => {
+                onVote(project.id, choice, pointsToVote);
+                setIsVotingOpen(false);
+              }
+            });
+        };
+
+        const getStatusInfo = () => {
+          const now = new Date();
+          const deadlineDate = project.deadline ? new Date(project.deadline) : null;
+          if (project.status === 'finished') {
+            return { text: '已结束', color: 'text-gray-400' };
+          }
+          if (project.status === 'review_passed') {
+            return { text: '审核通过', color: 'text-green-400' };
+          }
+          if (project.status === 'review_failed') {
+            return { text: '审核未通过', color: 'text-red-400' };
+          }
+          if (project.status === 'pending_review') {
+            return { text: '待审核', color: 'text-blue-400' };
+          }
+          if (project.status === 'paused') {
+            return { text: '已暂停', color: 'text-yellow-500' };
+          }
+          if (deadlineDate && now > deadlineDate) {
+            return { text: '待公布', color: 'text-orange-500' };
+          }
+          return { text: '进行中', color: 'text-red-500' };
+        };
+
+        const statusInfo = getStatusInfo();
+        const deadlinePassed = project.deadline && new Date() > new Date(project.deadline);
+        const canVote = project.status === 'inprogress' && !deadlinePassed;
+
+        const formattedDeadline = project.deadline
+            ? new Date(project.deadline).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+            : '未设置';
+
+        let myVoteSummary = null;
+        // 只在"我参与的"视角展示
+        if (isParticipatedView && project.myVotes && Array.isArray(project.myVotes)) {
+          // 合并同一选项积分
+          const summary = {};
+          project.myVotes.forEach(v => {
+            if (v.user === currentUser) {
+              summary[v.choice] = (summary[v.choice] || 0) + v.points;
+            }
+          });
+          myVoteSummary = summary;
+        }
+
+        // 判断是否为所有项目视角
+        const isAllProjectsView = !isMyCreatedView && !isParticipatedView;
+
+        return (
+            <div className="relative bg-purple-800/50 p-2 rounded-lg border border-purple-400/40 transform transition-all hover:scale-[1.01] flex flex-col">
+                <div className={`absolute top-2 right-2 text-xs font-bold ${statusInfo.color} z-10`}>
+                  {statusInfo.text}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <h3 className="text-md font-bold text-yellow-400 pr-4">{project.title}</h3>
+                </div>
+                {project.description && <p className="text-xs text-white/80 my-0.5 [text-indent:2ch]">{project.description}</p>}
+                <div className="text-xs text-yellow-400/70 mb-0.5">截止日期: {formattedDeadline}</div>
+                <div className="text-xs text-yellow-400/70 mb-1">当前最高可投积分: {currentMaxAvailablePoints}</div>
+
+                <div className="text-xs text-purple-300/80 mb-0.5">参与人数: {project.participantCount || 0}</div>
+                <div className="text-xs text-purple-300/80">发起人: {project.creator}</div>
+
+                {/* 仅发起人视角显示投票积分统计 */}
+                {isCreator && isMyCreatedView && (
+                  <div className="flex gap-4 mb-1 mt-1">
+                    {['是', '否'].map(opt => (
+                      <div key={opt} className="text-xs text-yellow-300 bg-purple-900/40 rounded px-2 py-0.5 font-bold">
+                        {opt}：{(project.votes && project.votes[opt]) ? project.votes[opt] : 0} 积分
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* 仅"我参与的"视角显示自己投票信息，且合并同一选项积分 */}
+                {isParticipatedView && myVoteSummary && Object.keys(myVoteSummary).length > 0 && (
+                  <div className="flex flex-col gap-1 mb-1 mt-1">
+                    {Object.entries(myVoteSummary).map(([choice, points]) => (
+                      <div key={choice} className="text-xs text-green-400 bg-purple-900/40 rounded px-2 py-0.5 font-bold">
+                        你投了：{choice}（{points} 积分）
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                 {isVotingOpen && (
+                      <div className="pt-2 mt-2 border-t border-purple-400/30 animate-fade-in">
+                          <div className="mb-2">
+                              <label htmlFor={`points-${project.id}`} className="block text-xs font-medium text-yellow-400/80 mb-1">投票积分 (最高 {currentMaxAvailablePoints})</label>
+                              <input
+                                  type="number"
+                                  id={`points-${project.id}`}
+                                  min="1"
+                                  max={currentMaxAvailablePoints}
+                                  value={votePoints}
+                                  onChange={(e) => setVotePoints(e.target.value)}
+                                  className="w-full bg-purple-700/50 border border-purple-400/50 rounded-md px-2 py-1 text-white text-sm focus:ring-yellow-400 focus:border-yellow-400"
+                              />
+                              <div className="text-xs mt-1 text-yellow-300">当前选项剩余可投积分：{remainSelected}</div>
+                              {parseInt(votePoints, 10) > remainSelected && (
+                                <div className="text-xs text-red-400 mt-1">已超出该选项可投积分上限</div>
+                              )}
+                          </div>
+                          <div className="flex gap-2">
+                              <div className="flex-1 flex flex-col items-center">
+                                {yesRemain === 0 && <div className="text-xs text-red-400 mb-1">已达上限</div>}
+                                <button 
+                                  onClick={() => handleInternalVoteSubmit('是')}
+                                  className="w-full bg-green-500/80 text-white font-semibold py-1 rounded-md hover:bg-green-600 transition-colors text-sm"
+                                  disabled={yesRemain === 0}
+                                >投"是"</button>
+                              </div>
+                              <div className="flex-1 flex flex-col items-center">
+                                {noRemain === 0 && <div className="text-xs text-red-400 mb-1">已达上限</div>}
+                                <button 
+                                  onClick={() => handleInternalVoteSubmit('否')}
+                                  className="w-full bg-red-500/80 text-white font-semibold py-1 rounded-md hover:bg-red-600 transition-colors text-sm"
+                                  disabled={noRemain === 0}
+                                >投"否"</button>
+                              </div>
+                          </div>
+                      </div>
+                  )}
+
+                <div className="mt-auto pt-1 flex justify-between items-end">
+                    {/* --- LEFT CONTROLS --- */}
+                    <div>
+                        {isCreator && isMyCreatedView && project.status !== 'finished' && project.status !== 'pending_review' && project.status !== 'review_passed' && project.status !== 'review_failed' && (
+                            <button 
+                                onClick={() => {
+                                  const action = project.status === 'paused' ? '重启' : '暂停';
+                                  showConfirm({
+                                    title: `${action}项目`,
+                                    content: `确定要${action}该项目吗？`,
+                                    onConfirm: () => onTogglePause(project.id)
+                                  });
+                                }} 
+                                className={`text-white font-semibold py-0.5 px-2 rounded-md transition-colors text-xs ${project.status === 'paused' ? 'bg-green-600 hover:bg-green-700' : 'bg-yellow-500 hover:bg-yellow-600'}`}>
+                                {project.status === 'paused' ? '重启项目' : '暂停项目'}
+                            </button>
+                        )}
+                    </div>
+                    
+                    {/* --- RIGHT CONTROLS --- */}
+                    <div className="flex items-center gap-2">
+                        {/* 参与视图下，已结束项目不显示投票按钮 */}
+                        {!isMyCreatedView && project.status !== 'finished' && (
+                            <button
+                                onClick={() => setIsVotingOpen(prev => !prev)}
+                                className={`text-white font-semibold py-0.5 px-2 rounded-md transition-colors text-xs ${ isVotingOpen ? 'bg-gray-500 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700' } ${ (!canVote && !isVotingOpen) ? 'opacity-50 cursor-not-allowed' : '' }`}
+                                disabled={!canVote && !isVotingOpen}
+                            >
+                                {isVotingOpen ? '取消' : '投票'}
+                            </button>
+                        )}
+                        {isCreator && isMyCreatedView && (
+                             project.participantCount === 0 ? (
+                                <button onClick={() => {
+                                  showConfirm({
+                                    title: '删除项目',
+                                    content: '您确定要删除这个项目吗？此操作无法撤销。',
+                                    onConfirm: () => onDelete(project.id)
+                                  });
+                                }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
+                                    删除
+                                </button>
+                            ) : (
+                                project.status !== 'finished' && (
+                                  <button 
+                                    onClick={() => {
+                                      setPublishDialog && setPublishDialog({
+                                        open: true,
+                                        projectId: project.id,
+                                        votes: project.votes || { '是': 0, '否': 0 }
+                                      });
+                                    }} 
+                                    className="bg-orange-500 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-orange-600 transition-colors text-xs"
+                                    disabled={project.status === 'pending_review' || project.status === 'review_passed' || project.status === 'review_failed'}
+                                  >
+                                    公布结果
+                                  </button>
+                                )
+                            )
+                        )}
+                        {isCreator && isMyCreatedView && project.status === 'finished' && (
+                          <button onClick={() => {
+                            showConfirm({
+                              title: '删除项目',
+                              content: '您确定要删除这个项目吗？此操作无法撤销。',
+                              onConfirm: () => onDelete(project.id)
+                            });
+                          }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
+                              删除
+                          </button>
+                        )}
+                        {/* 参与的项目-已结束-右下角删除按钮 */}
+                        {isParticipatedView && project.status === 'finished' && (
+                          <button onClick={() => {
+                            showConfirm({
+                              title: '移除项目',
+                              content: '您确定要将该项目从"我参与的项目"中移除吗？',
+                              onConfirm: () => onRemoveParticipated && onRemoveParticipated(project.id)
+                            });
+                          }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
+                            删除
+                          </button>
+                        )}
+                    </div>
+                </div>
+                {/* 公布结果红色盖章斜着展示，内容为"项目结果：是/否"，且完全在卡片内 */}
+                {project.status === 'finished' && project.publishedOption && (
+                  <div style={{
+                    position: 'absolute',
+                    right: '12px',
+                    bottom: 'calc(12px + 36px)',
+                    zIndex: 20,
+                    pointerEvents: 'none',
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    justifyContent: 'flex-end',
+                    width: 'calc(100% - 24px)',
+                  }}>
+                    <div className="bg-red-600 text-white font-bold px-2 py-0.5 rounded shadow-lg select-none whitespace-nowrap" style={{
+                      fontSize: '0.85rem',
+                      border: '2px solid #fff',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                      opacity: 0.97,
+                      letterSpacing: '2px',
+                      width: 'fit-content',
+                      height: 'fit-content',
+                      minWidth: 0,
+                      minHeight: 0,
+                      margin: 0,
+                      marginLeft: 'auto',
+                    }}>
+                      项目结果：{project.publishedOption}
+                    </div>
+                  </div>
+                )}
+                {isCreator && isMyCreatedView && project.status === 'pending_review' && (
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={() => handleMockReview(project.id, true)} className="bg-green-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-green-700 text-xs">模拟审核通过</button>
+                    <button onClick={() => handleMockReview(project.id, false)} className="bg-gray-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-gray-700 text-xs">模拟审核不通过</button>
+                  </div>
+                )}
+            </div>
+        );
+      };
+
+      const ProjectList = ({ projectsToDisplay, isMyCreatedView, currentUser, onVote, onDelete, onPublish, onTogglePause, emptyMessage, showConfirm, isParticipatedView, onRemoveParticipated, setPublishDialog }) => {
+        const [page, setPage] = React.useState(1);
+        const pageSize = 5;
+        const total = projectsToDisplay.length;
+        const totalPages = Math.ceil(total / pageSize);
+        const start = (page - 1) * pageSize;
+        const end = start + pageSize;
+        const currentPageProjects = projectsToDisplay.slice(start, end);
+        return (
+          <div>
+            <div className="space-y-3">
+              {currentPageProjects.length > 0 ? (
+                currentPageProjects.map(project => (
+                  <ProjectCard 
+                    key={project.id} 
+                    project={project}
+                    currentUser={currentUser}
+                    isMyCreatedView={isMyCreatedView}
+                    onVote={onVote}
+                    onDelete={onDelete}
+                    onPublish={onPublish}
+                    onTogglePause={onTogglePause}
+                    showConfirm={showConfirm}
+                    isParticipatedView={isParticipatedView}
+                    onRemoveParticipated={onRemoveParticipated}
+                    setPublishDialog={setPublishDialog}
+                  />
+                ))
+              ) : (
+                <p className="text-sm text-center py-4">{emptyMessage || (isMyCreatedView ? '您还没有创建任何项目。' : '当前没有投票项目。')}</p>
+              )}
+            </div>
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-4 mt-4">
+                <button
+                  className="px-3 py-1 rounded bg-purple-600 text-white disabled:opacity-50"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >上一页</button>
+                <span className="text-white/80 text-sm">{page} / {totalPages}</span>
+                <button
+                  className="px-3 py-1 rounded bg-purple-600 text-white disabled:opacity-50"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >下一页</button>
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      const MyProjectsView = ({ projects, currentUser, participatedProjectIds, onVote, onDelete, onPublish, onTogglePause, showConfirm, onRemoveParticipated, setPublishDialog }) => {
+          const [activeTab, setActiveTab] = useState('created');
+
+          const createdProjects = projects.filter(p => p.creator === currentUser);
+          const participatedProjects = projects.filter(p => participatedProjectIds.includes(p.id));
+
+          const projectsToDisplay = activeTab === 'created' ? createdProjects : participatedProjects;
+          const isMyCreatedView = activeTab === 'created';
+          const emptyMessage = isMyCreatedView ? '您还没有创建任何项目。' : '您还没有参与任何项目。';
+
+          return (
+              <div>
+                  <div className="flex mb-4 border-b-2 border-purple-400/30">
+                      <button 
+                          onClick={() => setActiveTab('created')} 
+                          className={`flex-1 text-center py-2 font-semibold transition-colors duration-200 focus:outline-none ${activeTab === 'created' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-white/60 hover:text-white'}`}
+                      >
+                          我创建的
+                      </button>
+                      <button 
+                          onClick={() => setActiveTab('participated')}
+                          className={`flex-1 text-center py-2 font-semibold transition-colors duration-200 focus:outline-none ${activeTab === 'participated' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-white/60 hover:text-white'}`}
+                      >
+                          我参与的
+                      </button>
+                  </div>
+                  <ProjectList 
+                      projectsToDisplay={projectsToDisplay}
+                      isMyCreatedView={isMyCreatedView}
+                      currentUser={currentUser}
+                      onVote={onVote}
+                      onDelete={onDelete}
+                      onPublish={onPublish}
+                      onTogglePause={onTogglePause}
+                      emptyMessage={emptyMessage}
+                      showConfirm={showConfirm}
+                      isParticipatedView={!isMyCreatedView}
+                      onRemoveParticipated={onRemoveParticipated}
+                      setPublishDialog={setPublishDialog}
+                  />
+              </div>
+          );
+      };
+
+      // --- 全局确认弹窗组件 ---
+      const ConfirmDialog = ({ open, title, content, onConfirm, onCancel, confirmText = '确认', cancelText = '取消' }) => {
+        if (!open) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-purple-800 border border-purple-400/60 rounded-2xl shadow-2xl p-6 w-80 animate-fade-in">
+              <h2 className="text-lg font-bold text-yellow-400 mb-3 text-center">{title}</h2>
+              <div className="text-white/90 text-sm mb-6 text-center whitespace-pre-line">{content}</div>
+              <div className="flex gap-4 justify-center">
+                <button onClick={onCancel} className="flex-1 bg-gray-500/80 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg transition-colors">{cancelText}</button>
+                <button onClick={onConfirm} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg transition-colors">{confirmText}</button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // 公布结果弹窗组件
+      const PublishResultDialog = ({ open, votes, onConfirm, onCancel }) => {
+        const [selected, setSelected] = useState('是');
+        if (!open) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-purple-800 border border-purple-400/60 rounded-2xl shadow-2xl p-6 w-80 animate-fade-in">
+              <h2 className="text-lg font-bold text-yellow-400 mb-3 text-center">选择公布结果</h2>
+              <div className="text-white/90 text-base mb-4 text-center">请选择要公布的选项：</div>
+              <div className="flex gap-4 justify-center mb-4">
+                {['是', '否'].map(opt => (
+                  <label
+                    key={opt}
+                    className={`flex flex-col items-center gap-1 cursor-pointer px-3 py-2 rounded-lg transition-all select-none ${selected === opt ? 'bg-red-600/90 text-white font-bold ring-2 ring-red-400' : 'bg-white/10 text-white/80'}`}
+                    style={{ minWidth: 70, justifyContent: 'center' }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="publishOption"
+                        value={opt}
+                        checked={selected === opt}
+                        onChange={() => setSelected(opt)}
+                        className="accent-red-600 w-5 h-5"
+                      />
+                      <span className="text-base">{opt}</span>
+                    </div>
+                    <span className="block text-xs mt-1">（{votes[opt] || 0}分）</span>
+                  </label>
+                ))}
+              </div>
+              <div className="text-xs text-purple-300/80 text-center mb-4">公布后将无法再次投票。</div>
+              <div className="flex gap-4 justify-center">
+                <button onClick={onCancel} className="flex-1 bg-gray-500/80 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg transition-colors">取消</button>
+                <button onClick={() => onConfirm(selected)} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg transition-colors">确认</button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // --- MAIN APP COMPONENT ---
+      const App = () => {
+        // 1. 默认所有卡片折叠
+        const [openAccordion, setOpenAccordion] = useState(null);
+        const [isLoggedIn, setIsLoggedIn] = useState(false);
+        const [userInfo, setUserInfo] = useState({
+          username: null,
+          points: 0,
+          frozenPoints: 0,
+          pointDetails: [] // {time, type, amount, balance, remark}
+        });
+        const [showPointsDetail, setShowPointsDetail] = useState(false);
+        const [projects, setProjects] = useState([]);
+        const [participatedProjectIds, setParticipatedProjectIds] = useState([]);
+        const [newProjectData, setNewProjectData] = useState({
+            title: '',
+            description: '',
+            deadline: '',
+            maxPoints: 100,
+        });
+        // 全局确认弹窗状态
+        const [confirmDialog, setConfirmDialog] = useState({
+          open: false,
+          title: '',
+          content: '',
+          onConfirm: null,
+          onCancel: null,
+          confirmText: '确认',
+          cancelText: '取消',
+        });
+        // showConfirm方法
+        const showConfirm = ({ title, content, onConfirm, onCancel, confirmText = '确认', cancelText = '取消' }) => {
+          setConfirmDialog({
+            open: true,
+            title,
+            content,
+            onConfirm: () => {
+              setConfirmDialog(d => ({ ...d, open: false }));
+              onConfirm && onConfirm();
+            },
+            onCancel: () => {
+              setConfirmDialog(d => ({ ...d, open: false }));
+              onCancel && onCancel();
+            },
+            confirmText,
+            cancelText,
+          });
+        };
+
+        const handleAccordionClick = (id) => {
+          setOpenAccordion(prevId => (prevId === id ? null : id));
+        };
+
+        const handleLogin = () => {
+          // Pi Network 登录
+          const scopes = ['username', 'payments'];
+          function onIncompletePaymentFound(payment) {
+            // 可选：处理未完成的支付
+            console.log('Incomplete payment found:', payment);
+          }
+          if (window.Pi) {
+            Pi.authenticate(scopes, onIncompletePaymentFound)
+              .then(function(auth) {
+                // 登录成功，auth包含user信息
+                setIsLoggedIn(true);
+                setUserInfo({
+                  username: auth.user.username,
+                  points: 1000, // 可根据实际业务调整
+                  frozenPoints: 0,
+                  pointDetails: [
+                    { time: new Date().toLocaleString(), type: '初始积分', amount: 1000, balance: 1000, remark: '系统发放' }
+                  ]
+                });
+              })
+              .catch(function(error) {
+                // 登录失败
+                showConfirm({
+                  title: '登录失败',
+                  content: error && error.message ? error.message : 'Pi登录失败，请重试',
+                  confirmText: '确定'
+                });
+              });
+          } else {
+            showConfirm({
+              title: '环境错误',
+              content: '请在Pi浏览器中打开本应用！',
+              confirmText: '确定'
+            });
+          }
+        };
+        const handleLogout = () => {
+            showConfirm({
+              title: '退出登录',
+              content: '确定要退出登录吗？',
+              onConfirm: () => {
+                setIsLoggedIn(false);
+                setUserInfo({
+                  username: null,
+                  points: 0,
+                  frozenPoints: 0,
+                  pointDetails: []
+                });
+                setOpenAccordion('all_projects');
+                setShowPointsDetail(false);
+              }
+            });
+        };
+
+        const handleProjectInputChange = (e) => {
+            const { name, value } = e.target;
+            setNewProjectData(prev => ({ ...prev, [name]: value }));
+        };
+
+        const handleCreateProject = (e) => {
+            e.preventDefault();
+            if (!newProjectData.title || !newProjectData.deadline || !newProjectData.maxPoints) {
+                alert('请填写所有必填字段！');
+                return;
+            }
+            // 新增：判断积分是否足够冻结
+            if (userInfo.points < Number(newProjectData.maxPoints)) {
+                showConfirm({
+                  title: '积分不足',
+                  content: `您的可用积分不足，无法创建该项目！`,
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+            }
+            // 新增：冻结提示弹窗
+            showConfirm({
+              title: '冻结积分确认',
+              content: `将冻结${newProjectData.maxPoints}积分，冻结后不可用，待项目结算后自动返还或扣除。是否继续？`,
+              confirmText: '继续',
+              cancelText: '取消',
+              onConfirm: () => {
+                showConfirm({
+                  title: '创建项目',
+                  content: '确定要创建该项目吗？',
+                  onConfirm: () => {
+                    // 冻结积分
+                    const freeze = Number(newProjectData.maxPoints);
+                    setUserInfo(prev => ({
+                      ...prev,
+                      points: prev.points - freeze,
+                      frozenPoints: prev.frozenPoints + freeze,
+                      pointDetails: [
+                        ...prev.pointDetails,
+                        {
+                          time: new Date().toLocaleString(),
+                          type: '项目冻结',
+                          amount: -freeze,
+                          balance: prev.points - freeze,
+                          remark: newProjectData.title
+                        }
+                      ]
+                    }));
+                    const newProject = {
+                      id: Date.now(),
+                      creator: userInfo.username,
+                      ...newProjectData,
+                      participantCount: 0,
+                      status: 'inprogress',
+                      frozenPoints: freeze, // 发起人冻结池
+                      voteFrozen: {}, // {username: 冻结积分}
+                    };
+                    setProjects(prev => [newProject, ...prev]);
+                    setNewProjectData({
+                      title: '',
+                      description: '',
+                      deadline: '',
+                      maxPoints: 100,
+                    });
+                    setOpenAccordion('all_projects');
+                  },
+                  cancelText: '取消',
+                });
+              },
+              onCancel: undefined
+            });
+        };
+
+        const handleDeleteProject = (projectId) => {
+            setProjects(prev => prev.filter(p => p.id !== projectId));
+        };
+
+        const handleSubmitReview = (projectId, pendingOption) => {
+            setProjects(prev => prev.map(p =>
+                p.id === projectId ? { ...p, status: 'pending_review', pendingOption } : p
+            ));
+            setPublishDialog({ open: false, projectId: null, votes: { '是': 0, '否': 0 } });
+        };
+
+        const handleMockReview = (projectId, passed) => {
+            setProjects(prev => prev.map(p => {
+                if (p.id !== projectId) return p;
+                if (passed) {
+                    // 审核通过，正式公布结果，执行结算
+                    // 结算逻辑
+                    const publishedOption = p.pendingOption;
+                    const voteFrozen = p.voteFrozen || {};
+                    const myVotes = Array.isArray(p.myVotes) ? p.myVotes : [];
+                    let userRewardMap = {}; // {username: {reward: 0, return: 0, lose: 0}}
+                    // 统计每个用户投票正确/错误的冻结积分
+                    myVotes.forEach(v => {
+                        if (!userRewardMap[v.user]) userRewardMap[v.user] = {reward: 0, return: 0, lose: 0};
+                        if (v.choice === publishedOption) {
+                            userRewardMap[v.user].reward += v.points; // 奖励
+                            userRewardMap[v.user].return += v.points; // 返还
+                        } else {
+                            userRewardMap[v.user].lose += v.points; // 归发起人
+                        }
+                    });
+                    // 计算发起人奖励和返还
+                    let creatorReward = 0;
+                    let creatorReturn = 0;
+                    Object.values(userRewardMap).forEach(u => {
+                        creatorReward += u.lose;
+                    });
+                    // 统计所有正确用户奖励总和
+                    let totalReward = 0;
+                    Object.values(userRewardMap).forEach(u => { totalReward += u.reward; });
+                    // 发起人冻结池扣除奖励，剩余返还
+                    creatorReturn = Math.max(0, (p.frozenPoints || 0) - totalReward);
+                    // 更新用户积分（这里只更新当前登录用户，实际多用户需后端）
+                    setUserInfo(prev => {
+                        let delta = 0;
+                        let detail = null;
+                        if (prev.username === p.creator) {
+                            // 发起人：返还+错误用户积分
+                            delta = creatorReturn + creatorReward;
+                            detail = {
+                                time: new Date().toLocaleString(),
+                                type: '项目结算',
+                                amount: delta,
+                                balance: prev.points + delta,
+                                remark: p.title
+                            };
+                        } else if (userRewardMap[prev.username]) {
+                            // 参与人
+                            const u = userRewardMap[prev.username];
+                            delta = u.return + u.reward;
+                            if (u.reward > 0) {
+                                detail = {
+                                    time: new Date().toLocaleString(),
+                                    type: '投票结算奖励',
+                                    amount: delta,
+                                    balance: prev.points + delta,
+                                    remark: p.title
+                                };
+                            } else if (u.lose > 0) {
+                                detail = {
+                                    time: new Date().toLocaleString(),
+                                    type: '投票结算归发起人',
+                                    amount: 0,
+                                    balance: prev.points,
+                                    remark: p.title
+                                };
+                            }
+                        }
+                        return detail ? {
+                            ...prev,
+                            points: prev.points + delta,
+                            pointDetails: [...prev.pointDetails, detail]
+                        } : prev;
+                    });
+                    return { ...p, status: 'review_passed', publishedOption: p.pendingOption, pendingOption: undefined };
+                } else {
+                    // 审核不通过
+                    return { ...p, status: 'review_failed', pendingOption: undefined };
+                }
+            }));
+        };
+
+        const handleTogglePauseProject = (projectId) => {
+            setProjects(prev => prev.map(p => {
+                if (p.id !== projectId) return p;
+                const newStatus = p.status === 'paused' ? 'inprogress' : 'paused';
+                return { ...p, status: newStatus };
+            }));
+        };
+
+        // 2. 参与人数统计为唯一用户数
+        const handleVoteSubmit = (projectId, choice, points) => {
+            if (points > userInfo.points) {
+                showConfirm({
+                  title: '积分不足',
+                  content: '您的可用积分不足，无法投票！',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+            }
+            // 修正：安全获取项目标题
+            const project = projects.find(p => p.id === projectId);
+            setUserInfo(prev => ({
+              ...prev,
+              points: prev.points - points,
+              pointDetails: [
+                ...prev.pointDetails,
+                {
+                  time: new Date().toLocaleString(),
+                  type: '投票冻结',
+                  amount: -points,
+                  balance: prev.points - points,
+                  remark: project ? project.title : ''
+                }
+              ]
+            }));
+            setProjects(prev => prev.map(p => {
+              if (p.id !== projectId) return p;
+              // 只在首次参与时增加participantCount
+              let newParticipantCount = p.participantCount || 0;
+              if (!p.participants || !Array.isArray(p.participants)) {
+                p.participants = [];
+              }
+              if (!p.participants.includes(userInfo.username)) {
+                newParticipantCount += 1;
+                p.participants = [...p.participants, userInfo.username];
+              }
+              // 投票积分累加到votes字段
+              let votes = { ...(p.votes || {}) };
+              votes[choice] = (votes[choice] || 0) + points;
+              // 记录每个用户的投票详情
+              let myVotes = Array.isArray(p.myVotes) ? [...p.myVotes] : [];
+              myVotes.push({ user: userInfo.username, choice, points });
+              // 新增：冻结到项目voteFrozen
+              let voteFrozen = { ...(p.voteFrozen || {}) };
+              voteFrozen[userInfo.username] = (voteFrozen[userInfo.username] || 0) + points;
+              return { ...p, participantCount: newParticipantCount, participants: p.participants, votes, myVotes, voteFrozen };
+            }));
+            if (!participatedProjectIds.includes(projectId)) {
+                setParticipatedProjectIds(prev => [...new Set([...prev, projectId])]);
+            }
+            showConfirm({
+              title: '投票成功',
+              content: `您对项目投了 "${choice}"，冻结了 ${points} 积分。`,
+              confirmText: '确定',
+              cancelText: '',
+              onCancel: undefined
+            });
+        };
+
+        // 修复：所有项目列表应包含所有进行中和未到截止时间的项目
+        const activeProjects = projects.filter(p => {
+          if (p.status === 'finished' || p.status === 'review_passed' || p.status === 'review_failed' || p.status === 'pending_review') return false;
+          if (p.status === 'inprogress' || p.status === 'paused') {
+            const yesVoted = (p.votes && p.votes['是']) ? p.votes['是'] : 0;
+            const noVoted = (p.votes && p.votes['否']) ? p.votes['否'] : 0;
+            const yesRemain = Math.max(0, (p.maxPoints || 0) - yesVoted);
+            const noRemain = Math.max(0, (p.maxPoints || 0) - noVoted);
+            // 两个选项都没剩余就不展示
+            if (yesRemain === 0 && noRemain === 0) return false;
+            return true;
+          }
+          if (p.deadline) {
+            const deadlineDate = new Date(p.deadline);
+            return new Date() <= deadlineDate;
+          }
+          return true;
+        });
+
+        const CreateProjectForm = (
+            <form onSubmit={handleCreateProject} className="flex flex-col gap-5">
+                <div className="bg-yellow-400/20 border-l-4 border-yellow-400 text-yellow-300 font-bold p-3 rounded mb-2 text-sm flex items-center">
+                  <svg viewBox="0 0 24 24" width="28" height="28" className="mr-2 flex-shrink-0" style={{display:'inline'}}><polygon points="12,2 22,20 2,20" fill="#facc15" stroke="#f59e42" strokeWidth="2"/><text x="12" y="17" textAnchor="middle" fontSize="13" fontWeight="bold" fill="#b91c1c">!</text></svg>
+                  <span>请在创建项目前<span className="font-extrabold">务必</span>先查看 <span className="underline cursor-pointer" onClick={() => setOpenAccordion('game_rules')}>游戏规则</span>！项目一旦发布，将会严格按照规则执行！</span>
+                </div>
+                <div>
+                    <label htmlFor="title" className="block text-sm font-medium text-yellow-400/80 mb-1">项目标题 (最多15个字符)</label>
+                    <input type="text" name="title" id="title" value={newProjectData.title} onChange={handleProjectInputChange} className="w-full bg-purple-700/50 border border-purple-400/50 rounded-lg px-3 py-2 text-white focus:ring-yellow-400 focus:border-yellow-400" required maxLength="15" />
+                </div>
+                <div>
+                    <label htmlFor="description" className="block text-sm font-medium text-yellow-400/80 mb-1">项目描述 (可选, 最多40个字符)</label>
+                    <textarea name="description" id="description" rows="3" value={newProjectData.description} onChange={handleProjectInputChange} className="w-full bg-purple-700/50 border border-purple-400/50 rounded-lg px-3 py-2 text-white focus:ring-yellow-400 focus:border-yellow-400" maxLength="40"></textarea>
+                </div>
+                <div>
+                    <label htmlFor="deadline" className="block text-sm font-medium text-yellow-400/80 mb-1">截止时间</label>
+                    <input type="datetime-local" name="deadline" id="deadline" value={newProjectData.deadline} onChange={handleProjectInputChange} className="w-full bg-purple-700/50 border border-purple-400/50 rounded-lg px-3 py-2 text-white focus:ring-yellow-400 focus:border-yellow-400" style={{ colorScheme: 'dark' }} required />
+                </div>
+                <div>
+                    <label htmlFor="maxPoints" className="block text-sm font-medium text-yellow-400/80 mb-1">单项最高可投票积分数</label>
+                    <input type="number" name="maxPoints" id="maxPoints" min="1" value={newProjectData.maxPoints} onChange={handleProjectInputChange} className="w-full bg-purple-700/50 border border-purple-400/50 rounded-lg px-3 py-2 text-white focus:ring-yellow-400 focus:border-yellow-400" required />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-yellow-400/80 mb-1">投票选项</label>
+                    <div className="flex gap-4 mt-2">
+                        <div className="flex-1 text-center bg-green-500/40 text-white/90 font-semibold py-2 rounded-md border border-green-500/60 cursor-not-allowed">是</div>
+                        <div className="flex-1 text-center bg-red-500/40 text-white/90 font-semibold py-2 rounded-md border border-red-500/60 cursor-not-allowed">否</div>
+                    </div>
+                    <p className="text-xs text-purple-300/80 mt-2">投票选项固定为"是"和"否"。</p>
+                </div>
+                <div className="flex justify-center pt-2">
+                    <button type="submit" className="bg-red-600 text-white font-bold py-2 px-8 rounded-lg shadow-md hover:bg-red-700 transition-colors duration-200">
+                        创建项目
+                    </button>
+                </div>
+            </form>
+        );
+
+        // 参与的项目移除逻辑（提升到App，便于传递给MyProjectsView）
+        const handleRemoveParticipated = (projectId) => {
+          setParticipatedProjectIds(prev => prev.filter(id => id !== projectId));
+        };
+
+        // 公布结果弹窗状态
+        const [publishDialog, setPublishDialog] = useState({ open: false, projectId: null, votes: { '是': 0, '否': 0 } });
+
+        // "所有项目"统计和筛选组件
+        const [allProjectsSorted, setAllProjectsSorted] = React.useState(null);
+        const AllProjectsStatsAndFilter = ({ projects, onSort, totalCount, totalParticipants }) => {
+          const [filter, setFilter] = React.useState('default');
+          React.useEffect(() => {
+            let sorted = [...projects];
+            if (filter === 'participants') {
+              sorted.sort((a, b) => (b.participantCount || 0) - (a.participantCount || 0));
+            } else if (filter === 'latest') {
+              sorted.sort((a, b) => (b.id || 0) - (a.id || 0));
+            } else if (filter === 'points') {
+              sorted.sort((a, b) => {
+                const getPoints = p => {
+                  if (p.votes && typeof p.votes === 'object') {
+                    return Object.values(p.votes).reduce((sum, v) => sum + (parseInt(v, 10) || 0), 0);
+                  }
+                  return 0;
+                };
+                return getPoints(b) - getPoints(a);
+              });
+            }
+            onSort(sorted);
+          }, [filter, projects, onSort]);
+          return (
+            <div className="flex items-center justify-between all-projects-stats-inner text-xs">
+              <div className="flex gap-4 items-stretch">
+                <div className="flex flex-col items-center justify-center text-yellow-300 font-bold whitespace-nowrap">
+                  <div className="leading-tight">项目数量</div>
+                  <div className="text-base mt-0.5">{totalCount}</div>
+                </div>
+                <div className="w-px bg-yellow-300 mx-2 self-stretch" style={{borderRadius:'2px'}}></div>
+                <div className="flex flex-col items-center justify-center text-yellow-300 font-bold whitespace-nowrap">
+                  <div className="leading-tight">参与人数</div>
+                  <div className="text-base mt-0.5">{totalParticipants}</div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        return (
+          <div className="min-h-screen w-full bg-gradient-to-b from-purple-700 to-purple-900 text-white">
+            <div className="w-full max-w-md mx-auto p-4 sm:p-6 flex flex-col space-y-6">
+              
+              <header className="flex items-center justify-center gap-4 text-yellow-400 pt-6 pb-2">
+                <VotingIcon className="w-10 h-10" />
+                <h1 className="text-4xl font-bold tracking-wider">投票平台</h1>
+              </header>
+
+              {isLoggedIn ? (
+                <>
+                  <div className="flex items-center justify-between bg-purple-500/30 backdrop-blur-md rounded-2xl p-2.5 pl-5 text-white border border-purple-400/30 shadow-lg">
+                    <span className="font-semibold text-lg">{userInfo.username}</span>
+                    <div 
+                        onClick={() => setShowPointsDetail(prev => !prev)}
+                        className="bg-purple-400/50 rounded-xl px-4 py-2 text-sm font-semibold cursor-pointer hover:bg-purple-400/80 transition-colors"
+                    >
+                      积分: {userInfo.points}
+                    </div>
+                  </div>
+
+                  {showPointsDetail && (
+                    <div className="bg-purple-800/50 p-4 rounded-lg border border-purple-400/40 text-white/90 animate-fade-in">
+                        <h3 className="text-lg font-bold text-yellow-400 mb-2 border-b border-yellow-400/30 pb-2">积分明细</h3>
+                        <ul className="space-y-2 text-sm pt-2">
+                            {userInfo.pointDetails.map((detail, index) => (
+                                <li key={index} className="flex flex-col gap-0.5 mb-2">
+                                  <div className="flex justify-between items-center">
+                                    <span>{detail.type}</span>
+                                    <span className={`font-semibold ${detail.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>{detail.amount > 0 ? '+' : ''}{detail.amount}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-xs text-purple-200">
+                                    <span>{detail.time}</span>
+                                    <span>{detail.remark}</span>
+                                  </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-around items-center pt-2 pb-2">
+                      <button className="bg-red-600 text-white font-bold py-2.5 px-8 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">充币</button>
+                      <button onClick={handleLogout} className="bg-red-600 text-white font-bold py-2.5 px-8 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">退出</button>
+                      <button className="bg-red-600 text-white font-bold py-2.5 px-8 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">提币</button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-center items-center pt-8 pb-4">
+                  <button 
+                    onClick={handleLogin}
+                    className="bg-red-600 text-white font-bold py-3 px-16 rounded-full shadow-lg hover:bg-red-700 transition-colors duration-200 text-xl"
+                  >
+                    登录
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-4 pb-8">
+                  <AccordionItem
+                      key='all_projects'
+                      icon={<AllProjectsIcon className="w-8 h-8" />}
+                      title='所有项目'
+                      isOpen={openAccordion === 'all_projects'}
+                      onClick={() => handleAccordionClick('all_projects')}
+                  >
+                      <AllProjectsStatsAndFilter 
+                        projects={activeProjects}
+                        onSort={sorted => setAllProjectsSorted(sorted)}
+                        totalCount={activeProjects.length}
+                        totalParticipants={(() => {
+                          // 统计所有项目的参与用户，去重后计数
+                          const userSet = new Set();
+                          activeProjects.forEach(p => {
+                            if (Array.isArray(p.participants)) {
+                              p.participants.forEach(u => userSet.add(u));
+                            }
+                          });
+                          return userSet.size;
+                        })()}
+                      />
+                      <ProjectList 
+                          projectsToDisplay={allProjectsSorted || activeProjects} 
+                          isMyCreatedView={false} 
+                          currentUser={userInfo.username} 
+                          onVote={handleVoteSubmit} 
+                          onDelete={handleDeleteProject}
+                          onPublish={handleSubmitReview} 
+                          onTogglePause={handleTogglePauseProject} 
+                          showConfirm={showConfirm}
+                          setPublishDialog={setPublishDialog}
+                      />
+                  </AccordionItem>
+                  <AccordionItem
+                      key='create_project'
+                      icon={<CreateProjectIcon className="w-8 h-8" />}
+                      title='创建项目'
+                      isOpen={openAccordion === 'create_project'}
+                      onClick={() => handleAccordionClick('create_project')}
+                  >
+                      {isLoggedIn ? CreateProjectForm : <p className="text-center py-4">登录后即可创建您的项目。</p>}
+                  </AccordionItem>
+                  <AccordionItem
+                      key='my_projects'
+                      icon={<MyProjectsIcon className="w-8 h-8" />}
+                      title='我的项目'
+                      isOpen={openAccordion === 'my_projects'}
+                      onClick={() => handleAccordionClick('my_projects')}
+                  >
+                      {isLoggedIn ? (
+                        <MyProjectsView 
+                          projects={projects} 
+                          currentUser={userInfo.username} 
+                          participatedProjectIds={participatedProjectIds} 
+                          onVote={handleVoteSubmit} 
+                          onDelete={handleDeleteProject}
+                          onPublish={handleSubmitReview} 
+                          onTogglePause={handleTogglePauseProject}
+                          showConfirm={showConfirm}
+                          onRemoveParticipated={handleRemoveParticipated}
+                          setPublishDialog={setPublishDialog}
+                        /> 
+                      ) : (
+                        <p className="text-center py-4">登录后即可查看您的项目。</p>
+                      )}
+                  </AccordionItem>
+                  <AccordionItem
+                      key='game_rules'
+                      icon={<GameRulesIcon className="w-8 h-8" />}
+                      title='游戏规则'
+                      isOpen={openAccordion === 'game_rules'}
+                      onClick={() => handleAccordionClick('game_rules')}
+                  >
+                      <div className="text-sm space-y-3">
+                        <div>
+                          <div className="font-bold text-yellow-400 mb-1">创建项目</div>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li>账户积分足够就可以创建项目。</li>
+                            <li>单个项目最低要求100积分。</li>
+                            <li>创建的项目必须有正确结果。</li>
+                            <li>项目截止时间达到后24小时之内必须公布正确结果。</li>
+                            <li>超时就算违规，扣除项目发起人对应此项目积分的60%，参与人的积分原路返回。</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <div className="font-bold text-yellow-400 mb-1">参与投票</div>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li>项目发起人已经冻结足够的积分，请放心参与投票。</li>
+                            <li>项目到期没有正确结果或者发起人超时未公布正确结果，你的参与积分会原路返回。</li>
+                            <li>一旦投票成功，不能撤销，只能等待发起人公布结果。</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <div className="font-bold text-yellow-400 mb-1">公布结果</div>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li>项目发起人发布项目是没有审核流程的，任何人都可以发布。</li>
+                            <li>项目到期不能公布正确结果或者故意公布错误结果一律按照超时处理。</li>
+                            <li>发起项目之前请仔细确认，项目到期后你必须能公布正确结果，否则会为你带来积分损失。</li>
+                            <li>公布结果需要提交审核，管理员审核通过自动公布，审核不通过按照规则处理。</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <div className="font-bold text-yellow-400 mb-1">充值提现</div>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li>点击对应的按钮进入对应的界面，根据界面提示进行操作。</li>
+                            <li>兑换比例：1π币=1积分。</li>
+                            <li>充值多少到账多少。</li>
+                            <li>提现手续费10%。</li>
+                          </ul>
+                        </div>
+                      </div>
+                  </AccordionItem>
+              </div>
+
+            </div>
+            {/* 全局确认弹窗 */}
+            <ConfirmDialog {...confirmDialog} />
+            {/* 公布结果弹窗 */}
+            <PublishResultDialog
+              open={publishDialog.open}
+              votes={publishDialog.votes}
+              onConfirm={opt => handleSubmitReview(publishDialog.projectId, opt)}
+              onCancel={() => setPublishDialog({ open: false, projectId: null, votes: { '是': 0, '否': 0 } })}
+            />
+          </div>
+        );
+      }
+
+      // --- RENDER THE APP ---
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+
+    </script>
+</body>
+</html>
