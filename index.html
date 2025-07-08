@@ -274,7 +274,7 @@
               title: `确认投票`,
               content: `确定要投"${choice}"吗？本次将消耗${pointsToVote}积分。`,
               onConfirm: () => {
-                onVote(project.id, choice, pointsToVote);
+                onVote(project._id, choice, pointsToVote);
                 setIsVotingOpen(false);
               }
             });
@@ -368,10 +368,10 @@
                  {isVotingOpen && (
                       <div className="pt-2 mt-2 border-t border-purple-400/30 animate-fade-in">
                           <div className="mb-2">
-                              <label htmlFor={`points-${project.id}`} className="block text-xs font-medium text-yellow-400/80 mb-1">投票积分 (最高 {currentMaxAvailablePoints})</label>
+                              <label htmlFor={`points-${project._id}`} className="block text-xs font-medium text-yellow-400/80 mb-1">投票积分 (最高 {currentMaxAvailablePoints})</label>
                               <input
                                   type="number"
-                                  id={`points-${project.id}`}
+                                  id={`points-${project._id}`}
                                   min="1"
                                   max={currentMaxAvailablePoints}
                                   value={votePoints}
@@ -414,7 +414,7 @@
                                   showConfirm({
                                     title: `${action}项目`,
                                     content: `确定要${action}该项目吗？`,
-                                    onConfirm: () => onTogglePause(project.id)
+                                    onConfirm: () => onTogglePause(project._id)
                                   });
                                 }} 
                                 className={`text-white font-semibold py-0.5 px-2 rounded-md transition-colors text-xs ${project.status === 'paused' ? 'bg-green-600 hover:bg-green-700' : 'bg-yellow-500 hover:bg-yellow-600'}`}>
@@ -441,7 +441,7 @@
                                   showConfirm({
                                     title: '删除项目',
                                     content: '您确定要删除这个项目吗？此操作无法撤销。',
-                                    onConfirm: () => onDelete(project.id)
+                                    onConfirm: () => onDelete(project._id)
                                   });
                                 }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
                                     删除
@@ -452,7 +452,7 @@
                                     onClick={() => {
                                       setPublishDialog && setPublishDialog({
                                         open: true,
-                                        projectId: project.id,
+                                        projectId: project._id,
                                         votes: project.votes || { '是': 0, '否': 0 }
                                       });
                                     }} 
@@ -469,7 +469,7 @@
                             showConfirm({
                               title: '删除项目',
                               content: '您确定要删除这个项目吗？此操作无法撤销。',
-                              onConfirm: () => onDelete(project.id)
+                              onConfirm: () => onDelete(project._id)
                             });
                           }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
                               删除
@@ -481,7 +481,7 @@
                             showConfirm({
                               title: '移除项目',
                               content: '您确定要将该项目从"我参与的项目"中移除吗？',
-                              onConfirm: () => onRemoveParticipated && onRemoveParticipated(project.id)
+                              onConfirm: () => onRemoveParticipated && onRemoveParticipated(project._id)
                             });
                           }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
                             删除
@@ -521,8 +521,8 @@
                 )}
                 {isCreator && isMyCreatedView && project.status === 'pending_review' && (
                   <div className="flex gap-2 mt-2">
-                    <button onClick={() => handleMockReview(project.id, true)} className="bg-green-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-green-700 text-xs">模拟审核通过</button>
-                    <button onClick={() => handleMockReview(project.id, false)} className="bg-gray-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-gray-700 text-xs">模拟审核不通过</button>
+                    <button onClick={() => handleMockReview(project._id, true)} className="bg-green-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-green-700 text-xs">模拟审核通过</button>
+                    <button onClick={() => handleMockReview(project._id, false)} className="bg-gray-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-gray-700 text-xs">模拟审核不通过</button>
                   </div>
                 )}
             </div>
@@ -543,7 +543,7 @@
               {currentPageProjects.length > 0 ? (
                 currentPageProjects.map(project => (
                   <ProjectCard 
-                    key={project.id} 
+                    key={project._id} 
                     project={project}
                     currentUser={currentUser}
                     isMyCreatedView={isMyCreatedView}
@@ -584,7 +584,7 @@
           const [activeTab, setActiveTab] = useState('created');
 
           const createdProjects = projects.filter(p => p.creator === currentUser);
-          const participatedProjects = projects.filter(p => participatedProjectIds.includes(p.id));
+          const participatedProjects = projects.filter(p => participatedProjectIds.includes(p._id));
 
           const projectsToDisplay = activeTab === 'created' ? createdProjects : participatedProjects;
           const isMyCreatedView = activeTab === 'created';
@@ -1044,7 +1044,7 @@
 
         const handleMockReview = (projectId, passed) => {
             setProjects(prev => prev.map(p => {
-                if (p.id !== projectId) return p;
+                if (p._id !== projectId) return p;
                 if (passed) {
                     // 审核通过，正式公布结果，执行结算
                     // 结算逻辑
@@ -1125,7 +1125,7 @@
 
         const handleTogglePauseProject = async (projectId) => {
             try {
-              const project = projects.find(p => p.id === projectId);
+              const project = projects.find(p => p._id === projectId);
               if (project.status === 'paused') {
                 await projectAPI.resume(projectId, userInfo.username);
               } else {
@@ -1255,7 +1255,7 @@
             if (filter === 'participants') {
               sorted.sort((a, b) => (b.participantCount || 0) - (a.participantCount || 0));
             } else if (filter === 'latest') {
-              sorted.sort((a, b) => (b.id || 0) - (a.id || 0));
+              sorted.sort((a, b) => (b._id || 0) - (a._id || 0));
             } else if (filter === 'points') {
               sorted.sort((a, b) => {
                 const getPoints = p => {
