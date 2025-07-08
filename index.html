@@ -49,6 +49,96 @@
 
     <script type="text/babel">
       const { useState, useEffect, FC, SVGProps, ReactNode } = React;
+      
+      // 导入API函数
+      const API_BASE = 'https://api.toupiao01.top/api';
+      
+      // 通用请求函数
+      async function apiRequest(url, options = {}) {
+        const config = {
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+          },
+          ...options
+        };
+      
+        try {
+          const response = await fetch(`${API_BASE}${url}`, config);
+          const data = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(data.message || '请求失败');
+          }
+          
+          return data;
+        } catch (error) {
+          console.error('API请求错误:', error);
+          throw error;
+        }
+      }
+      
+      // 用户相关API
+      const userAPI = {
+        getInfo: (username) => {
+          return apiRequest(`/user/info?username=${encodeURIComponent(username)}`);
+        },
+        charge: (username, amount, pi_payment_id) => {
+          return apiRequest('/user/charge', {
+            method: 'POST',
+            body: JSON.stringify({ username, amount, pi_payment_id })
+          });
+        },
+        withdraw: (username, amount, wallet) => {
+          return apiRequest('/user/withdraw', {
+            method: 'POST',
+            body: JSON.stringify({ username, amount, wallet })
+          });
+        }
+      };
+      
+      // 项目相关API
+      const projectAPI = {
+        list: () => {
+          return apiRequest('/projects');
+        },
+        create: (username, title, description, deadline, maxPoints) => {
+          return apiRequest('/projects', {
+            method: 'POST',
+            body: JSON.stringify({ username, title, description, deadline, maxPoints })
+          });
+        },
+        vote: (projectId, username, choice, points) => {
+          return apiRequest(`/projects/${projectId}/vote`, {
+            method: 'POST',
+            body: JSON.stringify({ username, choice, points })
+          });
+        },
+        publish: (projectId, username, option) => {
+          return apiRequest(`/projects/${projectId}/publish`, {
+            method: 'POST',
+            body: JSON.stringify({ username, option })
+          });
+        },
+        pause: (projectId, username) => {
+          return apiRequest(`/projects/${projectId}/pause`, {
+            method: 'POST',
+            body: JSON.stringify({ username })
+          });
+        },
+        resume: (projectId, username) => {
+          return apiRequest(`/projects/${projectId}/resume`, {
+            method: 'POST',
+            body: JSON.stringify({ username })
+          });
+        },
+        remove: (projectId, username) => {
+          return apiRequest(`/projects/${projectId}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ username })
+          });
+        }
+      };
 
       // --- ICONS ---
       const VotingIcon = (props) => (
@@ -641,20 +731,55 @@
           });
         };
 
-        // 新增：页面初始化时自动恢复登录状态
+        // 加载项目数据
+        const loadProjects = async () => {
+          try {
+            const projectsData = await projectAPI.list();
+            setProjects(projectsData);
+            
+            // 计算用户参与的项目ID
+            if (userInfo.username) {
+              const participated = projectsData
+                .filter(p => p.participants && p.participants.includes(userInfo.username))
+                .map(p => p._id);
+              setParticipatedProjectIds(participated);
+            }
+          } catch (error) {
+            console.error('加载项目失败:', error);
+            showConfirm({
+              title: '加载失败',
+              content: '加载项目数据失败，请刷新页面重试',
+              confirmText: '确定'
+            });
+          }
+        };
+        
+        // 页面初始化时自动恢复登录状态
         useEffect(() => {
           const savedLogin = localStorage.getItem('isLoggedIn');
           const savedUser = localStorage.getItem('userInfo');
           if (savedLogin === 'true' && savedUser) {
             setIsLoggedIn(true);
             try {
-              setUserInfo(JSON.parse(savedUser));
+              const userData = JSON.parse(savedUser);
+              setUserInfo(userData);
+              // 恢复登录后加载项目数据
+              if (userData.username) {
+                loadProjects();
+              }
             } catch (e) {
-              // 解析失败则清空
               setUserInfo({ username: null, points: 0, frozenPoints: 0, pointDetails: [] });
             }
           }
         }, []);
+        
+        // 定期刷新项目数据
+        useEffect(() => {
+          if (isLoggedIn && userInfo.username) {
+            const interval = setInterval(loadProjects, 30000); // 每30秒刷新一次
+            return () => clearInterval(interval);
+          }
+        }, [isLoggedIn, userInfo.username]);
 
         // 新增：每次登录状态或用户信息变化时自动保存到localStorage
         useEffect(() => {
@@ -666,27 +791,31 @@
           setOpenAccordion(prevId => (prevId === id ? null : id));
         };
 
-        const handleLogin = () => {
+        const handleLogin = async () => {
           const scopes = ['username', 'payments'];
           function onIncompletePaymentFound(payment) {
             console.log('Incomplete payment found:', payment);
           }
-          // 新增：调试信息
-          console.log('window.Pi:', window.Pi);
-          console.log('typeof window.Pi:', typeof window.Pi);
-          console.log('typeof window.Pi.authenticate:', typeof window.Pi?.authenticate);
+          
+          const loginWithUsername = async (username) => {
+            try {
+              const userData = await userAPI.getInfo(username);
+              setIsLoggedIn(true);
+              setUserInfo(userData);
+              await loadProjects();
+            } catch (error) {
+              showConfirm({
+                title: '登录失败',
+                content: error.message || '获取用户信息失败，请重试',
+                confirmText: '确定'
+              });
+            }
+          };
+          
           if (window.Pi && typeof window.Pi.authenticate === 'function') {
             Pi.authenticate(scopes, onIncompletePaymentFound)
               .then(function(auth) {
-                setIsLoggedIn(true);
-                setUserInfo({
-                  username: auth.user.username,
-                  points: 1000,
-                  frozenPoints: 0,
-                  pointDetails: [
-                    { time: new Date().toLocaleString(), type: '初始积分', amount: 1000, balance: 1000, remark: '系统发放' }
-                  ]
-                });
+                loginWithUsername(auth.user.username);
               })
               .catch(function(error) {
                 showConfirm({
@@ -696,21 +825,12 @@
                 });
               });
           } else {
-            // 新增：非Pi环境或SDK加载失败时弹窗提示
             showConfirm({
               title: '模拟登录',
               content: '当前非 Pi 浏览器或 Pi SDK 加载失败，已自动切换为测试账户。',
               confirmText: '确定',
               onConfirm: () => {
-                setIsLoggedIn(true);
-                setUserInfo({
-                  username: 'TestUser',
-                  points: 1000,
-                  frozenPoints: 0,
-                  pointDetails: [
-                    { time: new Date().toLocaleString(), type: '初始积分', amount: 1000, balance: 1000, remark: '系统发放' }
-                  ]
-                });
+                loginWithUsername('TestUser');
               }
             });
           }
@@ -736,18 +856,80 @@
             });
         };
 
+        const handleCharge = async () => {
+            const amount = parseInt(prompt('请输入充值金额（积分）：'));
+            if (amount && amount > 0) {
+                try {
+                  await userAPI.charge(userInfo.username, amount);
+                  const userData = await userAPI.getInfo(userInfo.username);
+                  setUserInfo(userData);
+                  showConfirm({
+                    title: '充值成功',
+                    content: `成功充值 ${amount} 积分！`,
+                    confirmText: '确定',
+                    cancelText: '',
+                    onCancel: undefined
+                  });
+                } catch (error) {
+                  showConfirm({
+                    title: '充值失败',
+                    content: error.message || '充值失败，请重试',
+                    confirmText: '确定',
+                    cancelText: '',
+                    onCancel: undefined
+                  });
+                }
+            }
+        };
+
+        const handleWithdraw = async () => {
+            const amount = parseInt(prompt('请输入提现金额（积分）：'));
+            if (amount && amount > 0) {
+                if (amount > userInfo.points) {
+                    showConfirm({
+                      title: '余额不足',
+                      content: '您的可用积分不足！',
+                      confirmText: '确定',
+                      cancelText: '',
+                      onCancel: undefined
+                    });
+                    return;
+                }
+                try {
+                  await userAPI.withdraw(userInfo.username, amount);
+                  const userData = await userAPI.getInfo(userInfo.username);
+                  setUserInfo(userData);
+                  showConfirm({
+                    title: '提现申请成功',
+                    content: `已申请提现 ${amount} 积分，请等待审核！`,
+                    confirmText: '确定',
+                    cancelText: '',
+                    onCancel: undefined
+                  });
+                } catch (error) {
+                  showConfirm({
+                    title: '提现失败',
+                    content: error.message || '提现失败，请重试',
+                    confirmText: '确定',
+                    cancelText: '',
+                    onCancel: undefined
+                  });
+                }
+            }
+        };
+
         const handleProjectInputChange = (e) => {
             const { name, value } = e.target;
             setNewProjectData(prev => ({ ...prev, [name]: value }));
         };
 
-        const handleCreateProject = (e) => {
+        const handleCreateProject = async (e) => {
             e.preventDefault();
             if (!newProjectData.title || !newProjectData.deadline || !newProjectData.maxPoints) {
                 alert('请填写所有必填字段！');
                 return;
             }
-            // 新增：判断积分是否足够冻结
+            
             if (userInfo.points < Number(newProjectData.maxPoints)) {
                 showConfirm({
                   title: '积分不足',
@@ -758,7 +940,7 @@
                 });
                 return;
             }
-            // 新增：冻结提示弹窗
+            
             showConfirm({
               title: '冻结积分确认',
               content: `将冻结${newProjectData.maxPoints}积分，冻结后不可用，待项目结算后自动返还或扣除。是否继续？`,
@@ -768,41 +950,45 @@
                 showConfirm({
                   title: '创建项目',
                   content: '确定要创建该项目吗？',
-                  onConfirm: () => {
-                    // 冻结积分
-                    const freeze = Number(newProjectData.maxPoints);
-                    setUserInfo(prev => ({
-                      ...prev,
-                      points: prev.points - freeze,
-                      frozenPoints: prev.frozenPoints + freeze,
-                      pointDetails: [
-                        ...prev.pointDetails,
-                        {
-                          time: new Date().toLocaleString(),
-                          type: '项目冻结',
-                          amount: -freeze,
-                          balance: prev.points - freeze,
-                          remark: newProjectData.title
-                        }
-                      ]
-                    }));
-                    const newProject = {
-                      id: Date.now(),
-                      creator: userInfo.username,
-                      ...newProjectData,
-                      participantCount: 0,
-                      status: 'inprogress',
-                      frozenPoints: freeze, // 发起人冻结池
-                      voteFrozen: {}, // {username: 冻结积分}
-                    };
-                    setProjects(prev => [newProject, ...prev]);
-                    setNewProjectData({
-                      title: '',
-                      description: '',
-                      deadline: '',
-                      maxPoints: 100,
-                    });
-                    setOpenAccordion('all_projects');
+                  onConfirm: async () => {
+                    try {
+                      await projectAPI.create(
+                        userInfo.username,
+                        newProjectData.title,
+                        newProjectData.description,
+                        newProjectData.deadline,
+                        Number(newProjectData.maxPoints)
+                      );
+                      
+                      // 刷新用户信息和项目列表
+                      const userData = await userAPI.getInfo(userInfo.username);
+                      setUserInfo(userData);
+                      await loadProjects();
+                      
+                      setNewProjectData({
+                        title: '',
+                        description: '',
+                        deadline: '',
+                        maxPoints: 100,
+                      });
+                      setOpenAccordion('all_projects');
+                      
+                      showConfirm({
+                        title: '创建成功',
+                        content: '项目创建成功！',
+                        confirmText: '确定',
+                        cancelText: '',
+                        onCancel: undefined
+                      });
+                    } catch (error) {
+                      showConfirm({
+                        title: '创建失败',
+                        content: error.message || '创建项目失败，请重试',
+                        confirmText: '确定',
+                        cancelText: '',
+                        onCancel: undefined
+                      });
+                    }
                   },
                   cancelText: '取消',
                 });
@@ -811,15 +997,49 @@
             });
         };
 
-        const handleDeleteProject = (projectId) => {
-            setProjects(prev => prev.filter(p => p.id !== projectId));
+        const handleDeleteProject = async (projectId) => {
+            try {
+              await projectAPI.remove(projectId, userInfo.username);
+              await loadProjects();
+              showConfirm({
+                title: '删除成功',
+                content: '项目已成功删除',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+            } catch (error) {
+              showConfirm({
+                title: '删除失败',
+                content: error.message || '删除项目失败，请重试',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+            }
         };
 
-        const handleSubmitReview = (projectId, pendingOption) => {
-            setProjects(prev => prev.map(p =>
-                p.id === projectId ? { ...p, status: 'pending_review', pendingOption } : p
-            ));
-            setPublishDialog({ open: false, projectId: null, votes: { '是': 0, '否': 0 } });
+        const handleSubmitReview = async (projectId, pendingOption) => {
+            try {
+              await projectAPI.publish(projectId, userInfo.username, pendingOption);
+              await loadProjects();
+              setPublishDialog({ open: false, projectId: null, votes: { '是': 0, '否': 0 } });
+              showConfirm({
+                title: '提交成功',
+                content: '项目结果已提交审核',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+            } catch (error) {
+              showConfirm({
+                title: '提交失败',
+                content: error.message || '提交失败，请重试',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+            }
         };
 
         const handleMockReview = (projectId, passed) => {
@@ -903,16 +1123,27 @@
             }));
         };
 
-        const handleTogglePauseProject = (projectId) => {
-            setProjects(prev => prev.map(p => {
-                if (p.id !== projectId) return p;
-                const newStatus = p.status === 'paused' ? 'inprogress' : 'paused';
-                return { ...p, status: newStatus };
-            }));
+        const handleTogglePauseProject = async (projectId) => {
+            try {
+              const project = projects.find(p => p.id === projectId);
+              if (project.status === 'paused') {
+                await projectAPI.resume(projectId, userInfo.username);
+              } else {
+                await projectAPI.pause(projectId, userInfo.username);
+              }
+              await loadProjects();
+            } catch (error) {
+              showConfirm({
+                title: '操作失败',
+                content: error.message || '操作失败，请重试',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+            }
         };
 
-        // 2. 参与人数统计为唯一用户数
-        const handleVoteSubmit = (projectId, choice, points) => {
+        const handleVoteSubmit = async (projectId, choice, points) => {
             if (points > userInfo.points) {
                 showConfirm({
                   title: '积分不足',
@@ -923,54 +1154,31 @@
                 });
                 return;
             }
-            // 修正：安全获取项目标题
-            const project = projects.find(p => p.id === projectId);
-            setUserInfo(prev => ({
-              ...prev,
-              points: prev.points - points,
-              pointDetails: [
-                ...prev.pointDetails,
-                {
-                  time: new Date().toLocaleString(),
-                  type: '投票冻结',
-                  amount: -points,
-                  balance: prev.points - points,
-                  remark: project ? project.title : ''
-                }
-              ]
-            }));
-            setProjects(prev => prev.map(p => {
-              if (p.id !== projectId) return p;
-              // 只在首次参与时增加participantCount
-              let newParticipantCount = p.participantCount || 0;
-              if (!p.participants || !Array.isArray(p.participants)) {
-                p.participants = [];
-              }
-              if (!p.participants.includes(userInfo.username)) {
-                newParticipantCount += 1;
-                p.participants = [...p.participants, userInfo.username];
-              }
-              // 投票积分累加到votes字段
-              let votes = { ...(p.votes || {}) };
-              votes[choice] = (votes[choice] || 0) + points;
-              // 记录每个用户的投票详情
-              let myVotes = Array.isArray(p.myVotes) ? [...p.myVotes] : [];
-              myVotes.push({ user: userInfo.username, choice, points });
-              // 新增：冻结到项目voteFrozen
-              let voteFrozen = { ...(p.voteFrozen || {}) };
-              voteFrozen[userInfo.username] = (voteFrozen[userInfo.username] || 0) + points;
-              return { ...p, participantCount: newParticipantCount, participants: p.participants, votes, myVotes, voteFrozen };
-            }));
-            if (!participatedProjectIds.includes(projectId)) {
-                setParticipatedProjectIds(prev => [...new Set([...prev, projectId])]);
+            
+            try {
+              await projectAPI.vote(projectId, userInfo.username, choice, points);
+              
+              // 刷新用户信息和项目列表
+              const userData = await userAPI.getInfo(userInfo.username);
+              setUserInfo(userData);
+              await loadProjects();
+              
+              showConfirm({
+                title: '投票成功',
+                content: `您对项目投了 "${choice}"，冻结了 ${points} 积分。`,
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+            } catch (error) {
+              showConfirm({
+                title: '投票失败',
+                content: error.message || '投票失败，请重试',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
             }
-            showConfirm({
-              title: '投票成功',
-              content: `您对项目投了 "${choice}"，冻结了 ${points} 积分。`,
-              confirmText: '确定',
-              cancelText: '',
-              onCancel: undefined
-            });
         };
 
         // 修复：所有项目列表应包含所有进行中和未到截止时间的项目
@@ -1120,9 +1328,9 @@
                   )}
                   
                   <div className="flex justify-around items-center pt-2 pb-2">
-                      <button className="bg-red-600 text-white font-bold py-2.5 px-8 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">充币</button>
+                      <button onClick={handleCharge} className="bg-red-600 text-white font-bold py-2.5 px-8 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">充币</button>
                       <button onClick={handleLogout} className="bg-red-600 text-white font-bold py-2.5 px-8 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">退出</button>
-                      <button className="bg-red-600 text-white font-bold py-2.5 px-8 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">提币</button>
+                      <button onClick={handleWithdraw} className="bg-red-600 text-white font-bold py-2.5 px-8 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">提币</button>
                   </div>
                 </>
               ) : (
