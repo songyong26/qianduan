@@ -140,6 +140,7 @@ function Dashboard() {
       title: '项目名称',
       dataIndex: 'title',
       key: 'title',
+      width: 150,
       ellipsis: true
     },
     {
@@ -393,6 +394,7 @@ function Dashboard() {
                 pagination={false}
                 size="small"
                 rowKey="_id"
+                scroll={{ x: 600 }}
               />
             ) : (
               <Empty 
@@ -423,6 +425,7 @@ function Dashboard() {
                 pagination={false}
                 size="small"
                 rowKey="_id"
+                scroll={{ x: 600 }}
               />
             ) : (
               <Empty 
