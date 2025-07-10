@@ -2,7 +2,7 @@
   "name": "admin-dashboard",
   "version": "2.0.0",
   "private": true,
-  "homepage": "https://songyong26.github.io/admin",
+  "homepage": "https://test.toupiao01.top/admin",
   "dependencies": {
     "@ant-design/icons": "^5.2.6",
     "antd": "^5.13.2",
