@@ -1277,6 +1277,19 @@
           );
         };
 
+        // 在App组件内部增加分页状态
+        const [pointsPage, setPointsPage] = useState(1);
+        const pointsPageSize = 10;
+        const totalPoints = userInfo.pointDetails.length;
+        const totalPointsPages = Math.ceil(totalPoints / pointsPageSize);
+        const pointsStart = (pointsPage - 1) * pointsPageSize;
+        const pointsEnd = pointsStart + pointsPageSize;
+        const currentPoints = userInfo.pointDetails.slice(pointsStart, pointsEnd);
+
+        useEffect(() => {
+          setPointsPage(1);
+        }, [userInfo.pointDetails]);
+
         return (
           <div className="min-h-screen w-full bg-gradient-to-b from-purple-700 to-purple-900 text-white">
             <div className="w-full max-w-md mx-auto p-4 sm:p-6 flex flex-col space-y-6">
@@ -1302,19 +1315,38 @@
                     <div className="bg-purple-800/50 p-4 rounded-lg border border-purple-400/40 text-white/90 animate-fade-in">
                         <h3 className="text-lg font-bold text-yellow-400 mb-2 border-b border-yellow-400/30 pb-2">积分明细</h3>
                         <ul className="space-y-2 text-sm pt-2">
-                            {userInfo.pointDetails.map((detail, index) => (
-                                <li key={index} className="flex flex-col gap-0.5 mb-2">
-                                  <div className="flex justify-between items-center">
-                                    <span>{detail.type}</span>
-                                    <span className={`font-semibold ${detail.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>{detail.amount > 0 ? '+' : ''}{detail.amount}</span>
-                                  </div>
-                                  <div className="flex justify-between items-center text-xs text-purple-200">
-                                    <span>{detail.time}</span>
-                                    <span>{detail.remark}</span>
-                                  </div>
-                                </li>
+                            {currentPoints.map((detail, index) => (
+                                <React.Fragment key={index}>
+                                  <li className="flex flex-col gap-0.5 mb-2">
+                                    <div className="flex justify-between items-center">
+                                      <span>{detail.type}</span>
+                                      <span className={`font-semibold ${detail.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>{detail.amount > 0 ? '+' : ''}{detail.amount}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs text-purple-200">
+                                      <span>{detail.time}</span>
+                                      <span>{detail.remark}</span>
+                                    </div>
+                                  </li>
+                                  {/* 分割线，最后一条不加 */}
+                                  {index !== currentPoints.length - 1 && <hr className="border-t border-purple-400/40 my-1" />}
+                                </React.Fragment>
                             ))}
                         </ul>
+                        {totalPointsPages > 1 && (
+                          <div className="flex justify-center items-center gap-4 mt-2">
+                            <button
+                              className="px-3 py-1 rounded bg-purple-600 text-white disabled:opacity-50"
+                              onClick={() => setPointsPage(p => Math.max(1, p - 1))}
+                              disabled={pointsPage === 1}
+                            >上一页</button>
+                            <span className="text-white/80 text-sm">{pointsPage} / {totalPointsPages}</span>
+                            <button
+                              className="px-3 py-1 rounded bg-purple-600 text-white disabled:opacity-50"
+                              onClick={() => setPointsPage(p => Math.min(totalPointsPages, p + 1))}
+                              disabled={pointsPage === totalPointsPages}
+                            >下一页</button>
+                          </div>
+                        )}
                     </div>
                   )}
                   
