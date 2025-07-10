@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, Button, message, Spin, Empty } from 'antd';
+import { Card, Row, Col, Statistic, Table, Tag, Button, message, Spin, Empty, Space, Tooltip } from 'antd';
 import {
   UserOutlined,
   ProjectOutlined,
@@ -7,7 +7,10 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   ExclamationCircleOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  EyeOutlined
 } from '@ant-design/icons';
 import adminAPI, { utils } from '../api';
 
@@ -116,6 +119,21 @@ function Dashboard() {
     return <Tag color={config.color} icon={config.icon}>{config.text}</Tag>;
   };
 
+  // 项目审核处理
+  const handleProjectAudit = async (projectId, status) => {
+    try {
+      const response = await adminAPI.projects.audit(projectId, { status });
+      if (response.data && response.data.success) {
+        message.success(`项目${status === 'approved' ? '通过' : '拒绝'}成功`);
+        fetchRecentProjects();
+        fetchStats();
+      }
+    } catch (error) {
+      console.error('项目审核失败:', error);
+      message.error('项目审核失败');
+    }
+  };
+
   // 项目表格列
   const projectColumns = [
     {
@@ -143,8 +161,59 @@ function Dashboard() {
       key: 'createdAt',
       width: 120,
       render: (date) => new Date(date).toLocaleDateString()
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 150,
+      render: (_, record) => (
+        <Space size="small">
+          {record.status === 'pending' && (
+            <>
+              <Tooltip title="通过">
+                <Button 
+                  type="text" 
+                  icon={<CheckOutlined />} 
+                  style={{ color: '#52c41a' }}
+                  onClick={() => handleProjectAudit(record._id, 'approved')}
+                />
+              </Tooltip>
+              <Tooltip title="拒绝">
+                <Button 
+                  type="text" 
+                  icon={<CloseOutlined />} 
+                  danger
+                  onClick={() => handleProjectAudit(record._id, 'rejected')}
+                />
+              </Tooltip>
+            </>
+          )}
+          <Tooltip title="查看详情">
+            <Button 
+              type="text" 
+              icon={<EyeOutlined />} 
+              onClick={() => window.location.hash = `/projects?id=${record._id}`}
+            />
+          </Tooltip>
+        </Space>
+      )
     }
   ];
+
+  // 提现审核处理
+  const handleWithdrawAudit = async (withdrawId, status) => {
+    try {
+      const response = await adminAPI.withdraws.audit(withdrawId, { status });
+      if (response.data && response.data.success) {
+        message.success(`提现申请${status === 'approved' ? '通过' : '拒绝'}成功`);
+        fetchRecentWithdraws();
+        fetchStats();
+      }
+    } catch (error) {
+      console.error('提现审核失败:', error);
+      message.error('提现审核失败');
+    }
+  };
 
   // 提现表格列
   const withdrawColumns = [
@@ -174,6 +243,42 @@ function Dashboard() {
       key: 'createdAt',
       width: 120,
       render: (date) => new Date(date).toLocaleDateString()
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 150,
+      render: (_, record) => (
+        <Space size="small">
+          {record.status === 'pending' && (
+            <>
+              <Tooltip title="通过">
+                <Button 
+                  type="text" 
+                  icon={<CheckOutlined />} 
+                  style={{ color: '#52c41a' }}
+                  onClick={() => handleWithdrawAudit(record._id, 'approved')}
+                />
+              </Tooltip>
+              <Tooltip title="拒绝">
+                <Button 
+                  type="text" 
+                  icon={<CloseOutlined />} 
+                  danger
+                  onClick={() => handleWithdrawAudit(record._id, 'rejected')}
+                />
+              </Tooltip>
+            </>
+          )}
+          <Tooltip title="查看详情">
+            <Button 
+              type="text" 
+              icon={<EyeOutlined />} 
+              onClick={() => window.location.hash = `/withdraws?id=${record._id}`}
+            />
+          </Tooltip>
+        </Space>
+      )
     }
   ];
 
