@@ -252,37 +252,45 @@ function ProjectManage() {
       key: 'actions',
       width: 150,
       fixed: 'right',
-      render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="查看详情">
-            <Button 
-              type="text" 
-              icon={<EyeOutlined />} 
-              onClick={() => handleViewDetail(record)}
-            />
-          </Tooltip>
-          {record.status === 'pending_review' && (
-            <>
-              <Tooltip title="通过">
-                <Button 
-                  type="text" 
-                  icon={<CheckOutlined />} 
-                  style={{ color: '#52c41a' }}
-                  onClick={() => handleAudit(record, true)}
-                />
-              </Tooltip>
-              <Tooltip title="拒绝">
-                <Button 
-                  type="text" 
-                  icon={<CloseOutlined />} 
-                  danger
-                  onClick={() => handleAudit(record, false)}
-                />
-              </Tooltip>
-            </>
-          )}
-        </Space>
-      )
+      render: (_, record) => {
+        // 调试信息：打印项目状态
+        console.log('项目状态调试:', {
+          id: record.id,
+          title: record.title,
+          status: record.status,
+          statusType: typeof record.status,
+          isPendingReview: record.status === 'pending_review'
+        });
+        
+        return (
+          <Space size="small">
+            <Tooltip title="查看详情">
+              <Button 
+                type="text" 
+                icon={<EyeOutlined />} 
+                onClick={() => handleViewDetail(record)}
+              />
+            </Tooltip>
+            {/* 显示所有项目的审核按钮 */}
+             <Tooltip title="通过">
+               <Button 
+                 type="text" 
+                 icon={<CheckOutlined />} 
+                 style={{ color: '#52c41a' }}
+                 onClick={() => handleAudit(record, true)}
+               />
+             </Tooltip>
+             <Tooltip title="拒绝">
+               <Button 
+                 type="text" 
+                 icon={<CloseOutlined />} 
+                 danger
+                 onClick={() => handleAudit(record, false)}
+               />
+             </Tooltip>
+          </Space>
+        );
+      }
     }
   ];
 
