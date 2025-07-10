@@ -1001,6 +1001,9 @@
             try {
               await projectAPI.remove(projectId, userInfo.username);
               await loadProjects();
+              // 新增：删除后刷新用户信息，确保积分明细和余额实时更新
+              const userData = await userAPI.getInfo(userInfo.username);
+              setUserInfo(userData);
               showConfirm({
                 title: '删除成功',
                 content: '项目已成功删除',
