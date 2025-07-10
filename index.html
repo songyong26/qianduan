@@ -1299,7 +1299,7 @@
                     <div className="bg-purple-800/50 p-4 rounded-lg border border-purple-400/40 text-white/90 animate-fade-in">
                         <h3 className="text-lg font-bold text-yellow-400 mb-2 border-b border-yellow-400/30 pb-2">积分明细</h3>
                         <ul className="space-y-2 text-sm pt-2">
-                            {[...userInfo.pointDetails].reverse().map((detail, index) => (
+                            {userInfo.pointDetails.map((detail, index) => (
                                 <li key={index} className="flex flex-col gap-0.5 mb-2">
                                   <div className="flex justify-between items-center">
                                     <span>{detail.type}</span>
