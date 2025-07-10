@@ -7,7 +7,9 @@ import {
 import {
   EyeOutlined, SearchOutlined, ReloadOutlined, UserOutlined,
   StopOutlined, CheckCircleOutlined, ExclamationCircleOutlined,
-  MailOutlined, PhoneOutlined, CalendarOutlined
+  MailOutlined, PhoneOutlined, CalendarOutlined, EditOutlined,
+  DeleteOutlined, LockOutlined, UnlockOutlined, TeamOutlined,
+  CrownOutlined, DollarOutlined, PlusOutlined, ExportOutlined
 } from '@ant-design/icons';
 import adminAPI, { utils } from '../api';
 
@@ -29,6 +31,8 @@ function UserManage() {
   });
   const [selectedUser, setSelectedUser] = useState(null);
   const [detailVisible, setDetailVisible] = useState(false);
+  const [editVisible, setEditVisible] = useState(false);
+  const [editForm] = Form.useForm();
   const [stats, setStats] = useState(null);
 
   // 获取用户列表
@@ -38,16 +42,13 @@ function UserManage() {
       const params = {
         page,
         limit: pageSize,
-        ...filters
+        search: filters.keyword,
+        status: filters.status,
+        startDate: filters.dateRange?.[0]?.format('YYYY-MM-DD'),
+        endDate: filters.dateRange?.[1]?.format('YYYY-MM-DD')
       };
 
-      // 处理日期范围
-      if (filters.dateRange && filters.dateRange.length === 2) {
-        params.startDate = filters.dateRange[0].format('YYYY-MM-DD');
-        params.endDate = filters.dateRange[1].format('YYYY-MM-DD');
-      }
-
-      const response = await adminAPI.users.getList(params);
+      const response = await adminAPI.users.getAll(params);
       if (response.data && response.data.success) {
         const { users, total, stats } = response.data.data;
         setUsers(users || []);
@@ -90,9 +91,69 @@ function UserManage() {
   };
 
   // 查看详情
-  const handleViewDetail = (user) => {
+  const handleViewDetail = async (user) => {
+    try {
+      const response = await adminAPI.users.getDetail(user.id);
+      if (response.data && response.data.success) {
+        setSelectedUser(response.data.data);
+        setDetailVisible(true);
+      }
+    } catch (error) {
+      console.error('获取用户详情失败:', error);
+      message.error('获取用户详情失败');
+    }
+  };
+
+  // 编辑用户
+  const handleEdit = (user) => {
     setSelectedUser(user);
-    setDetailVisible(true);
+    editForm.setFieldsValue({
+      username: user.username,
+      email: user.email,
+      phone: user.phone,
+      status: user.status,
+      balance: user.balance
+    });
+    setEditVisible(true);
+  };
+
+  const handleEditSubmit = async () => {
+    try {
+      const values = await editForm.validateFields();
+      const response = await adminAPI.users.update(selectedUser.id, values);
+      
+      if (response.data && response.data.success) {
+        message.success('用户信息更新成功');
+        setEditVisible(false);
+        fetchUsers(pagination.current, pagination.pageSize);
+      }
+    } catch (error) {
+      console.error('更新用户信息失败:', error);
+      message.error('更新用户信息失败');
+    }
+  };
+
+  // 删除用户
+  const handleDelete = async (user) => {
+    Modal.confirm({
+      title: '确认删除用户',
+      content: `确定要删除用户 "${user.username}" 吗？删除后无法恢复。`,
+      okText: '确定删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const response = await adminAPI.users.delete(user.id);
+          if (response.data && response.data.success) {
+            message.success('用户删除成功');
+            fetchUsers(pagination.current, pagination.pageSize);
+          }
+        } catch (error) {
+          console.error('删除用户失败:', error);
+          message.error('删除用户失败');
+        }
+      }
+    });
   };
 
   // 切换用户状态
@@ -105,7 +166,7 @@ function UserManage() {
       content: `确定要${action}用户 "${user.username}" 吗？`,
       onOk: async () => {
         try {
-          const response = await adminAPI.users.toggleStatus(user._id, {
+          const response = await adminAPI.users.updateStatus(user.id, {
             status: newStatus
           });
           if (response.data && response.data.success) {
@@ -254,13 +315,27 @@ function UserManage() {
               onClick={() => handleViewDetail(record)}
             />
           </Tooltip>
+          <Tooltip title="编辑">
+            <Button 
+              type="text" 
+              icon={<EditOutlined />} 
+              onClick={() => handleEdit(record)}
+            />
+          </Tooltip>
           <Tooltip title={record.status === 'active' ? '禁用用户' : '启用用户'}>
             <Button 
               type="text" 
-              icon={record.status === 'active' ? <StopOutlined /> : <CheckCircleOutlined />}
-              danger={record.status === 'active'}
-              style={record.status !== 'active' ? { color: '#52c41a' } : {}}
+              icon={record.status === 'active' ? <LockOutlined /> : <UnlockOutlined />}
+              style={{ color: record.status === 'active' ? '#ff4d4f' : '#52c41a' }}
               onClick={() => handleToggleStatus(record)}
+            />
+          </Tooltip>
+          <Tooltip title="删除">
+            <Button 
+              type="text" 
+              icon={<DeleteOutlined />}
+              danger
+              onClick={() => handleDelete(record)}
             />
           </Tooltip>
         </Space>
@@ -270,15 +345,32 @@ function UserManage() {
 
   return (
     <div className="user-manage-container">
+      <div className="page-header">
+        <h1 className="page-title">用户管理</h1>
+        <Space>
+          <Button 
+            type="primary" 
+            icon={<ReloadOutlined />} 
+            onClick={() => fetchUsers(pagination.current, pagination.pageSize)}
+            loading={loading}
+          >
+            刷新
+          </Button>
+          <Button icon={<ExportOutlined />}>
+            导出数据
+          </Button>
+        </Space>
+      </div>
+
       {/* 统计卡片 */}
       {stats && (
-        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
           <Col xs={24} sm={6}>
             <Card>
               <Statistic
                 title="总用户数"
                 value={stats.total || 0}
-                prefix={<UserOutlined />}
+                prefix={<TeamOutlined />}
                 valueStyle={{ color: '#1890ff' }}
               />
             </Card>
@@ -288,16 +380,8 @@ function UserManage() {
               <Statistic
                 title="活跃用户"
                 value={stats.active || 0}
+                prefix={<UserOutlined />}
                 valueStyle={{ color: '#52c41a' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={6}>
-            <Card>
-              <Statistic
-                title="禁用用户"
-                value={stats.disabled || 0}
-                valueStyle={{ color: '#f5222d' }}
               />
             </Card>
           </Col>
@@ -306,27 +390,41 @@ function UserManage() {
               <Statistic
                 title="今日新增"
                 value={stats.todayNew || 0}
+                prefix={<PlusOutlined />}
                 valueStyle={{ color: '#faad14' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={6}>
+            <Card>
+              <Statistic
+                title="用户余额"
+                value={stats.totalBalance || 0}
+                prefix={<DollarOutlined />}
+                valueStyle={{ color: '#722ed1' }}
+                formatter={(value) => `¥${utils.formatNumber(value)}`}
               />
             </Card>
           </Col>
         </Row>
       )}
 
-      <Card className="search-card">
+      {/* 搜索和筛选 */}
+      <Card className="filter-card" style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={8} md={6}>
             <Input
               placeholder="搜索用户名或邮箱"
               value={filters.keyword}
               onChange={(e) => setFilters(prev => ({ ...prev, keyword: e.target.value }))}
               onPressEnter={handleSearch}
+              prefix={<SearchOutlined />}
               allowClear
             />
           </Col>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={8} md={4}>
             <Select
-              placeholder="选择状态"
+              placeholder="状态筛选"
               value={filters.status}
               onChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
               allowClear
@@ -337,14 +435,14 @@ function UserManage() {
               <Option value="pending">待验证</Option>
             </Select>
           </Col>
-          <Col xs={24} sm={12} md={8}>
+          <Col xs={24} sm={8} md={6}>
             <RangePicker
               value={filters.dateRange}
               onChange={(dates) => setFilters(prev => ({ ...prev, dateRange: dates }))}
               style={{ width: '100%' }}
             />
           </Col>
-          <Col xs={24} sm={12} md={4}>
+          <Col xs={24} sm={12} md={8}>
             <Space>
               <Button 
                 type="primary" 
@@ -364,20 +462,8 @@ function UserManage() {
         </Row>
       </Card>
 
-      <Card 
-        title="用户管理" 
-        className="table-card"
-        extra={
-          <Space>
-            <Button 
-              icon={<ReloadOutlined />} 
-              onClick={() => fetchUsers(pagination.current, pagination.pageSize)}
-            >
-              刷新
-            </Button>
-          </Space>
-        }
-      >
+      {/* 用户列表 */}
+      <Card>
         <Table
           columns={columns}
           dataSource={users}
@@ -475,6 +561,79 @@ function UserManage() {
           </div>
         )}
       </Drawer>
+
+      {/* 编辑用户模态框 */}
+      <Modal
+        title="编辑用户"
+        open={editVisible}
+        onOk={handleEditSubmit}
+        onCancel={() => setEditVisible(false)}
+        okText="保存"
+        cancelText="取消"
+        width={600}
+      >
+        <Form form={editForm} layout="vertical">
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item 
+                name="username" 
+                label="用户名"
+                rules={[
+                  { required: true, message: '请输入用户名' },
+                  { min: 3, max: 20, message: '用户名长度为3-20个字符' }
+                ]}
+              >
+                <Input placeholder="请输入用户名" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item 
+                name="email" 
+                label="邮箱"
+                rules={[
+                  { required: true, message: '请输入邮箱' },
+                  { type: 'email', message: '请输入有效的邮箱地址' }
+                ]}
+              >
+                <Input placeholder="请输入邮箱" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="phone" label="手机号">
+                <Input placeholder="请输入手机号" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item 
+                name="status" 
+                label="状态"
+                rules={[{ required: true, message: '请选择状态' }]}
+              >
+                <Select placeholder="请选择状态">
+                  <Option value="active">正常</Option>
+                  <Option value="disabled">禁用</Option>
+                  <Option value="pending">待验证</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item 
+            name="balance" 
+            label="余额"
+            rules={[{ required: true, message: '请输入余额' }]}
+          >
+            <Input 
+              type="number"
+              min={0}
+              step={0.01}
+              placeholder="请输入余额"
+              addonBefore="¥"
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

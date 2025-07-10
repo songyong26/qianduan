@@ -126,6 +126,12 @@ const adminAPI = {
     // 获取待审核项目列表
     getPending: (params) => api.get('/admin/projects/pending', { params }),
     
+    // 获取所有项目列表
+    getAll: (params) => api.get('/admin/projects', { params }),
+    
+    // 获取项目详情
+    getDetail: (id) => api.get(`/admin/projects/${id}`),
+    
     // 项目审核
     audit: (id, data) => api.post(`/admin/projects/${id}/audit`, data)
   },
@@ -133,19 +139,34 @@ const adminAPI = {
   // 提现管理
   withdraws: {
     // 获取提现申请列表
-    getList: (params) => api.get('/admin/withdraws', { params }),
+    getList: (params) => api.get('/admin/withdrawals', { params }),
+    
+    // 获取所有提现申请
+    getAll: (params) => api.get('/admin/withdrawals/all', { params }),
+    
+    // 获取提现详情
+    getDetail: (id) => api.get(`/admin/withdrawals/${id}`),
     
     // 提现审核
-    audit: (id, data) => api.post(`/admin/withdraws/${id}/audit`, data)
+    audit: (id, data) => api.post(`/admin/withdrawals/${id}/audit`, data)
   },
   
   // 用户管理
   users: {
     // 获取用户列表
-    getList: (params) => api.get('/admin/users', { params }),
+    getAll: (params) => api.get('/admin/users', { params }),
     
-    // 切换用户状态
-    toggleStatus: (id, data) => api.put(`/admin/users/${id}/status`, data)
+    // 获取用户详情
+    getDetail: (id) => api.get(`/admin/users/${id}`),
+    
+    // 更新用户信息
+    update: (id, data) => api.put(`/admin/users/${id}`, data),
+    
+    // 更新用户状态
+    updateStatus: (id, status) => api.put(`/admin/users/${id}`, { status }),
+    
+    // 删除用户
+    delete: (id) => api.delete(`/admin/users/${id}`)
   },
   
   // 系统统计

@@ -319,6 +319,8 @@ function Dashboard() {
             <div className="stat-extra">
               <span className="stat-label">活跃用户:</span>
               <span className="stat-value">{utils.formatNumber(stats?.users?.active || 0)}</span>
+              <span className="stat-label">今日新增:</span>
+              <span className="stat-value">{utils.formatNumber(stats?.users?.today || 0)}</span>
             </div>
           </Card>
         </Col>
@@ -335,6 +337,8 @@ function Dashboard() {
             <div className="stat-extra">
               <span className="stat-label">待审核:</span>
               <span className="stat-value pending">{utils.formatNumber(stats?.projects?.pending || 0)}</span>
+              <span className="stat-label">通过率:</span>
+              <span className="stat-value">{stats?.projects?.approvalRate || 0}%</span>
             </div>
           </Card>
         </Col>
@@ -351,6 +355,8 @@ function Dashboard() {
             <div className="stat-extra">
               <span className="stat-label">待审核:</span>
               <span className="stat-value pending">{utils.formatNumber(stats?.withdraws?.pending || 0)}</span>
+              <span className="stat-label">通过率:</span>
+              <span className="stat-value">{stats?.withdraws?.approvalRate || 0}%</span>
             </div>
           </Card>
         </Col>
@@ -367,6 +373,8 @@ function Dashboard() {
             <div className="stat-extra">
               <span className="stat-label">今日:</span>
               <span className="stat-value">¥{utils.formatNumber(stats?.transactions?.today || 0)}</span>
+              <span className="stat-label">用户余额:</span>
+              <span className="stat-value">¥{utils.formatNumber(stats?.transactions?.userBalance || 0)}</span>
             </div>
           </Card>
         </Col>
