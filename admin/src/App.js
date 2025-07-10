@@ -29,21 +29,28 @@ const { Header, Sider, Content } = Layout;
 function ProtectedRoute({ children }) {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log('开始认证检查...');
+        
         if (!utils.isLoggedIn()) {
+          console.log('未找到登录token，跳转到登录页');
           setIsAuthenticated(false);
           setLoading(false);
           return;
         }
 
+        console.log('找到token，验证有效性...');
         // 验证token有效性
-        await adminAPI.auth.getProfile();
+        const response = await adminAPI.auth.getProfile();
+        console.log('认证成功:', response.data);
         setIsAuthenticated(true);
       } catch (error) {
         console.error('认证检查失败:', error);
+        setError(error.message || '认证失败');
         utils.clearToken();
         setIsAuthenticated(false);
       } finally {
@@ -58,6 +65,17 @@ function ProtectedRoute({ children }) {
     return (
       <div className="loading-wrapper">
         <Spin size="large" tip="验证身份中..." />
+        <div style={{ marginTop: 16, color: '#666' }}>正在检查登录状态...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="error-wrapper">
+        <div className="error-title">认证失败</div>
+        <div className="error-description">{error}</div>
+        <Button type="primary" onClick={() => window.location.reload()}>重新加载</Button>
       </div>
     );
   }
@@ -251,6 +269,26 @@ function MainLayout() {
 
 // 主应用组件
 function App() {
+  useEffect(() => {
+    // 添加调试信息
+    console.log('App组件已加载');
+    console.log('当前URL:', window.location.href);
+    console.log('当前hash:', window.location.hash);
+    
+    // 检查API连接
+    const checkAPI = async () => {
+      try {
+        console.log('检查API连接...');
+        const response = await fetch('https://api.toupiao01.top/api/health');
+        console.log('API状态:', response.status);
+      } catch (error) {
+        console.error('API连接失败:', error);
+      }
+    };
+    
+    checkAPI();
+  }, []);
+
   return (
     <Router>
       <div className="App pi-optimized">
