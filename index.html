@@ -428,8 +428,8 @@
                     
                     {/* --- RIGHT CONTROLS --- */}
                     <div className="flex items-center gap-2">
-                        {/* 参与视图下，已结束项目不显示投票按钮 */}
-                        {!isMyCreatedView && project.status !== 'finished' && (
+                        {/* 参与视图下，已结束或审核通过项目不显示投票按钮 */}
+                        {!isMyCreatedView && project.status !== 'finished' && project.status !== 'review_passed' && (
                             <button
                                 onClick={() => setIsVotingOpen(prev => !prev)}
                                 className={`text-white font-semibold py-0.5 px-2 rounded-md transition-colors text-xs ${ isVotingOpen ? 'bg-gray-500 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700' } ${ (!canVote && !isVotingOpen) ? 'opacity-50 cursor-not-allowed' : '' }`}
@@ -1212,8 +1212,26 @@
         );
 
         // 参与的项目移除逻辑（提升到App，便于传递给MyProjectsView）
-        const handleRemoveParticipated = (projectId) => {
-          setParticipatedProjectIds(prev => prev.filter(id => id !== projectId));
+        const handleRemoveParticipated = async (projectId) => {
+          try {
+            const response = await fetch(`http://localhost:3000/api/projects/${projectId}/participated`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: userInfo.username })
+            });
+            if (response.ok) {
+              // 从前端状态中移除
+              setParticipatedProjectIds(prev => prev.filter(id => id !== projectId));
+              // 重新加载项目数据
+              loadProjects();
+            } else {
+              const error = await response.json();
+              alert(error.message || '删除失败');
+            }
+          } catch (error) {
+            console.error('删除项目失败:', error);
+            alert('删除失败，请重试');
+          }
         };
 
         // 公布结果弹窗状态
