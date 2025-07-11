@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, Button, message, Spin, Empty, Space, Tooltip } from 'antd';
+import { Card, Row, Col, Statistic, Table, Tag, Button, message, Spin, Empty, Space, Tooltip, Progress } from 'antd';
 import {
   UserOutlined,
   ProjectOutlined,
@@ -10,7 +10,10 @@ import {
   ReloadOutlined,
   CheckOutlined,
   CloseOutlined,
-  EyeOutlined
+  EyeOutlined,
+  GlobalOutlined,
+  ToolOutlined,
+  DatabaseOutlined
 } from '@ant-design/icons';
 import adminAPI, { utils } from '../api';
 
@@ -20,6 +23,30 @@ function Dashboard() {
   const [stats, setStats] = useState(null);
   const [recentProjects, setRecentProjects] = useState([]);
   const [recentWithdraws, setRecentWithdraws] = useState([]);
+
+  // 仿照Settings.js添加系统信息mock数据
+  const [systemInfo] = useState({
+    version: '1.0.0',
+    uptime: '7天 12小时 30分钟',
+    nodeVersion: 'v18.17.0',
+    platform: 'Windows',
+    memory: {
+      used: 256,
+      total: 1024,
+      usage: 25
+    },
+    disk: {
+      used: 15.6,
+      total: 100,
+      usage: 15.6
+    },
+    database: {
+      status: 'connected',
+      collections: 8,
+      documents: 1250,
+      size: '45.2 MB'
+    }
+  });
 
   // 获取统计数据
   const fetchStats = async () => {
@@ -294,7 +321,6 @@ function Dashboard() {
   return (
     <div className="dashboard-container">
       <div className="page-header">
-        <h1 className="page-title">仪表盘</h1>
         <Button 
           type="primary" 
           icon={<ReloadOutlined />} 
@@ -305,6 +331,42 @@ function Dashboard() {
         </Button>
       </div>
 
+      {/* 系统信息展示，放在统计卡片上方 */}
+      <Card title="系统信息" style={{ marginBottom: 24 }}>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={12} lg={6}>
+            <Statistic title="运行时间" value={systemInfo.uptime} prefix={<ToolOutlined />} />
+          </Col>
+        </Row>
+        <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+          <Col xs={24} md={12}>
+            <Card title="内存使用情况" size="small">
+              <Progress percent={systemInfo.memory.usage} status={systemInfo.memory.usage > 80 ? 'exception' : 'normal'} format={() => `${systemInfo.memory.used}MB / ${systemInfo.memory.total}MB`} />
+            </Card>
+          </Col>
+          <Col xs={24} md={12}>
+            <Card title="磁盘使用情况" size="small">
+              <Progress percent={systemInfo.disk.usage} status={systemInfo.disk.usage > 80 ? 'exception' : 'normal'} format={() => `${systemInfo.disk.used}GB / ${systemInfo.disk.total}GB`} />
+            </Card>
+          </Col>
+        </Row>
+        <Card title="数据库信息" size="small" style={{ marginTop: 16 }}>
+          <Row gutter={[16, 0]}>
+            <Col xs={24} sm={6}>
+              <Statistic title="连接状态" value={systemInfo.database.status === 'connected' ? '已连接' : '未连接'} valueStyle={{ color: systemInfo.database.status === 'connected' ? '#52c41a' : '#f5222d' }} />
+            </Col>
+            <Col xs={24} sm={6}>
+              <Statistic title="集合数量" value={systemInfo.database.collections} />
+            </Col>
+            <Col xs={24} sm={6}>
+              <Statistic title="文档数量" value={systemInfo.database.documents} />
+            </Col>
+            <Col xs={24} sm={6}>
+              <Statistic title="数据库大小" value={systemInfo.database.size} />
+            </Col>
+          </Row>
+        </Card>
+      </Card>
       {/* 统计卡片 */}
       <Row gutter={[16, 16]} className="stats-row">
         <Col xs={24} sm={12} lg={6}>
