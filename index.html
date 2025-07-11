@@ -289,7 +289,7 @@
           if (project.status === 'review_passed') {
             return { text: '审核通过', color: 'text-green-400' };
           }
-          if (project.status === 'review_failed') {
+          if (project.status === 'review_rejected') {
             return { text: '审核未通过', color: 'text-red-400' };
           }
           if (project.status === 'pending_review') {
@@ -407,7 +407,7 @@
                 <div className="mt-auto pt-1 flex justify-between items-end">
                     {/* --- LEFT CONTROLS --- */}
                     <div>
-                        {isCreator && isMyCreatedView && project.status !== 'finished' && project.status !== 'pending_review' && project.status !== 'review_passed' && project.status !== 'review_failed' && (yesRemain > 0 || noRemain > 0) && (
+                        {isCreator && isMyCreatedView && project.status !== 'finished' && project.status !== 'pending_review' && project.status !== 'review_passed' && project.status !== 'review_rejected' && (yesRemain > 0 || noRemain > 0) && (
                             <button 
                                 onClick={() => {
                                   const action = project.status === 'paused' ? '重启' : '暂停';
@@ -773,10 +773,20 @@
           }
         }, []);
         
-        // 定期刷新项目数据
+        // 定期刷新项目数据和用户信息
         useEffect(() => {
           if (isLoggedIn && userInfo.username) {
-            const interval = setInterval(loadProjects, 30000); // 每30秒刷新一次
+            const refreshData = async () => {
+              await loadProjects();
+              // 同时刷新用户信息，确保积分及时更新
+              try {
+                const userData = await userAPI.getInfo(userInfo.username);
+                setUserInfo(userData);
+              } catch (error) {
+                console.error('刷新用户信息失败:', error);
+              }
+            };
+            const interval = setInterval(refreshData, 30000); // 每30秒刷新一次
             return () => clearInterval(interval);
           }
         }, [isLoggedIn, userInfo.username]);
@@ -1192,11 +1202,13 @@
             }
         };
 
-        // 修复：所有项目列表应包含所有进行中和未到截止时间的项目
+        // 修复：所有项目列表应包含所有进行中、暂停、待审核和已通过审核的项目（未到截止时间）
         const activeProjects = projects.filter(p => {
           const deadlineDate = p.deadline ? new Date(p.deadline) : null;
           const now = new Date();
-          return (p.status === 'inprogress' || p.status === 'paused') && deadlineDate && now <= deadlineDate;
+          // 包含进行中、暂停、待审核、已通过审核的项目
+          const validStatuses = ['inprogress', 'paused', 'pending_review', 'review_passed'];
+          return validStatuses.includes(p.status) && deadlineDate && now <= deadlineDate;
         });
 
         const CreateProjectForm = (
