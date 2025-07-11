@@ -446,6 +446,16 @@
                                 }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
                                     删除
                                 </button>
+                            ) : project.status === 'review_passed' ? (
+                                <button onClick={() => {
+                                  showConfirm({
+                                    title: '删除项目',
+                                    content: '您确定要删除这个项目吗？此操作无法撤销。',
+                                    onConfirm: () => onDelete(project._id)
+                                  });
+                                }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
+                                    删除
+                                </button>
                             ) : (
                                 project.status !== 'finished' && (
                                   <button 
@@ -457,7 +467,7 @@
                                       });
                                     }} 
                                     className="bg-orange-500 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-orange-600 transition-colors text-xs"
-                                    disabled={project.status === 'pending_review' || project.status === 'review_passed' || project.status === 'review_failed'}
+                                    disabled={project.status === 'pending_review' || project.status === 'review_failed'}
                                   >
                                     公布结果
                                   </button>
@@ -1202,13 +1212,30 @@
             }
         };
 
-        // 修复：所有项目列表应包含所有进行中、暂停、待审核和已通过审核的项目（未到截止时间）
+        // 修复：所有项目列表只显示进行中且可以正常投票的项目
         const activeProjects = projects.filter(p => {
           const deadlineDate = p.deadline ? new Date(p.deadline) : null;
           const now = new Date();
-          // 包含进行中、暂停、待审核、已通过审核的项目
-          const validStatuses = ['inprogress', 'paused', 'pending_review', 'review_passed'];
-          return validStatuses.includes(p.status) && deadlineDate && now <= deadlineDate;
+          
+          // 只包含进行中的项目
+          if (p.status !== 'inprogress') {
+            return false;
+          }
+          
+          // 检查是否未到截止时间
+          if (!deadlineDate || now > deadlineDate) {
+            return false;
+          }
+          
+          // 检查是否两个选项都达到最高积分上限
+          const yesVoted = (p.votes && p.votes['是']) ? p.votes['是'] : 0;
+          const noVoted = (p.votes && p.votes['否']) ? p.votes['否'] : 0;
+          const maxPoints = p.maxPoints || 0;
+          if (yesVoted >= maxPoints && noVoted >= maxPoints) {
+            return false;
+          }
+          
+          return true;
         });
 
         const CreateProjectForm = (
