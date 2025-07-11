@@ -488,8 +488,8 @@
                               删除
                           </button>
                         )}
-                        {/* 参与的项目-已结束-右下角删除按钮 */}
-                        {isParticipatedView && project.status === 'finished' && (
+                        {/* 参与的项目-已结束或审核通过-右下角删除按钮 */}
+                        {isParticipatedView && (project.status === 'finished' || project.status === 'review_passed') && (
                           <button onClick={() => {
                             showConfirm({
                               title: '移除项目',
@@ -532,12 +532,7 @@
                     </div>
                   </div>
                 )}
-                {isCreator && isMyCreatedView && project.status === 'pending_review' && (
-                  <div className="flex gap-2 mt-2">
-                    <button onClick={() => handleMockReview(project._id, true)} className="bg-green-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-green-700 text-xs">模拟审核通过</button>
-                    <button onClick={() => handleMockReview(project._id, false)} className="bg-gray-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-gray-700 text-xs">模拟审核不通过</button>
-                  </div>
-                )}
+
             </div>
         );
       };
@@ -1089,86 +1084,7 @@
             }
         };
 
-        const handleMockReview = (projectId, passed) => {
-            setProjects(prev => prev.map(p => {
-                if (p._id !== projectId) return p;
-                if (passed) {
-                    // 审核通过，正式公布结果，执行结算
-                    // 结算逻辑
-                    const publishedOption = p.pendingOption;
-                    const voteFrozen = p.voteFrozen || {};
-                    const myVotes = Array.isArray(p.myVotes) ? p.myVotes : [];
-                    let userRewardMap = {}; // {username: {reward: 0, return: 0, lose: 0}}
-                    // 统计每个用户投票正确/错误的冻结积分
-                    myVotes.forEach(v => {
-                        if (!userRewardMap[v.user]) userRewardMap[v.user] = {reward: 0, return: 0, lose: 0};
-                        if (v.choice === publishedOption) {
-                            userRewardMap[v.user].reward += v.points; // 奖励
-                            userRewardMap[v.user].return += v.points; // 返还
-                        } else {
-                            userRewardMap[v.user].lose += v.points; // 归发起人
-                        }
-                    });
-                    // 计算发起人奖励和返还
-                    let creatorReward = 0;
-                    let creatorReturn = 0;
-                    Object.values(userRewardMap).forEach(u => {
-                        creatorReward += u.lose;
-                    });
-                    // 统计所有正确用户奖励总和
-                    let totalReward = 0;
-                    Object.values(userRewardMap).forEach(u => { totalReward += u.reward; });
-                    // 发起人冻结池扣除奖励，剩余返还
-                    creatorReturn = Math.max(0, (p.frozenPoints || 0) - totalReward);
-                    // 更新用户积分（这里只更新当前登录用户，实际多用户需后端）
-                    setUserInfo(prev => {
-                        let delta = 0;
-                        let detail = null;
-                        if (prev.username === p.creator) {
-                            // 发起人：返还+错误用户积分
-                            delta = creatorReturn + creatorReward;
-                            detail = {
-                                time: new Date().toLocaleString(),
-                                type: '项目结算',
-                                amount: delta,
-                                balance: prev.points + delta,
-                                remark: p.title
-                            };
-                        } else if (userRewardMap[prev.username]) {
-                            // 参与人
-                            const u = userRewardMap[prev.username];
-                            delta = u.return + u.reward;
-                            if (u.reward > 0) {
-                                detail = {
-                                    time: new Date().toLocaleString(),
-                                    type: '投票结算奖励',
-                                    amount: delta,
-                                    balance: prev.points + delta,
-                                    remark: p.title
-                                };
-                            } else if (u.lose > 0) {
-                                detail = {
-                                    time: new Date().toLocaleString(),
-                                    type: '投票结算归发起人',
-                                    amount: 0,
-                                    balance: prev.points,
-                                    remark: p.title
-                                };
-                            }
-                        }
-                        return detail ? {
-                            ...prev,
-                            points: prev.points + delta,
-                            pointDetails: [...prev.pointDetails, detail]
-                        } : prev;
-                    });
-                    return { ...p, status: 'review_passed', publishedOption: p.pendingOption, pendingOption: undefined };
-                } else {
-                    // 审核不通过
-                    return { ...p, status: 'review_failed', pendingOption: undefined };
-                }
-            }));
-        };
+
 
         const handleTogglePauseProject = async (projectId) => {
             try {
