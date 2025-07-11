@@ -228,7 +228,7 @@ function MainLayout() {
               onClick={() => setCollapsed(!collapsed)}
               style={{ fontSize: '16px', width: 64, height: 64 }}
             />
-            <span className="header-title">管理员后台</span>
+            {/* <span className="header-title">管理员后台</span> */}
           </div>
           
           <div className="header-right">
