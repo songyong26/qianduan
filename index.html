@@ -102,6 +102,9 @@
         list: (username) => {
           return apiRequest(`/projects?username=${encodeURIComponent(username)}`);
         },
+        listAll: () => {
+          return apiRequest('/projects');
+        },
         create: (username, title, description, deadline, maxPoints) => {
           return apiRequest('/projects', {
             method: 'POST',
@@ -744,12 +747,28 @@
         // 加载项目数据
         const loadProjects = async () => {
           try {
-            // 带上当前用户 username
-            const projectsData = await projectAPI.list(userInfo.username);
-            setProjects(projectsData);
+            // 获取所有公开项目（用于"所有项目"显示）
+            const allProjectsData = await projectAPI.listAll();
+            
+            // 获取用户相关项目（用于"我的项目"显示）
+            let userProjectsData = [];
+            if (userInfo.username) {
+              userProjectsData = await projectAPI.list(userInfo.username);
+            }
+            
+            // 合并所有项目数据，去重
+            const allProjects = [...allProjectsData];
+            userProjectsData.forEach(userProject => {
+              if (!allProjects.find(p => p._id === userProject._id)) {
+                allProjects.push(userProject);
+              }
+            });
+            
+            setProjects(allProjects);
+            
             // 计算用户参与的项目ID
             if (userInfo.username) {
-              const participated = projectsData
+              const participated = userProjectsData
                 .filter(p => p.participants && p.participants.includes(userInfo.username))
                 .map(p => p._id);
               setParticipatedProjectIds(participated);
