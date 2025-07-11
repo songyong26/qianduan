@@ -861,6 +861,7 @@
             if (amount && amount > 0) {
                 try {
                   await userAPI.charge(userInfo.username, amount);
+                  // 新增：充值后刷新用户信息
                   const userData = await userAPI.getInfo(userInfo.username);
                   setUserInfo(userData);
                   showConfirm({
@@ -897,6 +898,7 @@
                 }
                 try {
                   await userAPI.withdraw(userInfo.username, amount);
+                  // 新增：提现后刷新用户信息
                   const userData = await userAPI.getInfo(userInfo.username);
                   setUserInfo(userData);
                   showConfirm({
@@ -1026,6 +1028,9 @@
             try {
               await projectAPI.publish(projectId, userInfo.username, pendingOption);
               await loadProjects();
+              // 新增：审核通过/公布结果后立即刷新用户信息
+              const userData = await userAPI.getInfo(userInfo.username);
+              setUserInfo(userData);
               setPublishDialog({ open: false, projectId: null, votes: { '是': 0, '否': 0 } });
               showConfirm({
                 title: '提交成功',
@@ -1135,6 +1140,9 @@
                 await projectAPI.pause(projectId, userInfo.username);
               }
               await loadProjects();
+              // 新增：暂停/重启项目后刷新用户信息
+              const userData = await userAPI.getInfo(userInfo.username);
+              setUserInfo(userData);
             } catch (error) {
               showConfirm({
                 title: '操作失败',
@@ -1318,15 +1326,15 @@
                             {currentPoints.map((detail, index) => (
                                 <React.Fragment key={index}>
                                   <li className="flex flex-col gap-0.5 mb-2">
-                                    <div className="flex justify-between items-center">
-                                      <span>{detail.type}</span>
-                                      <span className={`font-semibold ${detail.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>{detail.amount > 0 ? '+' : ''}{detail.amount}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-xs text-purple-200">
-                                      <span>{detail.time}</span>
-                                      <span>{detail.remark}</span>
-                                    </div>
-                                  </li>
+                                  <div className="flex justify-between items-center">
+                                    <span>{detail.type}</span>
+                                    <span className={`font-semibold ${detail.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>{detail.amount > 0 ? '+' : ''}{detail.amount}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-xs text-purple-200">
+                                    <span>{detail.time}</span>
+                                    <span>{detail.remark}</span>
+                                  </div>
+                                </li>
                                   {/* 分割线，最后一条不加 */}
                                   {index !== currentPoints.length - 1 && <hr className="border-t border-purple-400/40 my-1" />}
                                 </React.Fragment>
