@@ -53,8 +53,12 @@ export const userAPI = {
 // 项目相关API
 export const projectAPI = {
   // 获取项目列表
-  list: () => {
-    return apiRequest('/projects');
+  list: (username) => {
+    let url = '/projects';
+    if (username) {
+      url += `?username=${encodeURIComponent(username)}`;
+    }
+    return apiRequest(url);
   },
   
   // 创建项目

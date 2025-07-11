@@ -99,8 +99,8 @@
       
       // 项目相关API
       const projectAPI = {
-        list: () => {
-          return apiRequest('/projects');
+        list: (username) => {
+          return apiRequest(`/projects?username=${encodeURIComponent(username)}`);
         },
         create: (username, title, description, deadline, maxPoints) => {
           return apiRequest('/projects', {
@@ -734,9 +734,9 @@
         // 加载项目数据
         const loadProjects = async () => {
           try {
-            const projectsData = await projectAPI.list();
+            // 带上当前用户 username
+            const projectsData = await projectAPI.list(userInfo.username);
             setProjects(projectsData);
-            
             // 计算用户参与的项目ID
             if (userInfo.username) {
               const participated = projectsData
