@@ -853,14 +853,20 @@
 
             ws.onmessage = (event) => {
               const message = JSON.parse(event.data);
+              const { type, payload } = message;
+
               setProjects(prevProjects => {
-                switch (message.type) {
+                switch (type) {
                   case 'project_created':
-                    return [...prevProjects, message.payload];
+                    return [payload, ...prevProjects];
                   case 'project_status_changed':
-                    return prevProjects.map(p => p._id === message.payload._id ? message.payload : p);
+                    // 如果是状态变更，且涉及到结算，则需要更新用户信息
+                    if (payload.status === 'completed' || payload.status === 'failed') {
+                      userAPI.getInfo(userInfo.username).then(setUserInfo);
+                    }
+                    return prevProjects.map(p => p._id === payload._id ? payload : p);
                   case 'project_deleted':
-                    return prevProjects.filter(p => p._id !== message.payload._id);
+                    return prevProjects.filter(p => p._id !== payload._id);
                   default:
                     return prevProjects;
                 }
