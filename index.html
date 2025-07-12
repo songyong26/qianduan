@@ -1232,10 +1232,8 @@
               body: JSON.stringify({ username: userInfo.username })
             });
             if (response.ok) {
-              // 从前端状态中移除
+              // 只从本地移除，不再调用loadProjects，避免被重新加回
               setParticipatedProjectIds(prev => prev.filter(id => id !== projectId));
-              // 重新加载项目数据
-              loadProjects();
             } else {
               const error = await response.json();
               alert(error.message || '删除失败');
