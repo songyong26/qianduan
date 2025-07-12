@@ -781,14 +781,13 @@
         // 加载项目数据
         const loadProjects = async () => {
           try {
-            // 获取所有公开项目（用于"所有项目"显示）
-            const allProjectsData = await projectAPI.listAll();
-            
-            // 获取用户相关项目（用于"我的项目"显示）
-            let userProjectsData = [];
+            // 并行获取所有项目和用户相关项目以提高加载速度
+            const promises = [projectAPI.listAll()];
             if (userInfo.username) {
-              userProjectsData = await projectAPI.list(userInfo.username);
+              promises.push(projectAPI.list(userInfo.username));
             }
+            
+            const [allProjectsData, userProjectsData = []] = await Promise.all(promises);
             
             // 合并所有项目数据，去重
             const allProjects = [...allProjectsData];
@@ -841,21 +840,44 @@
           }
         }, []);
         
-        // 定期刷新项目数据和用户信息
+        // WebSocket 连接
         useEffect(() => {
           if (isLoggedIn && userInfo.username) {
-            const refreshData = async () => {
-              await loadProjects();
-              // 同时刷新用户信息，确保积分及时更新
-              try {
-                const userData = await userAPI.getInfo(userInfo.username);
-                setUserInfo(userData);
-              } catch (error) {
-                console.error('刷新用户信息失败:', error);
-              }
+            const ws = new WebSocket('wss://api.toupiao01.top');
+
+            ws.onopen = () => {
+              console.log('WebSocket connected');
+              // 连接成功后加载一次初始数据
+              loadProjects();
             };
-            const interval = setInterval(refreshData, 30000); // 每30秒刷新一次
-            return () => clearInterval(interval);
+
+            ws.onmessage = (event) => {
+              const message = JSON.parse(event.data);
+              setProjects(prevProjects => {
+                switch (message.type) {
+                  case 'project_created':
+                    return [...prevProjects, message.payload];
+                  case 'project_status_changed':
+                    return prevProjects.map(p => p._id === message.payload._id ? message.payload : p);
+                  case 'project_deleted':
+                    return prevProjects.filter(p => p._id !== message.payload._id);
+                  default:
+                    return prevProjects;
+                }
+              });
+            };
+
+            ws.onclose = () => {
+              console.log('WebSocket disconnected');
+            };
+
+            ws.onerror = (error) => {
+              console.error('WebSocket error:', error);
+            };
+
+            return () => {
+              ws.close();
+            };
           }
         }, [isLoggedIn, userInfo.username]);
 
@@ -1096,6 +1118,8 @@
                 cancelText: '',
                 onCancel: undefined
               });
+              // 重新启动定时器，以便在一段时间后能刷新到最新状态
+              const interval = setInterval(refreshData, 30000);
             } catch (error) {
               showConfirm({
                 title: '删除失败',
