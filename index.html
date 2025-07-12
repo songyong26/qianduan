@@ -1357,14 +1357,16 @@
                                   </div>
                                   <div className="flex justify-between items-center text-xs text-purple-200">
                                     <span>{detail.time}</span>
-                                    {/* 右下角：只显示项目标题本身，不要"项目"二字和描述 */}
+                                    {/* 右下角：只显示完整项目标题，不能有任何描述、解释、前缀、后缀，也不能省略 */}
                                     <span>{(() => {
                                       if (detail.projectTitle) return detail.projectTitle;
                                       if (detail.title) return detail.title;
                                       if (detail.remark) {
-                                        // 提取"项目xxx"中的xxx，遇到空格、标点或描述性词语就截止
-                                        const match = detail.remark.match(/项目([\u4e00-\u9fa5A-Za-z0-9_\-]+)/);
+                                        // 如果remark以"项目"开头，提取后面第一个连续的非空白字符串（支持中英文、数字、下划线、短横线等）
+                                        const match = detail.remark.match(/^项目([\u4e00-\u9fa5A-Za-z0-9_\-]+)/);
                                         if (match && match[1]) return match[1].trim();
+                                        // 否则直接显示remark全部内容（假设就是项目标题）
+                                        return detail.remark.trim();
                                       }
                                       return '';
                                     })()}</span>
