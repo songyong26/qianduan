@@ -864,7 +864,11 @@
                     return [payload, ...prevProjects];
                   case 'project_status_changed':
                     // 如果是状态变更，且涉及到结算，则需要更新用户信息
-                    if (payload.status === 'completed' || payload.status === 'failed') {
+                    if (
+                      payload.status === 'completed' ||
+                      payload.status === 'failed' ||
+                      payload.status === 'review_passed'
+                    ) {
                       userAPI.getInfo(userInfo.username).then(setUserInfo);
                     }
                     return prevProjects.map(p => p._id === payload._id ? payload : p);
