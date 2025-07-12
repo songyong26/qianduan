@@ -873,9 +873,19 @@
               setProjects(prevProjects => {
                 switch (type) {
                   case 'project_created':
-                    return [payload, ...prevProjects];
+                    // 新项目插入最前面，避免重复
+                    if (prevProjects.some(p => p._id === payload._id)) {
+                      return prevProjects.map(p => p._id === payload._id ? payload : p);
+                    } else {
+                      return [payload, ...prevProjects];
+                    }
                   case 'project_status_changed':
-                    return prevProjects.map(p => p._id === payload._id ? payload : p);
+                    // 有状态变更（如投票），用新payload替换原有项目，若不存在则插入最前面
+                    if (prevProjects.some(p => p._id === payload._id)) {
+                      return prevProjects.map(p => p._id === payload._id ? payload : p);
+                    } else {
+                      return [payload, ...prevProjects];
+                    }
                   case 'project_deleted':
                     return prevProjects.filter(p => p._id !== payload._id);
                   default:
