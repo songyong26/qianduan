@@ -290,10 +290,15 @@
             return { text: '已结束', color: 'text-gray-400' };
           }
           if (project.status === 'review_passed') {
-            return { text: '审核通过', color: 'text-green-400' };
+            return { text: '已结束', color: 'text-gray-400' };
           }
           if (project.status === 'review_rejected') {
-            return { text: '审核未通过', color: 'text-red-400' };
+            // 只有在发起人视角才显示"审核未通过"
+            if (isCreator && isMyCreatedView) {
+              return { text: '审核未通过', color: 'text-red-400' };
+            } else {
+              return { text: '待公布', color: 'text-orange-500' };
+            }
           }
           if (project.status === 'pending_review') {
             return { text: '待审核', color: 'text-blue-400' };
@@ -435,8 +440,8 @@
                     
                     {/* --- RIGHT CONTROLS --- */}
                     <div className="flex items-center gap-2">
-                        {/* 参与视图下，已结束或审核通过项目不显示投票按钮 */}
-                        {!isMyCreatedView && project.status !== 'finished' && project.status !== 'review_passed' && (
+                        {/* 参与视图下，已结束、审核通过或待公布项目不显示投票按钮 */}
+                        {!isMyCreatedView && project.status !== 'finished' && project.status !== 'review_passed' && !deadlinePassed && (
                             <button
                                 onClick={() => setIsVotingOpen(prev => !prev)}
                                 className={`text-white font-semibold py-0.5 px-2 rounded-md transition-colors text-xs ${ isVotingOpen ? 'bg-gray-500 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700' } ${ (!canVote && !isVotingOpen) ? 'opacity-50 cursor-not-allowed' : '' }`}
@@ -510,7 +515,7 @@
                     </div>
                 </div>
                 {/* 公布结果红色盖章斜着展示，内容为"项目结果：是/否"，且完全在卡片内 */}
-                {project.status === 'finished' && project.publishedOption && (
+                {(project.status === 'finished' || project.status === 'review_passed') && project.publishedOption && (
                   <div style={{
                     position: 'absolute',
                     right: '12px',
