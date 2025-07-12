@@ -1134,8 +1134,9 @@
                 cancelText: '',
                 onCancel: undefined
               });
-              // 失败时回滚UI
-              await loadProjects();
+              // 失败时不再自动回滚UI，避免状态覆盖问题
+              // 用户可以根据错误提示手动刷新
+              // await loadProjects();
             }
         };
 
