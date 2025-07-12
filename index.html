@@ -1343,7 +1343,7 @@
                                 <React.Fragment key={index}>
                                   <li className="flex flex-col gap-0.5 mb-2">
                                   <div className="flex justify-between items-center">
-                                    {/* 统一左上角类型描述，只允许6种标准描述，兜底显示原始type */}
+                                    {/* 统一左上角类型描述，只允许6种标准描述，映射不到显示"其它" */}
                                     <span>{(() => {
                                       const t = detail.type || '';
                                       if (/创建项目冻结/.test(t)) return '创建项目冻结';
@@ -1351,14 +1351,16 @@
                                       if (/投票正确奖励|投票结算奖励|发起人获得投票错误用户的积分/.test(t)) return '结算奖励';
                                       if (/投票正确返还原冻结积分|投票结算解冻/.test(t)) return '返还冻结';
                                       if (/项目发起人返还剩余冻结积分|分配后结余解冻/.test(t)) return '返还剩余冻结积分';
-                                      return t; // 兜底显示原始type，避免空白
+                                      return '其它';
                                     })()}</span>
                                     <span className={`font-semibold ${detail.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>{detail.amount > 0 ? '+' : ''}{detail.amount}</span>
                                   </div>
                                   <div className="flex justify-between items-center text-xs text-purple-200">
                                     <span>{detail.time}</span>
-                                    {/* 只显示项目标题，remark全部内容，不做正则，保证不空白 */}
-                                    <span>{detail.remark || ''}</span>
+                                    {/* 优先显示projectTitle、title，其次remark，三者都没有显示"未知项目" */}
+                                    <span>{
+                                      detail.projectTitle || detail.title || detail.remark || '未知项目'
+                                    }</span>
                                   </div>
                                 </li>
                                   {/* 分割线，最后一条不加 */}
