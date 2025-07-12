@@ -316,11 +316,11 @@
         const getStatusInfo = () => {
           const now = new Date();
           const deadlineDate = project.deadline ? new Date(project.deadline) : null;
-          if (project.status === 'finished') {
+          if (project.status === 'finished' || project.status === 'review_passed') {
             return { text: '已结束', color: 'text-gray-400' };
           }
-          if (project.status === 'review_passed') {
-            return { text: '已结束', color: 'text-gray-400' };
+          if (project.status === 'pending_review') {
+            return { text: '待审核', color: 'text-blue-400' };
           }
           if (project.status === 'review_rejected') {
             // 只有在发起人视角才显示"审核未通过"
@@ -329,9 +329,6 @@
             } else {
               return { text: '待公布', color: 'text-orange-500' };
             }
-          }
-          if (project.status === 'pending_review') {
-            return { text: '待审核', color: 'text-blue-400' };
           }
           if (project.status === 'paused') {
             return { text: '已暂停', color: 'text-yellow-500' };
@@ -512,9 +509,9 @@
                                       });
                                     }} 
                                     className="bg-orange-500 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-orange-600 transition-colors text-xs"
-                                    disabled={project.status === 'pending_review' || project.status === 'review_failed'}
+                                    disabled={project.status === 'pending_review'}
                                   >
-                                    公布结果
+                                    {project.status === 'pending_review' ? '审核中' : '公布结果'}
                                   </button>
                                 )
                             )
@@ -1111,13 +1108,20 @@
         };
 
         const handleSubmitReview = async (projectId, pendingOption) => {
+            // 乐观更新
+            setProjects(prevProjects =>
+              prevProjects.map(p =>
+                p._id === projectId ? { ...p, status: 'pending_review' } : p
+              )
+            );
+            setPublishDialog({ open: false, projectId: null, votes: { '是': 0, '否': 0 } });
+
             try {
               await projectAPI.publish(projectId, userInfo.username, pendingOption);
+              // 提交成功后，重新加载项目以获取最新状态
               await loadProjects();
-              // 新增：审核通过/公布结果后立即刷新用户信息
               const userData = await userAPI.getInfo(userInfo.username);
               setUserInfo(userData);
-              setPublishDialog({ open: false, projectId: null, votes: { '是': 0, '否': 0 } });
               showConfirm({
                 title: '提交成功',
                 content: '项目结果已提交审核',
@@ -1126,6 +1130,8 @@
                 onCancel: undefined
               });
             } catch (error) {
+              // 如果失败，则重新加载项目以恢复到之前的状态
+              await loadProjects();
               showConfirm({
                 title: '提交失败',
                 content: error.message || '提交失败，请重试',
