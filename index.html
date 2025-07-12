@@ -1138,19 +1138,16 @@
         };
 
         const handleSubmitReview = async (projectId, pendingOption) => {
-            clearInterval(interval); // 停止定时刷新，防止状态被覆盖
-            setPublishDialog({ open: false, projectId: null, votes: { '是': 0, '否': 0 } });
-
+            setPublishDialog({ open: false, projectId: null, votes: { '是': 0, '否': 0 } }); // 立即关闭弹窗
             try {
               await projectAPI.publish(projectId, userInfo.username, pendingOption);
+              await loadProjects(); // 立即刷新项目列表
               showConfirm({
                 title: '提交成功',
                 content: '项目结果已提交审核，请等待管理员操作。',
                 confirmText: '确定',
                 cancelText: '',
-                onConfirm: () => {
-                  loadProjects();
-                },
+                onConfirm: undefined,
                 onCancel: undefined
               });
             } catch (error) {
@@ -1159,9 +1156,7 @@
                 content: error.message || '提交失败，请重试',
                 confirmText: '确定',
                 cancelText: '',
-                onConfirm: () => {
-                  loadProjects();
-                },
+                onConfirm: undefined,
                 onCancel: undefined
               });
             }
