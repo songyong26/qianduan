@@ -1108,6 +1108,7 @@
         };
 
         const handleSubmitReview = async (projectId, pendingOption) => {
+            clearInterval(interval); // 停止定时刷新，防止状态被覆盖
             // 乐观更新
             setProjects(prevProjects =>
               prevProjects.map(p =>
