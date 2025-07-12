@@ -1343,7 +1343,7 @@
                                 <React.Fragment key={index}>
                                   <li className="flex flex-col gap-0.5 mb-2">
                                   <div className="flex justify-between items-center">
-                                    {/* 统一左上角类型描述，只允许6种标准描述，映射不到显示"其它" */}
+                                    {/* 左上角描述：能映射到6种标准描述就用，否则显示原始type */}
                                     <span>{(() => {
                                       const t = detail.type || '';
                                       if (/创建项目冻结/.test(t)) return '创建项目冻结';
@@ -1351,16 +1351,22 @@
                                       if (/投票正确奖励|投票结算奖励|发起人获得投票错误用户的积分/.test(t)) return '结算奖励';
                                       if (/投票正确返还原冻结积分|投票结算解冻/.test(t)) return '返还冻结';
                                       if (/项目发起人返还剩余冻结积分|分配后结余解冻/.test(t)) return '返还剩余冻结积分';
-                                      return '其它';
+                                      return t;
                                     })()}</span>
                                     <span className={`font-semibold ${detail.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>{detail.amount > 0 ? '+' : ''}{detail.amount}</span>
                                   </div>
                                   <div className="flex justify-between items-center text-xs text-purple-200">
                                     <span>{detail.time}</span>
-                                    {/* 优先显示projectTitle、title，其次remark，三者都没有显示"未知项目" */}
-                                    <span>{
-                                      detail.projectTitle || detail.title || detail.remark || '未知项目'
-                                    }</span>
+                                    {/* 右下角：只显示完整项目标题，不能有其它内容 */}
+                                    <span>{(() => {
+                                      if (detail.projectTitle) return detail.projectTitle;
+                                      if (detail.title) return detail.title;
+                                      if (detail.remark) {
+                                        const match = detail.remark.match(/项目([\u4e00-\u9fa5A-Za-z0-9_\-\s]+)/);
+                                        if (match && match[1]) return match[1].trim();
+                                      }
+                                      return '';
+                                    })()}</span>
                                   </div>
                                 </li>
                                   {/* 分割线，最后一条不加 */}
