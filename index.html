@@ -43,6 +43,36 @@
       .all-projects-stats { display: flex; align-items: center; gap: 2rem; color: #fde047; font-weight: bold; font-size: 1.1rem; }
       .all-projects-stats-inner { display: flex; align-items: center; gap: 2rem; color: #fde047; font-weight: bold; font-size: 1.1rem; margin-bottom: 1rem; margin-top: 0; }
     </style>
+<script>
+    window.onload = function() {
+      const projectStatus = localStorage.getItem('project_status');
+      const publishButton = document.getElementById('publish-button');
+
+      if (publishButton) {
+        if (projectStatus === 'pending_approval') {
+          publishButton.style.display = 'none';
+        } else if (projectStatus === 'rejected') {
+          publishButton.style.display = 'block';
+        }
+      }
+
+      const originalFetch = window.fetch;
+      window.fetch = function() {
+        return originalFetch.apply(this, arguments).then(res => {
+          if (arguments[0].includes('/projects/') && arguments[1] && arguments[1].method === 'POST' && arguments[1].body.includes('publish')) {
+            const body = JSON.parse(arguments[1].body);
+            if (body.option) {
+              localStorage.setItem('project_status', 'pending_approval');
+              if (publishButton) {
+                publishButton.style.display = 'none';
+              }
+            }
+          }
+          return res;
+        });
+      };
+    };
+  </script>
 </head>
   <body>
     <div id="root"></div>
