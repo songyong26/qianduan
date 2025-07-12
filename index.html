@@ -410,7 +410,7 @@
                 <div className="mt-auto pt-1 flex justify-between items-end">
                     {/* --- LEFT CONTROLS --- */}
                     <div>
-                        {isCreator && isMyCreatedView && project.status !== 'finished' && project.status !== 'pending_review' && project.status !== 'review_passed' && project.status !== 'review_rejected' && (yesRemain > 0 || noRemain > 0) && (
+                        {isCreator && isMyCreatedView && project.status !== 'finished' && project.status !== 'pending_review' && project.status !== 'review_passed' && project.status !== 'review_rejected' && (yesRemain > 0 || noRemain > 0) && !deadlinePassed && (
                             <button 
                                 onClick={() => {
                                   const action = project.status === 'paused' ? '重启' : '暂停';
