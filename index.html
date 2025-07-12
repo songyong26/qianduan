@@ -312,7 +312,14 @@
         const canVote = project.status === 'inprogress' && !deadlinePassed;
 
         const formattedDeadline = project.deadline
-            ? new Date(project.deadline).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+            ? new Date(project.deadline).toLocaleString('zh-CN', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit',
+                timeZone: 'Asia/Shanghai'  // 强制使用东八区时间
+              })
             : '未设置';
 
         let myVoteSummary = null;
