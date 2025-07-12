@@ -1373,13 +1373,16 @@
                                   </div>
                                   <div className="flex justify-between items-center text-xs text-purple-200">
                                     <span>{detail.time}</span>
-                                    {/* 只显示项目标题 */}
+                                    {/* 只显示项目标题，且完整展示 */}
                                     <span>{(() => {
-                                      // remark 可能是“项目xxx投票正确奖励”或“项目xxx投票正确返还冻结”
                                       if (!detail.remark) return '';
-                                      const match = detail.remark.match(/项目(.+?)(投票|冻结|奖励|返还|分配|结算|返还剩余|正确|错误|积分|返还冻结|奖励)?/);
-                                      if (match && match[1]) return match[1].trim();
-                                      // 兼容remark直接是标题
+                                      // 尝试匹配"项目xxx"后面所有内容，直到结尾
+                                      const match = detail.remark.match(/项目([\u4e00-\u9fa5A-Za-z0-9_\-\s]+)(.*)/);
+                                      if (match && match[1]) {
+                                        // 项目标题可能在match[1]和match[2]，合并显示
+                                        return (match[1] + (match[2] || '')).trim();
+                                      }
+                                      // 兼容remark直接是标题或其它内容
                                       return detail.remark;
                                     })()}</span>
                                   </div>
