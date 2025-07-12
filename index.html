@@ -1236,7 +1236,7 @@
         // 参与的项目移除逻辑（提升到App，便于传递给MyProjectsView）
         const handleRemoveParticipated = async (projectId) => {
           try {
-            const response = await fetch(`http://localhost:3000/api/projects/${projectId}/participated`, {
+            const response = await fetch(`${API_BASE}/projects/${projectId}/participated`, {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ username: userInfo.username })
