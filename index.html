@@ -1155,6 +1155,9 @@
                 content: '项目结果已提交审核，请等待管理员操作。',
                 confirmText: '确定',
                 cancelText: '',
+                onConfirm: () => {
+                  loadProjects();
+                },
                 onCancel: undefined
               });
             } catch (error) {
