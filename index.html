@@ -794,11 +794,16 @@
         useEffect(() => {
           const savedLogin = localStorage.getItem('isLoggedIn');
           const savedUser = localStorage.getItem('userInfo');
+          const savedParticipated = localStorage.getItem('participatedProjectIds');
           if (savedLogin === 'true' && savedUser) {
             setIsLoggedIn(true);
             try {
               const userData = JSON.parse(savedUser);
               setUserInfo(userData);
+              // 恢复参与项目ID
+              if (savedParticipated) {
+                setParticipatedProjectIds(JSON.parse(savedParticipated));
+              }
               // 恢复登录后加载项目数据
               if (userData.username) {
                 loadProjects();
@@ -832,6 +837,11 @@
           localStorage.setItem('isLoggedIn', isLoggedIn ? 'true' : 'false');
           localStorage.setItem('userInfo', JSON.stringify(userInfo));
         }, [isLoggedIn, userInfo]);
+
+        // 每次参与项目ID变化时自动保存
+        useEffect(() => {
+          localStorage.setItem('participatedProjectIds', JSON.stringify(participatedProjectIds));
+        }, [participatedProjectIds]);
 
         const handleAccordionClick = (id) => {
           setOpenAccordion(prevId => (prevId === id ? null : id));
@@ -1232,8 +1242,12 @@
               body: JSON.stringify({ username: userInfo.username })
             });
             if (response.ok) {
-              // 只从本地移除，不再调用loadProjects，避免被重新加回
-              setParticipatedProjectIds(prev => prev.filter(id => id !== projectId));
+              setParticipatedProjectIds(prev => {
+                const updated = prev.filter(id => id !== projectId);
+                // 同步到localStorage，防止刷新后又出现
+                localStorage.setItem('participatedProjectIds', JSON.stringify(updated));
+                return updated;
+              });
             } else {
               const error = await response.json();
               alert(error.message || '删除失败');
