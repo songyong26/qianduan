@@ -1155,6 +1155,9 @@
                 content: '项目结果已提交审核，请等待管理员操作。',
                 confirmText: '确定',
                 cancelText: '',
+                onConfirm: () => {
+                  loadProjects();
+                },
                 onCancel: undefined
               });
             } catch (error) {
@@ -1163,11 +1166,11 @@
                 content: error.message || '提交失败，请重试',
                 confirmText: '确定',
                 cancelText: '',
+                onConfirm: () => {
+                  loadProjects();
+                },
                 onCancel: undefined
               });
-              // 失败时不再自动回滚UI，避免状态覆盖问题
-              // 用户可以根据错误提示手动刷新
-              // await loadProjects();
             }
         };
 
