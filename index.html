@@ -1118,20 +1118,15 @@
 
             try {
               await projectAPI.publish(projectId, userInfo.username, pendingOption);
-              // 提交成功后，重新加载项目以获取最新状态
-              await loadProjects();
-              const userData = await userAPI.getInfo(userInfo.username);
-              setUserInfo(userData);
+              
               showConfirm({
                 title: '提交成功',
-                content: '项目结果已提交审核',
+                content: '项目结果已提交审核，请等待管理员操作。',
                 confirmText: '确定',
                 cancelText: '',
                 onCancel: undefined
               });
             } catch (error) {
-              // 如果失败，则重新加载项目以恢复到之前的状态
-              await loadProjects();
               showConfirm({
                 title: '提交失败',
                 content: error.message || '提交失败，请重试',
@@ -1139,6 +1134,8 @@
                 cancelText: '',
                 onCancel: undefined
               });
+              // 失败时回滚UI
+              await loadProjects();
             }
         };
 
