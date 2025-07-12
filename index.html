@@ -1357,12 +1357,13 @@
                                   </div>
                                   <div className="flex justify-between items-center text-xs text-purple-200">
                                     <span>{detail.time}</span>
-                                    {/* 右下角：只显示完整项目标题，不能有其它内容 */}
+                                    {/* 右下角：只显示项目标题本身，不要"项目"二字和描述 */}
                                     <span>{(() => {
                                       if (detail.projectTitle) return detail.projectTitle;
                                       if (detail.title) return detail.title;
                                       if (detail.remark) {
-                                        const match = detail.remark.match(/项目([\u4e00-\u9fa5A-Za-z0-9_\-\s]+)/);
+                                        // 提取"项目xxx"中的xxx，遇到空格、标点或描述性词语就截止
+                                        const match = detail.remark.match(/项目([\u4e00-\u9fa5A-Za-z0-9_\-]+)/);
                                         if (match && match[1]) return match[1].trim();
                                       }
                                       return '';
