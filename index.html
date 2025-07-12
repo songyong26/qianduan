@@ -858,19 +858,23 @@
               const message = JSON.parse(event.data);
               const { type, payload } = message;
 
+              // 只要有项目相关变动，全部实时刷新项目和用户信息
+              if (
+                type === 'project_created' ||
+                type === 'project_status_changed' ||
+                type === 'project_deleted'
+              ) {
+                loadProjects();
+                if (isLoggedIn && userInfo.username) {
+                  userAPI.getInfo(userInfo.username).then(setUserInfo);
+                }
+              }
+
               setProjects(prevProjects => {
                 switch (type) {
                   case 'project_created':
                     return [payload, ...prevProjects];
                   case 'project_status_changed':
-                    // 如果是状态变更，且涉及到结算，则需要更新用户信息
-                    if (
-                      payload.status === 'completed' ||
-                      payload.status === 'failed' ||
-                      payload.status === 'review_passed'
-                    ) {
-                      userAPI.getInfo(userInfo.username).then(setUserInfo);
-                    }
                     return prevProjects.map(p => p._id === payload._id ? payload : p);
                   case 'project_deleted':
                     return prevProjects.filter(p => p._id !== payload._id);
