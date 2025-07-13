@@ -941,16 +941,17 @@
                       }
                     });
 
-                    // 如果是项目创建或状态变更，刷新用户信息
+                    // 如果是项目创建、状态变更或删除，刷新用户信息
                     if (
                       type === 'project_created' ||
-                      type === 'project_status_changed'
+                      type === 'project_status_changed' ||
+                      type === 'project_deleted'
                     ) {
                       if (isLoggedIn && userInfo.username) {
                         userAPI.getInfo(userInfo.username).then(setUserInfo);
                       }
                       
-                      // 更新参与项目ID列表
+                      // 更新参与项目ID列表（项目删除时不需要更新，因为已在上面处理）
                       if (type === 'project_created' || type === 'project_status_changed') {
                         setParticipatedProjectIds(prev => {
                           const isParticipant = payload.participants && payload.participants.includes(userInfo.username);
