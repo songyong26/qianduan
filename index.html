@@ -571,6 +571,40 @@
                     </div>
                   </div>
                 )}
+                {/* 审核拒绝原因显示，仅发起人可见 */}
+                {project.status === 'review_rejected' && isCreator && isMyCreatedView && project.rejectReason && (
+                  <div style={{
+                    position: 'absolute',
+                    right: '12px',
+                    bottom: 'calc(12px + 70px)',
+                    zIndex: 20,
+                    pointerEvents: 'none',
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    justifyContent: 'flex-end',
+                    width: 'calc(100% - 24px)',
+                  }}>
+                    <div className="bg-red-600 text-white font-bold px-2 py-0.5 rounded shadow-lg select-none" style={{
+                      fontSize: '0.75rem',
+                      border: '2px solid #fff',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                      opacity: 0.97,
+                      letterSpacing: '1px',
+                      width: 'fit-content',
+                      height: 'fit-content',
+                      minWidth: 0,
+                      minHeight: 0,
+                      margin: 0,
+                      marginLeft: 'auto',
+                      maxWidth: '200px',
+                      wordBreak: 'break-word',
+                      whiteSpace: 'normal',
+                      lineHeight: '1.2',
+                    }}>
+                      {project.rejectReason}
+                    </div>
+                  </div>
+                )}
 
             </div>
         );
