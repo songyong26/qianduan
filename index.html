@@ -932,14 +932,17 @@
                           }
                         case 'project_deleted':
                           // 项目被完全删除（只有无参与者的项目才会真正删除）
-                          // 同时更新参与项目ID列表
                           console.log('项目被完全删除，从列表中移除:', projectId);
-                          setParticipatedProjectIds(prev => prev.filter(id => id !== projectId));
                           return prevProjects.filter(p => p._id !== projectId);
                         default:
                           return prevProjects;
                       }
                     });
+                    
+                    // 项目删除时单独更新参与项目ID列表
+                    if (type === 'project_deleted') {
+                      setParticipatedProjectIds(prev => prev.filter(id => id !== projectId));
+                    }
 
                     // 如果是项目创建、状态变更或删除，刷新用户信息
                     if (
@@ -948,7 +951,24 @@
                       type === 'project_deleted'
                     ) {
                       if (isLoggedIn && userInfo.username) {
-                        userAPI.getInfo(userInfo.username).then(setUserInfo);
+                        // 检查当前用户是否受此项目影响
+                        const isAffectedUser = 
+                          payload.creator === userInfo.username || 
+                          (payload.participants && payload.participants.includes(userInfo.username));
+                        
+                        if (isAffectedUser || type === 'project_created') {
+                          console.log(`收到${type}消息，当前用户受影响，刷新用户信息:`, userInfo.username);
+                          userAPI.getInfo(userInfo.username)
+                            .then(userData => {
+                              console.log('用户信息刷新成功:', userData);
+                              setUserInfo(userData);
+                            })
+                            .catch(error => {
+                              console.error('用户信息刷新失败:', error);
+                            });
+                        } else {
+                          console.log(`收到${type}消息，但当前用户未受影响，跳过刷新:`, userInfo.username);
+                        }
                       }
                       
                       // 更新参与项目ID列表（项目删除时不需要更新，因为已在上面处理）
