@@ -846,64 +846,160 @@
         // WebSocket 连接
         useEffect(() => {
           if (isLoggedIn && userInfo.username) {
-            const ws = new WebSocket('wss://api.toupiao01.top');
+            let ws = null;
+            let reconnectTimer = null;
+            
+            const connectWebSocket = () => {
+              try {
+                ws = new WebSocket('wss://api.toupiao01.top');
+                
+                // 心跳机制
+                let heartbeatInterval = null;
 
-            ws.onopen = () => {
-              console.log('WebSocket connected');
-              // 连接成功后加载一次初始数据
-              loadProjects();
-            };
+                ws.onopen = () => {
+                  console.log('WebSocket connected');
+                  // 连接成功后，如果项目列表为空，则加载初始数据
+                  if (projects.length === 0) {
+                    loadProjects();
+                  }
+                  // 确保用户信息是最新的
+                  if (isLoggedIn && userInfo.username) {
+                    userAPI.getInfo(userInfo.username).then(setUserInfo);
+                  }
+                  
+                  // 启动心跳
+                  heartbeatInterval = setInterval(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                      try {
+                        ws.send(JSON.stringify({ type: 'ping' }));
+                        console.log('发送心跳消息');
+                      } catch (error) {
+                        console.error('发送心跳失败:', error);
+                        // 如果发送心跳失败，可能需要重新连接
+                        if (ws.readyState === WebSocket.OPEN) {
+                          ws.close();
+                        }
+                      }
+                    }
+                  }, 30000); // 每30秒发送一次心跳
+                };
 
-            ws.onmessage = (event) => {
-              const message = JSON.parse(event.data);
-              const { type, payload } = message;
+                ws.onmessage = (event) => {
+                  try {
+                    const message = JSON.parse(event.data);
+                    const { type, payload } = message;
+                    
+                    console.log('收到WebSocket消息:', type, payload?._id || payload?.id, '时间:', new Date().toLocaleTimeString());
 
-              // 只要有项目相关变动，全部实时刷新项目和用户信息
-              if (
-                type === 'project_created' ||
-                type === 'project_status_changed' ||
-                type === 'project_deleted'
-              ) {
-                loadProjects();
-                if (isLoggedIn && userInfo.username) {
-                  userAPI.getInfo(userInfo.username).then(setUserInfo);
-                }
+                    // 处理心跳响应
+                    if (type === 'pong') {
+                      console.log('收到心跳响应');
+                      return;
+                    }
+                    
+                    // 验证payload是否有效
+                    if (!payload || (!payload._id && !payload.id)) {
+                      console.warn('WebSocket消息payload无效:', payload);
+                      return;
+                    }
+                    
+                    const projectId = payload._id || payload.id;
+                    
+                    // 直接更新项目列表，避免重复加载
+                    setProjects(prevProjects => {
+                      switch (type) {
+                        case 'project_created':
+                          // 新项目插入最前面，避免重复
+                          if (prevProjects.some(p => p._id === projectId)) {
+                            return prevProjects.map(p => p._id === projectId ? payload : p);
+                          } else {
+                            return [payload, ...prevProjects];
+                          }
+                        case 'project_status_changed':
+                          // 有状态变更（如投票），用新payload替换原有项目，若不存在则插入最前面
+                          if (prevProjects.some(p => p._id === projectId)) {
+                            return prevProjects.map(p => p._id === projectId ? payload : p);
+                          } else {
+                            return [payload, ...prevProjects];
+                          }
+                        case 'project_deleted':
+                          // 同时更新参与项目ID列表
+                          setParticipatedProjectIds(prev => prev.filter(id => id !== projectId));
+                          return prevProjects.filter(p => p._id !== projectId);
+                        default:
+                          return prevProjects;
+                      }
+                    });
+
+                    // 如果是项目创建或状态变更，刷新用户信息
+                    if (
+                      type === 'project_created' ||
+                      type === 'project_status_changed'
+                    ) {
+                      if (isLoggedIn && userInfo.username) {
+                        userAPI.getInfo(userInfo.username).then(setUserInfo);
+                      }
+                      
+                      // 更新参与项目ID列表
+                      if (type === 'project_created' || type === 'project_status_changed') {
+                        setParticipatedProjectIds(prev => {
+                          const isParticipant = payload.participants && payload.participants.includes(userInfo.username);
+                          const hasParticipated = prev.includes(projectId);
+                          
+                          if (isParticipant && !hasParticipated) {
+                            return [...prev, projectId];
+                          } else if (!isParticipant && hasParticipated) {
+                            return prev.filter(id => id !== projectId);
+                          }
+                          return prev;
+                        });
+                      }
+                    }
+                  } catch (error) {
+                    console.error('WebSocket消息处理错误:', error);
+                    console.error('原始消息数据:', event.data);
+                  }
+                };
+
+                ws.onclose = (event) => {
+                  console.log('WebSocket disconnected:', event.code, event.reason);
+                  
+                  // 清除心跳定时器
+                  if (heartbeatInterval) {
+                    clearInterval(heartbeatInterval);
+                    heartbeatInterval = null;
+                  }
+                  
+                  // 如果不是正常关闭，尝试重连
+                  if (event.code !== 1000) {
+                    console.log('WebSocket连接异常断开，5秒后尝试重连...');
+                    reconnectTimer = setTimeout(connectWebSocket, 5000);
+                  }
+                };
+
+                ws.onerror = (error) => {
+                  console.error('WebSocket error:', error);
+                  console.error('WebSocket连接状态:', ws.readyState);
+                };
+              } catch (error) {
+                console.error('WebSocket连接失败:', error);
+                // 连接失败，5秒后重试
+                reconnectTimer = setTimeout(connectWebSocket, 5000);
               }
-
-              setProjects(prevProjects => {
-                switch (type) {
-                  case 'project_created':
-                    // 新项目插入最前面，避免重复
-                    if (prevProjects.some(p => p._id === payload._id)) {
-                      return prevProjects.map(p => p._id === payload._id ? payload : p);
-                    } else {
-                      return [payload, ...prevProjects];
-                    }
-                  case 'project_status_changed':
-                    // 有状态变更（如投票），用新payload替换原有项目，若不存在则插入最前面
-                    if (prevProjects.some(p => p._id === payload._id)) {
-                      return prevProjects.map(p => p._id === payload._id ? payload : p);
-                    } else {
-                      return [payload, ...prevProjects];
-                    }
-                  case 'project_deleted':
-                    return prevProjects.filter(p => p._id !== payload._id);
-                  default:
-                    return prevProjects;
-                }
-              });
             };
-
-            ws.onclose = () => {
-              console.log('WebSocket disconnected');
-            };
-
-            ws.onerror = (error) => {
-              console.error('WebSocket error:', error);
-            };
+            
+            connectWebSocket();
 
             return () => {
-              ws.close();
+              if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+              }
+              if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+              }
+              if (ws) {
+                ws.close(1000, '组件卸载');
+              }
             };
           }
         }, [isLoggedIn, userInfo.username]);
@@ -1094,10 +1190,9 @@
                         Number(newProjectData.maxPoints)
                       );
                       
-                      // 刷新用户信息和项目列表
+                      // 只刷新用户信息，项目列表会通过WebSocket自动更新
                       const userData = await userAPI.getInfo(userInfo.username);
                       setUserInfo(userData);
-                      await loadProjects();
                       
                       setNewProjectData({
                         title: '',
@@ -1134,8 +1229,8 @@
         const handleDeleteProject = async (projectId) => {
             try {
               await projectAPI.remove(projectId, userInfo.username);
-              await loadProjects();
-              // 新增：删除后刷新用户信息，确保积分明细和余额实时更新
+              // 项目列表会通过WebSocket自动更新
+              // 删除后刷新用户信息，确保积分明细和余额实时更新
               const userData = await userAPI.getInfo(userInfo.username);
               setUserInfo(userData);
               showConfirm({
@@ -1145,8 +1240,6 @@
                 cancelText: '',
                 onCancel: undefined
               });
-              // 重新启动定时器，以便在一段时间后能刷新到最新状态
-              const interval = setInterval(refreshData, 30000);
             } catch (error) {
               showConfirm({
                 title: '删除失败',
@@ -1161,7 +1254,7 @@
         const handleSubmitReview = async (projectId, pendingOption) => {
             try {
               await projectAPI.publish(projectId, userInfo.username, pendingOption);
-              await loadProjects();
+              // 项目列表会通过WebSocket自动更新
               setPublishDialog({ open: false, projectId: null, votes: { '是': 0, '否': 0 } }); // 只在成功后关闭弹窗
               showConfirm({
                 title: '提交成功',
@@ -1193,8 +1286,8 @@
               } else {
                 await projectAPI.pause(projectId, userInfo.username);
               }
-              await loadProjects();
-              // 新增：暂停/重启项目后刷新用户信息
+              // 项目列表会通过WebSocket自动更新
+              // 暂停/重启项目后刷新用户信息
               const userData = await userAPI.getInfo(userInfo.username);
               setUserInfo(userData);
             } catch (error) {
@@ -1223,10 +1316,9 @@
             try {
               await projectAPI.vote(projectId, userInfo.username, choice, points);
               
-              // 刷新用户信息和项目列表
+              // 只刷新用户信息，项目列表会通过WebSocket自动更新
               const userData = await userAPI.getInfo(userInfo.username);
               setUserInfo(userData);
-              await loadProjects();
               
               showConfirm({
                 title: '投票成功',
