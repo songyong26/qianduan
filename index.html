@@ -913,17 +913,27 @@
                           if (prevProjects.some(p => p._id === projectId)) {
                             return prevProjects.map(p => p._id === projectId ? payload : p);
                           } else {
-                            return [payload, ...prevProjects];
+                            // 只有当前用户可见的项目才添加到列表中
+                            if (!payload.hiddenFromUsers || !payload.hiddenFromUsers.includes(userInfo.username)) {
+                              return [payload, ...prevProjects];
+                            }
+                            return prevProjects;
                           }
                         case 'project_status_changed':
                           // 有状态变更（如投票），用新payload替换原有项目，若不存在则插入最前面
                           if (prevProjects.some(p => p._id === projectId)) {
                             return prevProjects.map(p => p._id === projectId ? payload : p);
                           } else {
-                            return [payload, ...prevProjects];
+                            // 只有当前用户可见的项目才添加到列表中
+                            if (!payload.hiddenFromUsers || !payload.hiddenFromUsers.includes(userInfo.username)) {
+                              return [payload, ...prevProjects];
+                            }
+                            return prevProjects;
                           }
                         case 'project_deleted':
+                          // 项目被完全删除（只有无参与者的项目才会真正删除）
                           // 同时更新参与项目ID列表
+                          console.log('项目被完全删除，从列表中移除:', projectId);
                           setParticipatedProjectIds(prev => prev.filter(id => id !== projectId));
                           return prevProjects.filter(p => p._id !== projectId);
                         default:
@@ -1229,7 +1239,8 @@
         const handleDeleteProject = async (projectId) => {
             try {
               await projectAPI.remove(projectId, userInfo.username);
-              // 项目列表会通过WebSocket自动更新
+              // 立即从项目列表中移除该项目（只影响当前用户）
+              setProjects(prev => prev.filter(p => p._id !== projectId));
               // 删除后刷新用户信息，确保积分明细和余额实时更新
               const userData = await userAPI.getInfo(userInfo.username);
               setUserInfo(userData);
@@ -1411,6 +1422,8 @@
               body: JSON.stringify({ username: userInfo.username })
             });
             if (response.ok) {
+              // 立即从项目列表中移除该项目
+              setProjects(prev => prev.filter(p => p._id !== projectId));
               setParticipatedProjectIds(prev => {
                 const updated = prev.filter(id => id !== projectId);
                 // 同步到localStorage，防止刷新后又出现
