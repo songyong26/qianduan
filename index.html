@@ -1153,21 +1153,79 @@
             const amount = parseInt(prompt('请输入充值金额（积分）：'));
             if (amount && amount > 0) {
                 try {
-                  await userAPI.charge(userInfo.username, amount);
-                  // 新增：充值后刷新用户信息
-                  const userData = await userAPI.getInfo(userInfo.username);
-                  setUserInfo(userData);
-                  showConfirm({
-                    title: '充值成功',
-                    content: `成功充值 ${amount} 积分！`,
-                    confirmText: '确定',
-                    cancelText: '',
-                    onCancel: undefined
+                  // 使用Pi SDK创建支付
+                  const payment = await Pi.createPayment({
+                    amount: amount,
+                    memo: `充值${amount}积分到投票平台`,
+                    metadata: { 
+                      username: userInfo.username,
+                      type: 'charge',
+                      amount: amount
+                    }
+                  }, {
+                    // 服务器端审批回调
+                    onReadyForServerApproval: function(paymentId) {
+                      console.log('支付等待服务器审批:', paymentId);
+                      // 这里可以显示等待状态
+                    },
+                    // 服务器端完成回调
+                    onReadyForServerCompletion: async function(paymentId, txid) {
+                      console.log('支付等待服务器完成:', paymentId, txid);
+                      try {
+                        // 调用后端API完成充值
+                        await userAPI.charge(userInfo.username, amount, paymentId);
+                        // 充值后刷新用户信息
+                        const userData = await userAPI.getInfo(userInfo.username);
+                        setUserInfo(userData);
+                        showConfirm({
+                          title: '充值成功',
+                          content: `成功充值 ${amount} 积分！`,
+                          confirmText: '确定',
+                          cancelText: '',
+                          onCancel: undefined
+                        });
+                      } catch (error) {
+                        console.error('充值完成失败:', error);
+                        showConfirm({
+                          title: '充值失败',
+                          content: error.message || '充值完成失败，请重试',
+                          confirmText: '确定',
+                          cancelText: '',
+                          onCancel: undefined
+                        });
+                      }
+                    },
+                    // 支付取消回调
+                    onCancel: function(paymentId) {
+                      console.log('支付已取消:', paymentId);
+                      showConfirm({
+                        title: '充值取消',
+                        content: '您已取消充值操作',
+                        confirmText: '确定',
+                        cancelText: '',
+                        onCancel: undefined
+                      });
+                    },
+                    // 支付错误回调
+                    onError: function(error, payment) {
+                      console.error('支付错误:', error, payment);
+                      showConfirm({
+                        title: '支付错误',
+                        content: error.message || '支付过程中发生错误，请重试',
+                        confirmText: '确定',
+                        cancelText: '',
+                        onCancel: undefined
+                      });
+                    }
                   });
+                  
+                  console.log('Pi支付创建成功:', payment);
+                  
                 } catch (error) {
+                  console.error('创建Pi支付失败:', error);
                   showConfirm({
                     title: '充值失败',
-                    content: error.message || '充值失败，请重试',
+                    content: error.message || '创建支付失败，请检查Pi钱包连接',
                     confirmText: '确定',
                     cancelText: '',
                     onCancel: undefined
