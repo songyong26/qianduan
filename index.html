@@ -9,7 +9,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-    <script>Pi.init({ version: "2.0", sandbox: true })</script>
+    <script>Pi.init({ version: "2.0", sandbox: false })</script>
     <style>
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
@@ -1212,7 +1212,7 @@
                   
                   console.log('支付数据:', paymentData);
                   console.log('认证用户:', auth.user.username);
-                  console.log('当前环境: 沙盒模式');
+                  console.log('当前环境: 生产模式');
                   
                   const payment = await Pi.createPayment(paymentData, {
                     // 服务器端审批回调
@@ -1295,7 +1295,7 @@
                   
                   // 针对常见错误提供更详细的解决方案
                   if (error.message && error.message.includes('payments') && error.message.includes('scope')) {
-                    errorMessage = '支付权限错误：请确保在Pi浏览器中打开应用，并且已经正确授权沙盒环境。\n\n解决步骤：\n1. 在Pi应用中打开"Pi Utilities"\n2. 点击"Authorize Sandbox"\n3. 输入沙盒授权码\n4. 重新尝试支付';
+                    errorMessage = '支付权限错误：请确保在Pi浏览器中打开应用，并且已经正确授权支付权限。\n\n解决步骤：\n1. 确保在Pi浏览器中打开应用\n2. 检查是否已授权支付权限\n3. 重新尝试支付';
                   } else if (error.message && error.message.includes('SDK')) {
                     errorMessage = 'Pi SDK错误：请在Pi浏览器中打开此应用';
                   }
