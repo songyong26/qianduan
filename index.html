@@ -1312,40 +1312,115 @@
         };
 
         const handleWithdraw = async () => {
-            const amount = parseInt(prompt('请输入提现金额（积分）：'));
-            if (amount && amount > 0) {
-                if (amount > userInfo.points) {
-                    showConfirm({
-                      title: '余额不足',
-                      content: '您的可用积分不足！',
-                      confirmText: '确定',
-                      cancelText: '',
-                      onCancel: undefined
-                    });
-                    return;
+            // 创建提现表单对话框
+            const withdrawFormHtml = `
+                <div style="padding: 20px;">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">提现金额（积分）：</label>
+                        <input type="number" id="withdrawAmount" min="1" max="${userInfo.points}" 
+                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" 
+                               placeholder="请输入提现金额" />
+                        <small style="color: #666;">可用积分：${userInfo.points}</small>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Pi用户ID（UID）：</label>
+                        <input type="text" id="piUid" 
+                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" 
+                               placeholder="请输入您的Pi Network用户ID" />
+                        <small style="color: #666;">用于自动转账到您的Pi钱包</small>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">备注（可选）：</label>
+                        <input type="text" id="withdrawRemark" 
+                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" 
+                               placeholder="提现备注信息" />
+                    </div>
+                    <div style="background: #f0f8ff; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
+                        <p style="margin: 0; font-size: 14px; color: #1890ff;">
+                            💡 提示：管理员审核通过后，系统将自动转账到您的Pi钱包
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            // 创建临时容器
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = withdrawFormHtml;
+            document.body.appendChild(tempDiv);
+            
+            showConfirm({
+                title: '申请提现',
+                content: withdrawFormHtml,
+                confirmText: '提交申请',
+                cancelText: '取消',
+                onConfirm: async () => {
+                    const amount = parseInt(document.getElementById('withdrawAmount').value);
+                    const piUid = document.getElementById('piUid').value.trim();
+                    const remark = document.getElementById('withdrawRemark').value.trim();
+                    
+                    // 清理临时容器
+                    document.body.removeChild(tempDiv);
+                    
+                    if (!amount || amount <= 0) {
+                        showConfirm({
+                            title: '输入错误',
+                            content: '请输入有效的提现金额！',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                        return;
+                    }
+                    
+                    if (amount > userInfo.points) {
+                        showConfirm({
+                            title: '余额不足',
+                            content: '您的可用积分不足！',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                        return;
+                    }
+                    
+                    if (!piUid) {
+                        showConfirm({
+                            title: '信息不完整',
+                            content: 'Pi用户ID不能为空！',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                        return;
+                    }
+                    
+                    try {
+                        await userAPI.withdraw(userInfo.username, amount, piUid, remark);
+                        // 提现后刷新用户信息
+                        const userData = await userAPI.getInfo(userInfo.username);
+                        setUserInfo(userData);
+                        showConfirm({
+                            title: '提现申请成功',
+                            content: `已申请提现 ${amount} 积分到Pi钱包，请等待管理员审核！`,
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                    } catch (error) {
+                        showConfirm({
+                            title: '提现失败',
+                            content: error.message || '提现失败，请重试',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                    }
+                },
+                onCancel: () => {
+                    // 清理临时容器
+                    document.body.removeChild(tempDiv);
                 }
-                try {
-                  await userAPI.withdraw(userInfo.username, amount);
-                  // 新增：提现后刷新用户信息
-                  const userData = await userAPI.getInfo(userInfo.username);
-                  setUserInfo(userData);
-                  showConfirm({
-                    title: '提现申请成功',
-                    content: `已申请提现 ${amount} 积分，请等待审核！`,
-                    confirmText: '确定',
-                    cancelText: '',
-                    onCancel: undefined
-                  });
-                } catch (error) {
-                  showConfirm({
-                    title: '提现失败',
-                    content: error.message || '提现失败，请重试',
-                    confirmText: '确定',
-                    cancelText: '',
-                    onCancel: undefined
-                  });
-                }
-            }
+            });
         };
 
         const handleProjectInputChange = (e) => {

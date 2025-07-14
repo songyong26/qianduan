@@ -42,10 +42,17 @@ export const userAPI = {
   },
   
   // 提现
-  withdraw: (username, amount, wallet) => {
+  withdraw: (username, amount, piUid, remark = '') => {
     return apiRequest('/user/withdraw', {
       method: 'POST',
-      body: JSON.stringify({ username, amount, wallet })
+      body: JSON.stringify({ 
+        username, 
+        amount, 
+        wallet: piUid, // 保持向后兼容
+        piUid,
+        remark,
+        method: 'pi'
+      })
     });
   }
 };
