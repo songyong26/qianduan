@@ -119,6 +119,18 @@
             body: JSON.stringify({ username, amount, pi_payment_id })
           });
         },
+        approve: (paymentId) => {
+          return apiRequest('/user/approve', {
+            method: 'POST',
+            body: JSON.stringify({ paymentId })
+          });
+        },
+        complete: (paymentId, txid, username, amount) => {
+          return apiRequest('/user/complete', {
+            method: 'POST',
+            body: JSON.stringify({ paymentId, txid, username, amount })
+          });
+        },
         withdraw: (username, amount, wallet) => {
           return apiRequest('/user/withdraw', {
             method: 'POST',
@@ -1204,9 +1216,23 @@
                   
                   const payment = await Pi.createPayment(paymentData, {
                     // 服务器端审批回调
-                    onReadyForServerApproval: function(paymentId) {
+                    onReadyForServerApproval: async function(paymentId) {
                       console.log('支付等待服务器审批:', paymentId);
-                      // 这里可以显示等待状态
+                      try {
+                        // 调用后端API进行支付审批
+                        await userAPI.approve(paymentId);
+                        console.log('支付审批成功:', paymentId);
+                      } catch (error) {
+                        console.error('支付审批失败:', error);
+                        // 审批失败时显示错误信息
+                        showConfirm({
+                          title: '支付审批失败',
+                          content: error.message || '支付审批失败，请重试',
+                          confirmText: '确定',
+                          cancelText: '',
+                          onCancel: undefined
+                        });
+                      }
                     },
                     // 服务器端完成回调
                     onReadyForServerCompletion: async function(paymentId, txid) {
@@ -1215,7 +1241,7 @@
                         // 调用后端API完成充值，使用认证后的用户名
                         const username = auth.user.username || userInfo.username;
                         console.log('使用用户名完成充值:', username);
-                        await userAPI.charge(username, amount, paymentId);
+                        await userAPI.complete(paymentId, txid, username, amount);
                         // 充值后刷新用户信息
                         const userData = await userAPI.getInfo(userInfo.username);
                         setUserInfo(userData);
