@@ -119,16 +119,16 @@
             body: JSON.stringify({ username, amount, pi_payment_id })
           });
         },
-        approve: (paymentId) => {
+        approve: (paymentId, accessToken) => {
           return apiRequest('/user/approve', {
             method: 'POST',
-            body: JSON.stringify({ paymentId })
+            body: JSON.stringify({ paymentId, accessToken })
           });
         },
-        complete: (paymentId, txid, username, amount) => {
+        complete: (paymentId, txid, accessToken) => {
           return apiRequest('/user/complete', {
             method: 'POST',
-            body: JSON.stringify({ paymentId, txid, username, amount })
+            body: JSON.stringify({ paymentId, txid, accessToken })
           });
         },
         withdraw: (username, amount, wallet) => {
@@ -1219,8 +1219,8 @@
                     onReadyForServerApproval: async function(paymentId) {
                       console.log('支付等待服务器审批:', paymentId);
                       try {
-                        // 调用后端API进行支付审批
-                        await userAPI.approve(paymentId);
+                        // 调用后端API进行支付审批，传递accessToken
+                        await userAPI.approve(paymentId, auth.accessToken);
                         console.log('支付审批成功:', paymentId);
                       } catch (error) {
                         console.error('支付审批失败:', error);
@@ -1238,10 +1238,9 @@
                     onReadyForServerCompletion: async function(paymentId, txid) {
                       console.log('支付等待服务器完成:', paymentId, txid);
                       try {
-                        // 调用后端API完成充值，使用认证后的用户名
-                        const username = auth.user.username || userInfo.username;
-                        console.log('使用用户名完成充值:', username);
-                        await userAPI.complete(paymentId, txid, username, amount);
+                        // 调用后端API完成充值，传递accessToken
+                        console.log('使用accessToken完成充值');
+                        await userAPI.complete(paymentId, txid, auth.accessToken);
                         // 充值后刷新用户信息
                         const userData = await userAPI.getInfo(userInfo.username);
                         setUserInfo(userData);
