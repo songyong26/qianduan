@@ -1153,16 +1153,56 @@
             const amount = parseInt(prompt('请输入充值金额（积分）：'));
             if (amount && amount > 0) {
                 try {
+                  // 确保Pi SDK可用
+                  if (!window.Pi) {
+                    throw new Error('Pi SDK未加载，请在Pi浏览器中打开');
+                  }
+                  
+                  // 检查Pi SDK方法是否可用
+                  if (typeof window.Pi.createPayment !== 'function' || typeof window.Pi.authenticate !== 'function') {
+                    throw new Error('Pi SDK方法不可用');
+                  }
+                  
+                  console.log('开始Pi支付流程，金额:', amount);
+                  console.log('用户信息:', userInfo.username);
+                  
+                  // 检查Pi SDK初始化状态
+                  console.log('Pi SDK状态检查:');
+                  console.log('- Pi对象存在:', !!window.Pi);
+                  console.log('- authenticate方法:', typeof window.Pi.authenticate);
+                  console.log('- createPayment方法:', typeof window.Pi.createPayment);
+                  
+                  // 重新认证以确保有payments权限
+                  const scopes = ['username', 'payments'];
+                  function onIncompletePaymentFound(payment) {
+                    console.log('发现未完成的支付:', payment);
+                  }
+                  
+                  console.log('正在进行Pi认证...');
+                  const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
+                  console.log('Pi认证成功:', auth);
+                  
+                  if (!auth || !auth.user) {
+                    throw new Error('Pi认证失败，无法获取用户信息');
+                  }
+                  
                   // 使用Pi SDK创建支付
-                  const payment = await Pi.createPayment({
-                    amount: amount,
+                  const paymentData = {
+                    amount: Number(amount),
                     memo: `充值${amount}积分到投票平台`,
                     metadata: { 
-                      username: userInfo.username,
+                      username: auth.user.username || userInfo.username,
                       type: 'charge',
-                      amount: amount
+                      amount: Number(amount),
+                      timestamp: new Date().toISOString()
                     }
-                  }, {
+                  };
+                  
+                  console.log('支付数据:', paymentData);
+                  console.log('认证用户:', auth.user.username);
+                  console.log('当前环境: 沙盒模式');
+                  
+                  const payment = await Pi.createPayment(paymentData, {
                     // 服务器端审批回调
                     onReadyForServerApproval: function(paymentId) {
                       console.log('支付等待服务器审批:', paymentId);
@@ -1172,8 +1212,10 @@
                     onReadyForServerCompletion: async function(paymentId, txid) {
                       console.log('支付等待服务器完成:', paymentId, txid);
                       try {
-                        // 调用后端API完成充值
-                        await userAPI.charge(userInfo.username, amount, paymentId);
+                        // 调用后端API完成充值，使用认证后的用户名
+                        const username = auth.user.username || userInfo.username;
+                        console.log('使用用户名完成充值:', username);
+                        await userAPI.charge(username, amount, paymentId);
                         // 充值后刷新用户信息
                         const userData = await userAPI.getInfo(userInfo.username);
                         setUserInfo(userData);
@@ -1223,9 +1265,19 @@
                   
                 } catch (error) {
                   console.error('创建Pi支付失败:', error);
+                  
+                  let errorMessage = error.message || '创建支付失败';
+                  
+                  // 针对常见错误提供更详细的解决方案
+                  if (error.message && error.message.includes('payments') && error.message.includes('scope')) {
+                    errorMessage = '支付权限错误：请确保在Pi浏览器中打开应用，并且已经正确授权沙盒环境。\n\n解决步骤：\n1. 在Pi应用中打开"Pi Utilities"\n2. 点击"Authorize Sandbox"\n3. 输入沙盒授权码\n4. 重新尝试支付';
+                  } else if (error.message && error.message.includes('SDK')) {
+                    errorMessage = 'Pi SDK错误：请在Pi浏览器中打开此应用';
+                  }
+                  
                   showConfirm({
                     title: '充值失败',
-                    content: error.message || '创建支付失败，请检查Pi钱包连接',
+                    content: errorMessage,
                     confirmText: '确定',
                     cancelText: '',
                     onCancel: undefined
