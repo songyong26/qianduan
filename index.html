@@ -1184,7 +1184,52 @@
         };
 
         const handleCharge = async () => {
-            const amount = parseInt(prompt('请输入充值金额（积分）：'));
+            // 创建充值表单对话框
+            const chargeFormHtml = `
+                <div style="padding: 15px; text-align: center;">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #fbbf24;">充值金额（积分）</label>
+                        <input type="number" id="chargeAmount" min="1" 
+                               style="width: 100%; padding: 12px; border: 2px solid #a855f7; border-radius: 8px; font-size: 16px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
+                               placeholder="请输入充值金额" />
+                        <small style="color: #e5e7eb; margin-top: 5px; display: block;">兑换比例：1π币 = 1积分</small>
+                    </div>
+                    <div style="background: rgba(59, 130, 246, 0.1); padding: 12px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                        <p style="margin: 0; font-size: 13px; color: #93c5fd;">
+                            💰 提示：充值多少到账多少，无手续费
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            showConfirm({
+                title: '充值积分',
+                content: chargeFormHtml,
+                confirmText: '确认充值',
+                cancelText: '取消',
+                onConfirm: async () => {
+                    const amount = parseInt(document.getElementById('chargeAmount').value);
+                    
+                    if (!amount || amount <= 0) {
+                        showConfirm({
+                            title: '输入错误',
+                            content: '请输入有效的充值金额！',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                        return;
+                    }
+                    
+                    await processChargePayment(amount);
+                },
+                onCancel: () => {
+                    // 对话框关闭时无需特殊处理
+                }
+            });
+        };
+        
+        const processChargePayment = async (amount) => {
             if (amount && amount > 0) {
                 try {
                   // 确保Pi SDK可用
@@ -1338,14 +1383,14 @@
             const withdrawFormHtml = `
                 <div style="padding: 15px; text-align: center;">
                     <div style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">提现金额（积分）</label>
+                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #fbbf24;">提现金额（积分）</label>
                         <input type="number" id="withdrawAmount" min="1" max="${userInfo.points}" 
-                               style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; text-align: center;" 
+                               style="width: 100%; padding: 12px; border: 2px solid #a855f7; border-radius: 8px; font-size: 16px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
                                placeholder="请输入提现金额" />
-                        <small style="color: #666; margin-top: 5px; display: block;">可用积分：${userInfo.points}</small>
+                        <small style="color: #e5e7eb; margin-top: 5px; display: block;">可用积分：${userInfo.points} | 手续费：10%</small>
                     </div>
-                    <div style="background: #f0f8ff; padding: 12px; border-radius: 8px; border-left: 4px solid #1890ff;">
-                        <p style="margin: 0; font-size: 13px; color: #1890ff;">
+                    <div style="background: rgba(245, 158, 11, 0.1); padding: 12px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                        <p style="margin: 0; font-size: 13px; color: #fbbf24;">
                             💡 提示：管理员审核通过后，系统将自动转账到您的Pi钱包地址
                         </p>
                     </div>
