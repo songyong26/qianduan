@@ -720,13 +720,35 @@
       // --- 全局确认弹窗组件 ---
       const ConfirmDialog = ({ open, title, content, onConfirm, onCancel, confirmText = '确认', cancelText = '取消' }) => {
         if (!open) return null;
+        
+        // 处理遮罩层点击关闭
+        const handleBackdropClick = (e) => {
+          if (e.target === e.currentTarget) {
+            onCancel && onCancel();
+          }
+        };
+        
+        // 处理ESC键关闭
+        useEffect(() => {
+          const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+              onCancel && onCancel();
+            }
+          };
+          
+          if (open) {
+            document.addEventListener('keydown', handleKeyDown);
+            return () => document.removeEventListener('keydown', handleKeyDown);
+          }
+        }, [open, onCancel]);
+        
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="bg-purple-800 border border-purple-400/60 rounded-2xl shadow-2xl p-6 w-80 animate-fade-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={handleBackdropClick}>
+            <div className="bg-purple-800 border border-purple-400/60 rounded-2xl shadow-2xl p-6 w-80 animate-fade-in" onClick={(e) => e.stopPropagation()}>
               <h2 className="text-lg font-bold text-yellow-400 mb-3 text-center">{title}</h2>
-              <div className="text-white/90 text-sm mb-6 text-center whitespace-pre-line">{content}</div>
+              <div className="text-white/90 text-sm mb-6 text-center whitespace-pre-line" dangerouslySetInnerHTML={{ __html: content }}></div>
               <div className="flex gap-4 justify-center">
-                <button onClick={onCancel} className="flex-1 bg-gray-500/80 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg transition-colors">{cancelText}</button>
+                {cancelText && <button onClick={onCancel} className="flex-1 bg-gray-500/80 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg transition-colors">{cancelText}</button>}
                 <button onClick={onConfirm} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg transition-colors">{confirmText}</button>
               </div>
             </div>
@@ -1343,10 +1365,7 @@
                 </div>
             `;
             
-            // 创建临时容器
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = withdrawFormHtml;
-            document.body.appendChild(tempDiv);
+            // 不需要创建临时容器，ConfirmDialog现在可以直接渲染HTML
             
             showConfirm({
                 title: '申请提现',
@@ -1357,9 +1376,6 @@
                     const amount = parseInt(document.getElementById('withdrawAmount').value);
                     const piUid = document.getElementById('piUid').value.trim();
                     const remark = document.getElementById('withdrawRemark').value.trim();
-                    
-                    // 清理临时容器
-                    document.body.removeChild(tempDiv);
                     
                     if (!amount || amount <= 0) {
                         showConfirm({
@@ -1417,8 +1433,7 @@
                     }
                 },
                 onCancel: () => {
-                    // 清理临时容器
-                    document.body.removeChild(tempDiv);
+                    // 对话框关闭时无需特殊处理
                 }
             });
         };
