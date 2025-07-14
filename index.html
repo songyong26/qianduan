@@ -1385,7 +1385,26 @@
                     }
                     
                     try {
-                        await userAPI.withdraw(userInfo.username, amount, '', '');
+                        // 先进行Pi认证获取用户UID
+                        let piUid = '';
+                        if (window.Pi && typeof window.Pi.authenticate === 'function') {
+                            try {
+                                const scopes = ['username'];
+                                const auth = await Pi.authenticate(scopes, function() {});
+                                if (auth && auth.user && auth.user.uid) {
+                                    piUid = auth.user.uid;
+                                    console.log('获取到Pi用户UID:', piUid);
+                                } else {
+                                    console.warn('Pi认证成功但未获取到UID:', auth);
+                                }
+                            } catch (piError) {
+                                console.warn('Pi认证失败，将使用空UID:', piError);
+                            }
+                        } else {
+                            console.warn('Pi SDK不可用，将使用空UID');
+                        }
+                        
+                        await userAPI.withdraw(userInfo.username, amount, piUid, '');
                         // 提现后刷新用户信息
                         const userData = await userAPI.getInfo(userInfo.username);
                         setUserInfo(userData);
