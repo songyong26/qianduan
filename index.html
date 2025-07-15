@@ -490,29 +490,53 @@
                             </button>
                         )}
                         {isCreator && isMyCreatedView && (
-                            <button onClick={() => {
-                              showConfirm({
-                                title: '删除项目',
-                                content: '您确定要删除这个项目吗？此操作无法撤销。',
-                                onConfirm: () => onDelete(project._id)
-                              });
-                            }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
-                                删除
-                            </button>
+                             project.participantCount === 0 ? (
+                                <button onClick={() => {
+                                  showConfirm({
+                                    title: '删除项目',
+                                    content: '您确定要删除这个项目吗？此操作无法撤销。',
+                                    onConfirm: () => onDelete(project._id)
+                                  });
+                                }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
+                                    删除
+                                </button>
+                            ) : project.status === 'review_passed' ? (
+                                <button onClick={() => {
+                                  showConfirm({
+                                    title: '删除项目',
+                                    content: '您确定要删除这个项目吗？此操作无法撤销。',
+                                    onConfirm: () => onDelete(project._id)
+                                  });
+                                }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
+                                    删除
+                                </button>
+                            ) : (
+                                project.status !== 'finished' && (
+                                  <button 
+                                    onClick={() => {
+                                      setPublishDialog && setPublishDialog({
+                                        open: true,
+                                        projectId: project._id,
+                                        votes: project.votes || { '是': 0, '否': 0 }
+                                      });
+                                    }} 
+                                    className="bg-orange-500 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-orange-600 transition-colors text-xs"
+                                    disabled={project.status === 'pending_review'}
+                                  >
+                                    {project.status === 'pending_review' ? '审核中' : '公布结果'}
+                                  </button>
+                                )
+                            )
                         )}
-                        {isCreator && isMyCreatedView && project.status !== 'finished' && project.participantCount > 0 && project.status !== 'review_passed' && (
-                          <button 
-                            onClick={() => {
-                              setPublishDialog && setPublishDialog({
-                                open: true,
-                                projectId: project._id,
-                                votes: project.votes || { '是': 0, '否': 0 }
-                              });
-                            }} 
-                            className="bg-orange-500 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-orange-600 transition-colors text-xs"
-                            disabled={project.status === 'pending_review'}
-                          >
-                            {project.status === 'pending_review' ? '审核中' : '公布结果'}
+                        {isCreator && isMyCreatedView && project.status === 'finished' && (
+                          <button onClick={() => {
+                            showConfirm({
+                              title: '删除项目',
+                              content: '您确定要删除这个项目吗？此操作无法撤销。',
+                              onConfirm: () => onDelete(project._id)
+                            });
+                          }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
+                              删除
                           </button>
                         )}
                         {/* 参与的项目-已结束或审核通过-右下角删除按钮 */}
