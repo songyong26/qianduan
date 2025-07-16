@@ -403,7 +403,7 @@
                   <div className="flex gap-4 mb-1 mt-1">
                     {['是', '否'].map(opt => (
                       <div key={opt} className="text-xs text-yellow-300 bg-purple-900/40 rounded px-2 py-0.5 font-bold">
-                        {opt}：{(project.votes && project.votes[opt]) ? project.votes[opt] : 0} 积分
+                        {opt}：{(project.votes && project.votes[opt]) ? parseFloat(project.votes[opt]).toFixed(2).replace(/\.?0+$/, '') : 0} 积分
                       </div>
                     ))}
                   </div>
@@ -413,7 +413,7 @@
                   <div className="flex flex-col gap-1 mb-1 mt-1">
                     {Object.entries(myVoteSummary).map(([choice, points]) => (
                       <div key={choice} className="text-xs text-green-400 bg-purple-900/40 rounded px-2 py-0.5 font-bold">
-                        你投了：{choice}（{points} 积分）
+                        你投了：{choice}（{parseFloat(points).toFixed(2).replace(/\.?0+$/, '')} 积分）
                       </div>
                     ))}
                   </div>
@@ -428,11 +428,12 @@
                                   id={`points-${project._id}`}
                                   min="1"
                                   max={currentMaxAvailablePoints}
+                                  step="1"
                                   value={votePoints}
                                   onChange={(e) => setVotePoints(e.target.value)}
                                   className="w-full bg-purple-700/50 border border-purple-400/50 rounded-md px-2 py-1 text-white text-sm focus:ring-yellow-400 focus:border-yellow-400"
                               />
-                              <div className="text-xs mt-1 text-yellow-300">当前选项剩余可投积分：{remainSelected}</div>
+                              <div className="text-xs mt-1 text-yellow-300">当前选项剩余可投积分：{parseFloat(remainSelected).toFixed(2).replace(/\.?0+$/, '')}</div>
                               {parseInt(votePoints, 10) > remainSelected && (
                                 <div className="text-xs text-red-400 mt-1">已超出该选项可投积分上限</div>
                               )}
@@ -1207,7 +1208,7 @@
                 <div style="padding: 15px; text-align: center;">
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #fbbf24;">充值金额（积分）</label>
-                        <input type="number" id="chargeAmount" min="1" 
+                        <input type="number" id="chargeAmount" min="1" step="1" 
                                style="width: 100%; padding: 12px; border: 2px solid #a855f7; border-radius: 8px; font-size: 16px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
                                placeholder="请输入充值金额" />
                         <small style="color: #e5e7eb; margin-top: 5px; display: block;">兑换比例：1π币 = 1积分</small>
@@ -1406,10 +1407,10 @@
                 <div style="padding: 6px;">
                     <div style="margin-bottom: 6px;">
                         <label style="display: block; margin-bottom: 0; font-weight: bold; color: #fbbf24; font-size: 13px; text-align: left;">提现金额（积分）</label>
-                        <input type="number" id="withdrawAmount" min="1" max="${userInfo.points}" 
+                        <input type="number" id="withdrawAmount" min="1" max="${userInfo.points}" step="1" 
                                style="width: 100%; padding: 6px; border: 2px solid #a855f7; border-radius: 4px; font-size: 14px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
                                placeholder="请输入提现金额" />
-                        <small style="color: #e5e7eb; margin-top: 1px; display: block; font-size: 11px; text-align: center;">可用积分：${userInfo.points} | 手续费：3%</small>
+                        <small style="color: #e5e7eb; margin-top: 1px; display: block; font-size: 11px; text-align: center;">可用积分：${Number(userInfo.points).toFixed(2).replace(/\.?0+$/, '')} | 手续费：3%</small>
                     </div>
                     <div style="margin-bottom: 6px;">
                         <label style="display: block; margin-bottom: 0; font-weight: bold; color: #fbbf24; font-size: 13px; text-align: left;">收币地址</label>
@@ -1759,7 +1760,7 @@
                 </div>
                 <div>
                     <label htmlFor="maxPoints" className="block text-sm font-medium text-yellow-400/80 mb-1">单项最高可投票积分数</label>
-                    <input type="number" name="maxPoints" id="maxPoints" min="1" value={newProjectData.maxPoints} onChange={handleProjectInputChange} className="w-full bg-purple-700/50 border border-purple-400/50 rounded-lg px-3 py-2 text-white focus:ring-yellow-400 focus:border-yellow-400" required />
+                    <input type="number" name="maxPoints" id="maxPoints" min="1" step="1" value={newProjectData.maxPoints} onChange={handleProjectInputChange} className="w-full bg-purple-700/50 border border-purple-400/50 rounded-lg px-3 py-2 text-white focus:ring-yellow-400 focus:border-yellow-400" required />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-yellow-400/80 mb-1">投票选项</label>
@@ -1877,7 +1878,7 @@
                         onClick={() => setShowPointsDetail(prev => !prev)}
                         className="bg-purple-400/50 rounded-xl px-4 py-2 text-sm font-semibold cursor-pointer hover:bg-purple-400/80 transition-colors"
                     >
-                      积分: {userInfo.points}
+                      积分: {Number(userInfo.points).toFixed(2).replace(/\.?0+$/, '')}
                     </div>
                   </div>
 
@@ -1899,7 +1900,7 @@
                                       if (/项目发起人返还剩余冻结积分|分配后结余解冻/.test(t)) return '返还剩余冻结积分';
                                       return t;
                                     })()}</span>
-                                    <span className={`font-semibold ${detail.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>{detail.amount > 0 ? '+' : ''}{detail.amount}</span>
+                                    <span className={`font-semibold ${detail.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>{detail.amount > 0 ? '+' : ''}{Number(detail.amount).toFixed(2).replace(/\.?0+$/, '')}</span>
                                   </div>
                                   <div className="flex justify-between items-center text-xs text-purple-200">
                                     <span>{detail.time}</span>
