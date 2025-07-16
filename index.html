@@ -256,7 +256,8 @@
       // --- REUSABLE PROJECT CARD ---
       const ProjectCard = ({ project, currentUser, isMyCreatedView, onVote, onDelete, onPublish, onTogglePause, showConfirm, isParticipatedView, onRemoveParticipated, setPublishDialog }) => {
         const [isVotingOpen, setIsVotingOpen] = useState(false);
-        const [votePoints, setVotePoints] = useState(1);
+        const [voteChoice, setVoteChoice] = useState(null);
+        const [votePoints, setVotePoints] = useState('');
         
         const isCreator = project.creator === currentUser;
 
@@ -276,8 +277,7 @@
         const noRemain = Math.max(0, (project.maxPoints || 0) - noVoted);
         const currentMaxAvailablePoints = Math.max(yesRemain, noRemain);
 
-        const selectedChoice = isVotingOpen ? votePoints > 0 ? (votePoints === '是' ? '是' : '否') : '是' : '是';
-        const selectedOption = selectedChoice;
+        const selectedOption = voteChoice || '是';
         const alreadyVotedSelected = (project.votes && project.votes[selectedOption]) ? project.votes[selectedOption] : 0;
         const remainSelected = Math.max(0, (project.maxPoints || 0) - alreadyVotedSelected);
 
@@ -421,8 +421,20 @@
 
                  {isVotingOpen && (
                       <div className="pt-2 mt-2 border-t border-purple-400/30 animate-fade-in">
-                          <div className="mb-2">
-                              <label htmlFor={`points-${project._id}`} className="block text-xs font-medium text-yellow-400/80 mb-1">投票积分 (最高 {currentMaxAvailablePoints})</label>
+                          {/* 先显示选项按钮 */}
+                          <div className="flex gap-2 mb-2 justify-center">
+                            <button 
+                              onClick={() => { setVoteChoice('是'); setVotePoints(''); }}
+                              className={`w-24 text-white font-semibold py-1 rounded-md transition-colors text-sm ${voteChoice==='是' ? 'bg-red-500/90 hover:bg-red-600 ring-2 ring-red-300' : 'bg-green-500/80 hover:bg-green-600'}`}
+                            >是</button>
+                            <button 
+                              onClick={() => { setVoteChoice('否'); setVotePoints(''); }}
+                              className={`w-24 text-white font-semibold py-1 rounded-md transition-colors text-sm ${voteChoice==='否' ? 'bg-red-500/90 hover:bg-red-600 ring-2 ring-red-300' : 'bg-green-500/80 hover:bg-green-600'}`}
+                            >否</button>
+                          </div>
+                          {/* 选中选项后再显示积分输入框 */}
+                          {voteChoice && (
+                            <div className="mb-2 flex items-center gap-2">
                               <input
                                   type="number"
                                   id={`points-${project._id}`}
@@ -431,30 +443,23 @@
                                   step="1"
                                   value={votePoints}
                                   onChange={(e) => setVotePoints(e.target.value)}
-                                  className="w-full bg-purple-700/50 border border-purple-400/50 rounded-md px-2 py-1 text-white text-sm focus:ring-yellow-400 focus:border-yellow-400"
+                                  className="bg-purple-700/50 border border-purple-400/50 rounded-md px-2 py-1 text-white text-sm focus:ring-yellow-400 focus:border-yellow-400"
+                                  style={{width:'110px'}}
                               />
-                              <div className="text-xs mt-1 text-yellow-300">当前选项剩余可投积分：{parseFloat(remainSelected).toFixed(2).replace(/\.?0+$/, '')}</div>
-                              {parseInt(votePoints, 10) > remainSelected && (
-                                <div className="text-xs text-red-400 mt-1">已超出该选项可投积分上限</div>
-                              )}
-                          </div>
+                              <span className="text-xs text-yellow-300 ml-2 whitespace-nowrap">当前选项剩余可投积分：{parseFloat(remainSelected).toFixed(2).replace(/\.?0+$/, '')}</span>
+                            </div>
+                          )}
+                          {/* 投票按钮区 */}
                           <div className="flex gap-2">
-                              <div className="flex-1 flex flex-col items-center">
-                                {yesRemain === 0 && <div className="text-xs text-red-400 mb-1">已达上限</div>}
-                                <button 
-                                  onClick={() => handleInternalVoteSubmit('是')}
-                                  className="w-full bg-green-500/80 text-white font-semibold py-1 rounded-md hover:bg-green-600 transition-colors text-sm"
-                                  disabled={yesRemain === 0}
-                                >投"是"</button>
-                              </div>
-                              <div className="flex-1 flex flex-col items-center">
-                                {noRemain === 0 && <div className="text-xs text-red-400 mb-1">已达上限</div>}
-                                <button 
-                                  onClick={() => handleInternalVoteSubmit('否')}
-                                  className="w-full bg-red-500/80 text-white font-semibold py-1 rounded-md hover:bg-red-600 transition-colors text-sm"
-                                  disabled={noRemain === 0}
-                                >投"否"</button>
-                              </div>
+                            <button 
+                              onClick={() => handleInternalVoteSubmit(voteChoice)}
+                              className="w-full bg-red-600 text-white font-semibold py-1 rounded-md hover:bg-red-700 transition-colors text-sm"
+                              disabled={!voteChoice || !votePoints || isNaN(Number(votePoints)) || Number(votePoints)<1}
+                            >提交</button>
+                            <button 
+                              onClick={() => setIsVotingOpen(false)}
+                              className="w-full bg-gray-400/80 text-white font-semibold py-1 rounded-md hover:bg-gray-500 transition-colors text-sm"
+                            >取消</button>
                           </div>
                       </div>
                   )}
@@ -477,80 +482,14 @@
                             </button>
                         )}
                     </div>
-                    
                     {/* --- RIGHT CONTROLS --- */}
-                    <div className="flex items-center gap-2">
-                        {/* 参与视图下，已结束、审核通过或待公布项目不显示投票按钮 */}
-                        {!isMyCreatedView && project.status !== 'finished' && project.status !== 'review_passed' && !deadlinePassed && (
+                    <div>
+                        {/* 恢复投票按钮：不是自己创建的项目，进行中且未到截止时间，且未打开投票弹窗时显示 */}
+                        {!isMyCreatedView && project.status === 'inprogress' && !deadlinePassed && !isVotingOpen && (
                             <button
-                                onClick={() => setIsVotingOpen(prev => !prev)}
-                                className={`text-white font-semibold py-0.5 px-2 rounded-md transition-colors text-xs ${ isVotingOpen ? 'bg-gray-500 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700' } ${ (!canVote && !isVotingOpen) ? 'opacity-50 cursor-not-allowed' : '' }`}
-                                disabled={!canVote && !isVotingOpen}
-                            >
-                                {isVotingOpen ? '取消' : '投票'}
-                            </button>
-                        )}
-                        {isCreator && isMyCreatedView && (
-                             project.participantCount === 0 ? (
-                                <button onClick={() => {
-                                  showConfirm({
-                                    title: '删除项目',
-                                    content: '您确定要删除这个项目吗？此操作无法撤销。',
-                                    onConfirm: () => onDelete(project._id)
-                                  });
-                                }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
-                                    删除
-                                </button>
-                            ) : project.status === 'review_passed' ? (
-                                <button onClick={() => {
-                                  showConfirm({
-                                    title: '删除项目',
-                                    content: '您确定要删除这个项目吗？此操作无法撤销。',
-                                    onConfirm: () => onDelete(project._id)
-                                  });
-                                }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
-                                    删除
-                                </button>
-                            ) : (
-                                project.status !== 'finished' && (
-                                  <button 
-                                    onClick={() => {
-                                      setPublishDialog && setPublishDialog({
-                                        open: true,
-                                        projectId: project._id,
-                                        votes: project.votes || { '是': 0, '否': 0 }
-                                      });
-                                    }} 
-                                    className="bg-orange-500 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-orange-600 transition-colors text-xs"
-                                    disabled={project.status === 'pending_review'}
-                                  >
-                                    {project.status === 'pending_review' ? '审核中' : '公布结果'}
-                                  </button>
-                                )
-                            )
-                        )}
-                        {isCreator && isMyCreatedView && project.status === 'finished' && (
-                          <button onClick={() => {
-                            showConfirm({
-                              title: '删除项目',
-                              content: '您确定要删除这个项目吗？此操作无法撤销。',
-                              onConfirm: () => onDelete(project._id)
-                            });
-                          }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
-                              删除
-                          </button>
-                        )}
-                        {/* 参与的项目-已结束或审核通过-右下角删除按钮 */}
-                        {isParticipatedView && (project.status === 'finished' || project.status === 'review_passed') && (
-                          <button onClick={() => {
-                            showConfirm({
-                              title: '移除项目',
-                              content: '您确定要将该项目从"我参与的项目"中移除吗？',
-                              onConfirm: () => onRemoveParticipated && onRemoveParticipated(project._id)
-                            });
-                          }} className="bg-red-600 text-white font-semibold py-0.5 px-2 rounded-md hover:bg-red-700 transition-colors text-xs">
-                            删除
-                          </button>
+                                onClick={() => { setIsVotingOpen(true); setVoteChoice(null); setVotePoints(''); }}
+                                className="bg-red-600 hover:bg-red-700 text-white font-bold py-0.5 px-2 rounded-md shadow-md transition-colors duration-200 text-xs"
+                            >投票</button>
                         )}
                     </div>
                 </div>
@@ -719,7 +658,7 @@
       };
 
       // --- 全局确认弹窗组件 ---
-      const ConfirmDialog = ({ open, title, content, onConfirm, onCancel, confirmText = '确认', cancelText = '取消' }) => {
+      const ConfirmDialog = ({ open, title, content, onConfirm, onCancel, confirmText = '确认', cancelText = '取消', hideCancelButton }) => {
         if (!open) return null;
         
         // 处理遮罩层点击关闭
@@ -745,11 +684,11 @@
         
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={handleBackdropClick}>
-            <div className="bg-purple-800 border border-purple-400/60 rounded-2xl shadow-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-purple-800 border border-purple-400/60 rounded-2xl shadow-2xl p-3 w-full max-w-md animate-fade-in" onClick={(e) => e.stopPropagation()}>
               <h2 className="text-lg font-bold text-yellow-400 mb-3 text-center">{title}</h2>
-              <div className="text-white/90 text-sm mb-6 text-center whitespace-pre-line" dangerouslySetInnerHTML={{ __html: content }}></div>
+              <div className="text-white/90 text-sm mb-2 text-center whitespace-pre-line" dangerouslySetInnerHTML={{ __html: content }}></div>
               <div className="flex gap-4 justify-center">
-                {cancelText && <button onClick={onCancel} className="flex-1 bg-gray-500/80 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg transition-colors">{cancelText}</button>}
+                {!hideCancelButton && cancelText && <button onClick={onCancel} className="flex-1 bg-gray-500/80 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg transition-colors">{cancelText}</button>}
                 <button onClick={onConfirm} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg transition-colors">{confirmText}</button>
               </div>
             </div>
@@ -1213,11 +1152,6 @@
                                placeholder="请输入充值金额" />
                         <small style="color: #e5e7eb; margin-top: 5px; display: block;">兑换比例：1π币 = 1积分</small>
                     </div>
-                    <div style="background: rgba(59, 130, 246, 0.1); padding: 12px; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                        <p style="margin: 0; font-size: 13px; color: #93c5fd;">
-                            💰 提示：充值多少到账多少，无手续费
-                        </p>
-                    </div>
                 </div>
             `;
             
@@ -1404,26 +1338,26 @@
             
             // 创建提现表单对话框
             const withdrawFormHtml = `
-                <div style="padding: 6px;">
-                    <div style="margin-bottom: 6px;">
-                        <label style="display: block; margin-bottom: 0; font-weight: bold; color: #fbbf24; font-size: 13px; text-align: left;">提现金额（积分）</label>
-                        <input type="number" id="withdrawAmount" min="1" max="${userInfo.points}" step="1" 
-                               style="width: 100%; padding: 6px; border: 2px solid #a855f7; border-radius: 4px; font-size: 14px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
-                               placeholder="请输入提现金额" />
-                        <small style="color: #e5e7eb; margin-top: 1px; display: block; font-size: 11px; text-align: center;">可用积分：${Number(userInfo.points).toFixed(2).replace(/\.?0+$/, '')} | 手续费：3%</small>
+                <div style="padding: 1.5px;">
+                    <div style="margin-bottom: 1.5px; display: flex; align-items: center; gap: 8px;">
+                        <label style="display: block; margin-bottom: 0; font-weight: bold; color: #fbbf24; font-size: 12px; text-align: left; min-width: 90px;">提现金额（积分）</label>
+                        <input type="number" id="withdrawAmount" min="1" max="999999" step="1" 
+                               style="width: 110px; padding: 1.5px; border: 2px solid #a855f7; border-radius: 3px; font-size: 13px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
+                               placeholder="金额" maxlength="6" />
+                        <span style="color: #e5e7eb; font-size: 10px; margin-left: 4px; white-space: nowrap;">可用积分：${Number(userInfo.points).toFixed(2).replace(/\.?0+$/, '')} | 手续费：3%</span>
                     </div>
-                    <div style="margin-bottom: 6px;">
-                        <label style="display: block; margin-bottom: 0; font-weight: bold; color: #fbbf24; font-size: 13px; text-align: left;">收币地址</label>
+                    <div style="margin-bottom: 1.5px;">
+                        <label style="display: block; margin-bottom: 0; font-weight: bold; color: #fbbf24; font-size: 12px; text-align: left;">收币地址</label>
                         <input type="text" id="withdrawAddress" 
-                               style="width: 100%; padding: 6px; border: 2px solid #a855f7; border-radius: 4px; font-size: 13px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
+                               style="width: 100%; padding: 1.5px; border: 2px solid #a855f7; border-radius: 3px; font-size: 12px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
                                placeholder="请输入您的Pi钱包地址" 
                                value="${userInfo.defaultWalletAddress || ''}" />
-                        <small style="color: #e5e7eb; margin-top: 1px; display: block; font-size: 11px; text-align: center;">${userInfo.defaultWalletAddress ? '已自动填充默认地址' : '请确保地址正确'}</small>
+                        <small style="color: #e5e7eb; margin-top: 0.25px; display: block; font-size: 10px; text-align: center;">${userInfo.defaultWalletAddress ? '已自动填充默认地址' : '请确保地址正确'}</small>
+                        <small style="color: #fbbf24; margin-top: 0.25px; display: block; font-size: 10px; text-align: center;">💡 管理员审核通过后转账到您的Pi钱包地址</small>
                     </div>
-                    <div style="text-align: left;">
-                        <p style="margin: 0; font-size: 11px; color: #fbbf24;">
-                            💡 管理员审核通过后转账到您的Pi钱包地址
-                        </p>
+                    <div style="height: 44px;"></div>
+                    <div style="text-align: left; margin-top: 2px;">
+                        
                     </div>
                 </div>
             `;
@@ -1865,9 +1799,13 @@
           <div className="min-h-screen w-full bg-gradient-to-b from-purple-700 to-purple-900 text-white">
             <div className="w-full max-w-md mx-auto p-4 sm:p-6 flex flex-col space-y-6">
               
-              <header className="flex items-center justify-center gap-4 text-yellow-400 pt-6 pb-2">
-                <VotingIcon className="w-10 h-10" />
-                <h1 className="text-4xl font-bold tracking-wider">投票平台</h1>
+              <header className="flex flex-col items-center justify-center gap-0 text-yellow-400 pt-6 pb-2">
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <VotingIcon className="w-10 h-10" style={{marginRight: '10px'}} />
+                  <h1 className="text-4xl font-bold tracking-wider" style={{marginBottom:0,display:'inline-block',verticalAlign:'middle'}}>投票平台</h1>
+                </div>
+                <div style={{ width: 220, height: '1.5px', background: '#ffe066', borderRadius: 1, marginTop: 0, marginBottom: 8 }}></div>
+                <span style={{ fontSize: 20, color: '#ffe066', letterSpacing: 1, marginTop: 8 }}>参与投票，获取奖励</span>
               </header>
 
               {isLoggedIn ? (
@@ -1947,12 +1885,15 @@
                   </div>
                 </>
               ) : (
-                <div className="flex justify-center items-center pt-8 pb-4">
+                <div className="flex flex-col justify-center items-center pt-8 pb-4">
                   <button 
                     onClick={handleLogin}
                     className="bg-red-600 text-white font-bold py-3 px-16 rounded-full shadow-lg hover:bg-red-700 transition-colors duration-200 text-xl"
                   >
-                    登录
+                    <span style={{display:'inline-flex',alignItems:'center',gap:'8px'}}>
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{verticalAlign:'middle'}}><text x="12" y="19" textAnchor="middle" fontSize="22" fontWeight="bold" fill="#ffd600">π</text></svg>
+                      登录
+                    </span>
                   </button>
                 </div>
               )}
@@ -2036,37 +1977,43 @@
                         <div>
                           <div className="font-bold text-yellow-400 mb-1">创建项目</div>
                           <ul className="list-disc pl-5 space-y-1">
-                            <li>账户积分足够就可以创建项目。</li>
-                            <li>单个项目最低要求100积分。</li>
-                            <li>创建的项目必须有正确结果。</li>
-                            <li>项目截止时间达到后24小时之内必须公布正确结果。</li>
-                            <li>超时就算违规，扣除项目发起人对应此项目积分的60%，参与人的积分原路返回。</li>
+                            <li>任何人都可以创建投票项目</li>
+                            <li>单个项目最低要求100积分</li>
+                            <li>创建的项目必须有正确可查的结果</li>
+                            <li>项目截止时间达到后12小时之内必须公布正确结果</li>
+                            <li>超时自动扣除项目发起人对应此项目积分的60%，参与人积分全额解冻</li>
                           </ul>
                         </div>
                         <div>
                           <div className="font-bold text-yellow-400 mb-1">参与投票</div>
                           <ul className="list-disc pl-5 space-y-1">
-                            <li>项目发起人已经冻结足够的积分，请放心参与投票。</li>
-                            <li>项目到期没有正确结果或者发起人超时未公布正确结果，你的参与积分会原路返回。</li>
-                            <li>一旦投票成功，不能撤销，只能等待发起人公布结果。</li>
+                            <li>项目发起人已经冻结足够的积分，请放心参与投票</li>
+                            <li>一旦投票成功，不能撤销</li>
                           </ul>
                         </div>
                         <div>
                           <div className="font-bold text-yellow-400 mb-1">公布结果</div>
                           <ul className="list-disc pl-5 space-y-1">
-                            <li>项目发起人发布项目是没有审核流程的，任何人都可以发布。</li>
-                            <li>项目到期不能公布正确结果或者故意公布错误结果一律按照超时处理。</li>
-                            <li>发起项目之前请仔细确认，项目到期后你必须能公布正确结果，否则会为你带来积分损失。</li>
-                            <li>公布结果需要提交审核，管理员审核通过自动公布，审核不通过按照规则处理。</li>
+                            <li>项目发起人发布项目没有审核流程</li>
+                            <li>项目到期不能公布正确结果或者故意公布错误结果一律按照超时处理</li>
+                            <li>发起项目之前请仔细确认，项目到期后你必须能公布正确结果，否则会为你带来积分损失</li>
+                            <li>公布结果需要提交审核，管理员审核通过自动公布，审核不通过按照规则处理</li>
                           </ul>
                         </div>
                         <div>
-                          <div className="font-bold text-yellow-400 mb-1">充值提现</div>
+                          <div className="font-bold text-yellow-400 mb-1">关于违规</div>
                           <ul className="list-disc pl-5 space-y-1">
-                            <li>点击对应的按钮进入对应的界面，根据界面提示进行操作。</li>
-                            <li>兑换比例：1π币=1积分。</li>
-                            <li>充值多少到账多少。</li>
-                            <li>提现手续费3%。</li>
+                            <li>任何人不得发布关于任何一个国家的政治类投票项目</li>
+                            <li>包括但不限于国家领导人称呼等等</li>
+                            <li>管理员巡查到项目标题或描述里面有相关字眼，直接删除项目</li>
+                            <li>发起人对应的冻结积分全额扣除，参与人积分全额解冻</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <div className="font-bold text-yellow-400 mb-1">奖励和扣除</div>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li>投票正确投票时冻结积分解冻，奖励投票积分的100%</li>
+                            <li>投票错误，冻结积分全额划扣为此项目发起人奖励</li>
                           </ul>
                         </div>
                       </div>
@@ -2075,7 +2022,7 @@
 
             </div>
             {/* 全局确认弹窗 */}
-            <ConfirmDialog {...confirmDialog} />
+            <ConfirmDialog {...confirmDialog} hideCancelButton />
             {/* 公布结果弹窗 */}
             <PublishResultDialog
               open={publishDialog.open}
