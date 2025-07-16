@@ -1388,32 +1388,28 @@
             
             // 创建提现表单对话框
             const withdrawFormHtml = `
-                <div style="padding: 8px; text-align: center;">
-                    <div style="margin-bottom: 8px;">
-                        <label style="display: block; margin-bottom: 3px; font-weight: bold; color: #fbbf24; font-size: 13px;">提现金额（积分）</label>
+                <div style="padding: 6px; text-align: center;">
+                    <div style="margin-bottom: 6px;">
+                        <label style="display: block; margin-bottom: 2px; font-weight: bold; color: #fbbf24; font-size: 13px;">提现金额（积分）</label>
                         <input type="number" id="withdrawAmount" min="1" max="${userInfo.points}" 
                                style="width: 100%; padding: 6px; border: 2px solid #a855f7; border-radius: 4px; font-size: 14px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
-                               placeholder="请输入提现金额" oninput="updateWithdrawPreview()" />
-                        <small style="color: #e5e7eb; margin-top: 2px; display: block; font-size: 11px;">可用积分：${userInfo.points} | 手续费：${feePercentage}%</small>
+                               placeholder="请输入提现金额" />
+                        <small style="color: #e5e7eb; margin-top: 1px; display: block; font-size: 11px;">可用积分：${userInfo.points} | 手续费：${feePercentage}%</small>
                     </div>
-                    <div style="margin-bottom: 8px;">
-                        <label style="display: block; margin-bottom: 3px; font-weight: bold; color: #fbbf24; font-size: 13px;">实际到账</label>
-                        <div id="actualAmount" style="padding: 6px; background: rgba(34, 197, 94, 0.1); border: 1px solid #22c55e; border-radius: 4px; color: #22c55e; font-weight: bold; font-size: 14px;">请输入提现金额</div>
-                    </div>
-                    <div style="margin-bottom: 8px;">
-                        <label style="display: block; margin-bottom: 3px; font-weight: bold; color: #fbbf24; font-size: 13px;">收币地址</label>
+                    <div style="margin-bottom: 6px;">
+                        <label style="display: block; margin-bottom: 2px; font-weight: bold; color: #fbbf24; font-size: 13px;">收币地址</label>
                         <input type="text" id="withdrawAddress" 
                                style="width: 100%; padding: 6px; border: 2px solid #a855f7; border-radius: 4px; font-size: 13px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
                                placeholder="请输入您的Pi钱包地址" 
                                value="${userInfo.defaultWalletAddress || ''}" />
-                        <small style="color: #e5e7eb; margin-top: 2px; display: block; font-size: 11px;">${userInfo.defaultWalletAddress ? '已自动填充默认地址' : '请确保地址正确'}</small>
+                        <small style="color: #e5e7eb; margin-top: 1px; display: block; font-size: 11px;">${userInfo.defaultWalletAddress ? '已自动填充默认地址' : '请确保地址正确'}</small>
                     </div>
-                    ${consumeRatio < 0.5 ? `<div style="background: rgba(239, 68, 68, 0.1); padding: 6px; border-radius: 4px; border-left: 3px solid #ef4444; margin-bottom: 6px;">
+                    ${consumeRatio < 0.5 ? `<div style="margin-bottom: 4px;">
                         <p style="margin: 0; font-size: 11px; color: #ef4444;">
                             ⚠️ 您的消费比例为${Math.round(consumeRatio * 100)}%，未达到50%，手续费为30%
                         </p>
                     </div>` : ''}
-                    <div style="background: rgba(245, 158, 11, 0.1); padding: 6px; border-radius: 4px; border-left: 3px solid #f59e0b;">
+                    <div style="margin-bottom: 4px;">
                         <p style="margin: 0; font-size: 11px; color: #fbbf24;">
                             💡 管理员审核通过后转账到您的Pi钱包地址
                         </p>
@@ -1421,12 +1417,7 @@
                 </div>
             `;
             
-            // 动态创建更新函数
-            window.updateWithdrawPreview = function() {
-                const amount = parseInt(document.getElementById('withdrawAmount').value) || 0;
-                const actualAmount = Math.floor(amount * (1 - " + feeRate + "));
-                document.getElementById('actualAmount').textContent = amount > 0 ? actualAmount + ' π' : '请输入提现金额';
-            };
+            // 不再需要实际到账预览功能
             
             // 不需要创建临时容器，ConfirmDialog现在可以直接渲染HTML
             
