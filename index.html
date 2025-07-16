@@ -136,6 +136,12 @@
             method: 'POST',
             body: JSON.stringify({ username, amount, wallet })
           });
+        },
+        updateWalletAddress: (username, walletAddress) => {
+          return apiRequest('/user/update-wallet', {
+            method: 'POST',
+            body: JSON.stringify({ username, walletAddress })
+          });
         }
       };
       
@@ -1389,9 +1395,17 @@
                                placeholder="请输入提现金额" />
                         <small style="color: #e5e7eb; margin-top: 5px; display: block;">可用积分：${userInfo.points} | 手续费：10%</small>
                     </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #fbbf24;">收币地址</label>
+                        <input type="text" id="withdrawAddress" 
+                               style="width: 100%; padding: 12px; border: 2px solid #a855f7; border-radius: 8px; font-size: 16px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
+                               placeholder="请输入您的Pi钱包地址" 
+                               value="${userInfo.defaultWalletAddress || ''}" />
+                        <small style="color: #e5e7eb; margin-top: 5px; display: block;">${userInfo.defaultWalletAddress ? '已自动填充您的默认地址，可修改' : '请确保地址正确，转账后无法撤销'}</small>
+                    </div>
                     <div style="background: rgba(245, 158, 11, 0.1); padding: 12px; border-radius: 8px; border-left: 4px solid #f59e0b;">
                         <p style="margin: 0; font-size: 13px; color: #fbbf24;">
-                            💡 提示：管理员审核通过后，系统将自动转账到您的Pi钱包地址
+                            💡 提示：管理员审核通过后，将转账到您提供的Pi钱包地址
                         </p>
                     </div>
                 </div>
@@ -1406,11 +1420,23 @@
                 cancelText: '取消',
                 onConfirm: async () => {
                     const amount = parseInt(document.getElementById('withdrawAmount').value);
+                    const address = document.getElementById('withdrawAddress').value.trim();
                     
                     if (!amount || amount <= 0) {
                         showConfirm({
                             title: '输入错误',
                             content: '请输入有效的提现金额！',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                        return;
+                    }
+                    
+                    if (!address) {
+                        showConfirm({
+                            title: '输入错误',
+                            content: '请输入收币地址！',
                             confirmText: '确定',
                             cancelText: '',
                             onCancel: undefined
@@ -1449,13 +1475,13 @@
                             console.warn('Pi SDK不可用，将使用空UID');
                         }
                         
-                        await userAPI.withdraw(userInfo.username, amount, piUid, '');
+                        await userAPI.withdraw(userInfo.username, amount, address, piUid);
                         // 提现后刷新用户信息
                         const userData = await userAPI.getInfo(userInfo.username);
                         setUserInfo(userData);
                         showConfirm({
                             title: '提现申请成功',
-                            content: `已申请提现 ${amount} 积分到Pi钱包，请等待管理员审核！`,
+                            content: `已申请提现 ${amount} 积分到地址 ${address}，请等待管理员审核！`,
                             confirmText: '确定',
                             cancelText: '',
                             onCancel: undefined
@@ -1464,6 +1490,73 @@
                         showConfirm({
                             title: '提现失败',
                             content: error.message || '提现失败，请重试',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                    }
+                },
+                onCancel: () => {
+                    // 对话框关闭时无需特殊处理
+                }
+            });
+        };
+
+        const handleSetWallet = async () => {
+            // 创建设置钱包地址表单对话框
+            const walletFormHtml = `
+                <div style="padding: 15px; text-align: center;">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #fbbf24;">Pi钱包地址</label>
+                        <input type="text" id="walletAddress" 
+                               style="width: 100%; padding: 12px; border: 2px solid #a855f7; border-radius: 8px; font-size: 16px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
+                               placeholder="请输入您的Pi钱包地址" 
+                               value="${userInfo.defaultWalletAddress || ''}" />
+                        <small style="color: #e5e7eb; margin-top: 5px; display: block;">设置后将作为默认提现地址</small>
+                    </div>
+                    <div style="background: rgba(245, 158, 11, 0.1); padding: 12px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                        <p style="margin: 0; font-size: 13px; color: #fbbf24;">
+                            💡 提示：设置默认钱包地址后，提现时将自动填充此地址
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            showConfirm({
+                title: '设置钱包地址',
+                content: walletFormHtml,
+                confirmText: '保存',
+                cancelText: '取消',
+                onConfirm: async () => {
+                    const address = document.getElementById('walletAddress').value.trim();
+                    
+                    if (!address) {
+                        showConfirm({
+                            title: '输入错误',
+                            content: '请输入钱包地址！',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                        return;
+                    }
+                    
+                    try {
+                        await userAPI.updateWalletAddress(userInfo.username, address);
+                        // 更新用户信息
+                        const userData = await userAPI.getInfo(userInfo.username);
+                        setUserInfo(userData);
+                        showConfirm({
+                            title: '设置成功',
+                            content: '钱包地址设置成功！',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                    } catch (error) {
+                        showConfirm({
+                            title: '设置失败',
+                            content: error.message || '设置钱包地址失败，请重试',
                             confirmText: '确定',
                             cancelText: '',
                             onCancel: undefined
@@ -1885,9 +1978,10 @@
                   )}
                   
                   <div className="flex justify-around items-center pt-2 pb-2">
-                      <button onClick={handleCharge} className="bg-red-600 text-white font-bold py-2.5 px-8 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">充币</button>
-                      <button onClick={handleLogout} className="bg-red-600 text-white font-bold py-2.5 px-8 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">退出</button>
-                      <button onClick={handleWithdraw} className="bg-red-600 text-white font-bold py-2.5 px-8 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">提币</button>
+                      <button onClick={handleCharge} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">充币</button>
+                      <button onClick={handleSetWallet} className="bg-blue-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-blue-700 transition-colors duration-200">钱包</button>
+                      <button onClick={handleLogout} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">退出</button>
+                      <button onClick={handleWithdraw} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">提币</button>
                   </div>
                 </>
               ) : (

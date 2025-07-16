@@ -42,17 +42,25 @@ export const userAPI = {
   },
   
   // 提现
-  withdraw: (username, amount, piUid, remark = '') => {
+  withdraw: (username, amount, wallet, piUid, remark = '') => {
     return apiRequest('/user/withdraw', {
       method: 'POST',
       body: JSON.stringify({ 
         username, 
         amount, 
-        wallet: piUid, // 保持向后兼容
+        wallet, // 收币地址
         piUid,
         remark,
         method: 'pi'
       })
+    });
+  },
+  
+  // 更新默认钱包地址
+  updateWalletAddress: (username, walletAddress) => {
+    return apiRequest('/user/update-wallet', {
+      method: 'POST',
+      body: JSON.stringify({ username, walletAddress })
     });
   }
 };
