@@ -56,13 +56,7 @@ export const userAPI = {
     });
   },
   
-  // 更新默认钱包地址
-  updateWalletAddress: (username, walletAddress) => {
-    return apiRequest('/user/update-wallet', {
-      method: 'POST',
-      body: JSON.stringify({ username, walletAddress })
-    });
-  }
+
 };
 
 // 项目相关API
