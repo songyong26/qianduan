@@ -1388,28 +1388,26 @@
             
             // 创建提现表单对话框
             const withdrawFormHtml = `
-                <div style="padding: 6px; text-align: center;">
+                <div style="padding: 6px;">
                     <div style="margin-bottom: 6px;">
-                        <label style="display: block; margin-bottom: 2px; font-weight: bold; color: #fbbf24; font-size: 13px;">提现金额（积分）</label>
+                        <label style="display: block; margin-bottom: 0; font-weight: bold; color: #fbbf24; font-size: 13px; text-align: left;">提现金额（积分）</label>
                         <input type="number" id="withdrawAmount" min="1" max="${userInfo.points}" 
                                style="width: 100%; padding: 6px; border: 2px solid #a855f7; border-radius: 4px; font-size: 14px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
                                placeholder="请输入提现金额" />
-                        <small style="color: #e5e7eb; margin-top: 1px; display: block; font-size: 11px;">可用积分：${userInfo.points} | 手续费：${feePercentage}%</small>
+                        <small style="color: #e5e7eb; margin-top: 1px; display: block; font-size: 11px; text-align: center;">可用积分：${userInfo.points} | 手续费：${feePercentage}%</small>
                     </div>
                     <div style="margin-bottom: 6px;">
-                        <label style="display: block; margin-bottom: 2px; font-weight: bold; color: #fbbf24; font-size: 13px;">收币地址</label>
+                        <label style="display: block; margin-bottom: 0; font-weight: bold; color: #fbbf24; font-size: 13px; text-align: left;">收币地址</label>
                         <input type="text" id="withdrawAddress" 
                                style="width: 100%; padding: 6px; border: 2px solid #a855f7; border-radius: 4px; font-size: 13px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
                                placeholder="请输入您的Pi钱包地址" 
                                value="${userInfo.defaultWalletAddress || ''}" />
-                        <small style="color: #e5e7eb; margin-top: 1px; display: block; font-size: 11px;">${userInfo.defaultWalletAddress ? '已自动填充默认地址' : '请确保地址正确'}</small>
+                        <small style="color: #e5e7eb; margin-top: 1px; display: block; font-size: 11px; text-align: center;">${userInfo.defaultWalletAddress ? '已自动填充默认地址' : '请确保地址正确'}</small>
                     </div>
-                    ${consumeRatio < 0.5 ? `<div style="margin-bottom: 4px;">
-                        <p style="margin: 0; font-size: 11px; color: #ef4444;">
+                    <div style="text-align: left;">
+                        ${consumeRatio < 0.5 ? `<p style="margin: 0; font-size: 11px; color: #ef4444;">
                             ⚠️ 您的消费比例为${Math.round(consumeRatio * 100)}%，未达到50%，手续费为30%
-                        </p>
-                    </div>` : ''}
-                    <div style="margin-bottom: 4px;">
+                        </p>` : ''}
                         <p style="margin: 0; font-size: 11px; color: #fbbf24;">
                             💡 管理员审核通过后转账到您的Pi钱包地址
                         </p>
