@@ -42,7 +42,7 @@ export const userAPI = {
   },
   
   // 提现
-  withdraw: (username, amount, wallet, piUid, remark = '') => {
+  withdraw: (username, amount, wallet, piUid, feeRate, remark = '') => {
     return apiRequest('/user/withdraw', {
       method: 'POST',
       body: JSON.stringify({ 
@@ -50,6 +50,7 @@ export const userAPI = {
         amount, 
         wallet, // 收币地址
         piUid,
+        feeRate, // 手续费率
         remark,
         method: 'pi'
       })

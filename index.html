@@ -1379,30 +1379,54 @@
         };
 
         const handleWithdraw = async () => {
+            // 计算用户的消费比例和手续费
+            const totalCharged = userInfo.totalCharged || 0; // 总充值金额
+            const totalConsumed = userInfo.totalConsumed || 0; // 总消费金额
+            const consumeRatio = totalCharged > 0 ? (totalConsumed / totalCharged) : 0;
+            const feeRate = consumeRatio >= 0.5 ? 0.03 : 0.3; // 消费50%以上手续费3%，否则30%
+            const feePercentage = Math.round(feeRate * 100);
+            
             // 创建提现表单对话框
             const withdrawFormHtml = `
-                <div style="padding: 15px; text-align: center;">
-                    <div style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #fbbf24;">提现金额（积分）</label>
+                <div style="padding: 8px; text-align: center;">
+                    <div style="margin-bottom: 8px;">
+                        <label style="display: block; margin-bottom: 3px; font-weight: bold; color: #fbbf24; font-size: 13px;">提现金额（积分）</label>
                         <input type="number" id="withdrawAmount" min="1" max="${userInfo.points}" 
-                               style="width: 100%; padding: 12px; border: 2px solid #a855f7; border-radius: 8px; font-size: 16px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
-                               placeholder="请输入提现金额" />
-                        <small style="color: #e5e7eb; margin-top: 5px; display: block;">可用积分：${userInfo.points} | 手续费：10%</small>
+                               style="width: 100%; padding: 6px; border: 2px solid #a855f7; border-radius: 4px; font-size: 14px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
+                               placeholder="请输入提现金额" oninput="updateWithdrawPreview()" />
+                        <small style="color: #e5e7eb; margin-top: 2px; display: block; font-size: 11px;">可用积分：${userInfo.points} | 手续费：${feePercentage}%</small>
                     </div>
-                    <div style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #fbbf24;">收币地址</label>
+                    <div style="margin-bottom: 8px;">
+                        <label style="display: block; margin-bottom: 3px; font-weight: bold; color: #fbbf24; font-size: 13px;">实际到账</label>
+                        <div id="actualAmount" style="padding: 6px; background: rgba(34, 197, 94, 0.1); border: 1px solid #22c55e; border-radius: 4px; color: #22c55e; font-weight: bold; font-size: 14px;">请输入提现金额</div>
+                    </div>
+                    <div style="margin-bottom: 8px;">
+                        <label style="display: block; margin-bottom: 3px; font-weight: bold; color: #fbbf24; font-size: 13px;">收币地址</label>
                         <input type="text" id="withdrawAddress" 
-                               style="width: 100%; padding: 12px; border: 2px solid #a855f7; border-radius: 8px; font-size: 16px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
+                               style="width: 100%; padding: 6px; border: 2px solid #a855f7; border-radius: 4px; font-size: 13px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
                                placeholder="请输入您的Pi钱包地址" 
                                value="${userInfo.defaultWalletAddress || ''}" />
-                        <small style="color: #e5e7eb; margin-top: 5px; display: block;">${userInfo.defaultWalletAddress ? '已自动填充您的默认地址，可修改' : '请确保地址正确，转账后无法撤销'}</small>
+                        <small style="color: #e5e7eb; margin-top: 2px; display: block; font-size: 11px;">${userInfo.defaultWalletAddress ? '已自动填充默认地址' : '请确保地址正确'}</small>
                     </div>
-                    <div style="background: rgba(245, 158, 11, 0.1); padding: 12px; border-radius: 8px; border-left: 4px solid #f59e0b;">
-                        <p style="margin: 0; font-size: 13px; color: #fbbf24;">
-                            💡 提示：管理员审核通过后，将转账到您提供的Pi钱包地址
+                    ${consumeRatio < 0.5 ? `<div style="background: rgba(239, 68, 68, 0.1); padding: 6px; border-radius: 4px; border-left: 3px solid #ef4444; margin-bottom: 6px;">
+                        <p style="margin: 0; font-size: 11px; color: #ef4444;">
+                            ⚠️ 您的消费比例为${Math.round(consumeRatio * 100)}%，未达到50%，手续费为30%
+                        </p>
+                    </div>` : ''}
+                    <div style="background: rgba(245, 158, 11, 0.1); padding: 6px; border-radius: 4px; border-left: 3px solid #f59e0b;">
+                        <p style="margin: 0; font-size: 11px; color: #fbbf24;">
+                            💡 管理员审核通过后转账到您的Pi钱包地址
                         </p>
                     </div>
                 </div>
+                <script>
+                    function updateWithdrawPreview() {
+                        const amount = parseInt(document.getElementById('withdrawAmount').value) || 0;
+                        const feeRate = ${feeRate};
+                        const actualAmount = Math.floor(amount * (1 - feeRate));
+                        document.getElementById('actualAmount').textContent = amount > 0 ? actualAmount + ' π' : '请输入提现金额';
+                    }
+                </script>
             `;
             
             // 不需要创建临时容器，ConfirmDialog现在可以直接渲染HTML
@@ -1469,7 +1493,7 @@
                             console.warn('Pi SDK不可用，将使用空UID');
                         }
                         
-                        await userAPI.withdraw(userInfo.username, amount, address, piUid);
+                        await userAPI.withdraw(userInfo.username, amount, address, piUid, feeRate);
                         // 提现后刷新用户信息
                         const userData = await userAPI.getInfo(userInfo.username);
                         setUserInfo(userData);
@@ -2032,7 +2056,7 @@
                             <li>点击对应的按钮进入对应的界面，根据界面提示进行操作。</li>
                             <li>兑换比例：1π币=1积分。</li>
                             <li>充值多少到账多少。</li>
-                            <li>提现手续费10%。</li>
+                            <li>提现手续费3%（充值后消费不足50%时为30%）。</li>
                           </ul>
                         </div>
                       </div>
