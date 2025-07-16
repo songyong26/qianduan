@@ -965,7 +965,25 @@
                       return;
                     }
                     
-                    // 验证payload是否有效
+                    // 处理提现状态更新
+                    if (type === 'withdrawal_update') {
+                      console.log('收到提现状态更新消息:', payload);
+                      // 如果是当前用户的提现更新，刷新用户信息
+                      if (payload && payload.username === userInfo.username) {
+                        console.log('当前用户提现状态更新，刷新用户信息');
+                        userAPI.getInfo(userInfo.username)
+                          .then(userData => {
+                            console.log('用户信息刷新成功:', userData);
+                            setUserInfo(userData);
+                          })
+                          .catch(error => {
+                            console.error('用户信息刷新失败:', error);
+                          });
+                      }
+                      return;
+                    }
+                    
+                    // 验证payload是否有效（仅对项目相关消息）
                     if (!payload || (!payload._id && !payload.id)) {
                       console.warn('WebSocket消息payload无效:', payload);
                       return;
