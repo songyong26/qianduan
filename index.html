@@ -1419,15 +1419,14 @@
                         </p>
                     </div>
                 </div>
-                <script>
-                    function updateWithdrawPreview() {
-                        const amount = parseInt(document.getElementById('withdrawAmount').value) || 0;
-                        const feeRate = ${feeRate};
-                        const actualAmount = Math.floor(amount * (1 - feeRate));
-                        document.getElementById('actualAmount').textContent = amount > 0 ? actualAmount + ' π' : '请输入提现金额';
-                    }
-                </script>
             `;
+            
+            // 动态创建更新函数
+            window.updateWithdrawPreview = function() {
+                const amount = parseInt(document.getElementById('withdrawAmount').value) || 0;
+                const actualAmount = Math.floor(amount * (1 - " + feeRate + "));
+                document.getElementById('actualAmount').textContent = amount > 0 ? actualAmount + ' π' : '请输入提现金额';
+            };
             
             // 不需要创建临时容器，ConfirmDialog现在可以直接渲染HTML
             
