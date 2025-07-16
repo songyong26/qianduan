@@ -1903,8 +1903,17 @@
                                   </div>
                                   <div className="flex justify-between items-center text-xs text-purple-200">
                                     <span>{detail.time}</span>
-                                    {/* 右下角：只显示完整项目标题 */}
-                                    <span className="text-right">{detail.remark || '项目操作'}</span>
+                                    {/* 右下角：服务费扣除只显示项目标题，其他显示完整备注 */}
+                                    <span className="text-right">{(() => {
+                                      const remark = detail.remark || '项目操作';
+                                      const type = detail.type || '';
+                                      if (type === '服务费扣除') {
+                                        // 从备注中提取项目标题（去掉服务费说明部分）
+                                        const match = remark.match(/^(.+?)\s*-\s*.*服务费/);
+                                        return match ? match[1] : remark;
+                                      }
+                                      return remark;
+                                    })()}</span>
                                   </div>
                                 </li>
                                   {/* 分割线，最后一条不加 */}
