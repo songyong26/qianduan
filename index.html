@@ -1379,12 +1379,9 @@
         };
 
         const handleWithdraw = async () => {
-            // 计算用户的消费比例和手续费
-            const totalCharged = userInfo.totalCharged || 0; // 总充值金额
-            const totalConsumed = userInfo.totalConsumed || 0; // 总消费金额
-            const consumeRatio = totalCharged > 0 ? (totalConsumed / totalCharged) : 0;
-            const feeRate = consumeRatio >= 0.5 ? 0.03 : 0.3; // 消费50%以上手续费3%，否则30%
-            const feePercentage = Math.round(feeRate * 100);
+            // 统一设置提现手续费为3%
+            const feeRate = 0.03;
+            const feePercentage = 3;
             
             // 创建提现表单对话框
             const withdrawFormHtml = `
@@ -1394,7 +1391,7 @@
                         <input type="number" id="withdrawAmount" min="1" max="${userInfo.points}" 
                                style="width: 100%; padding: 6px; border: 2px solid #a855f7; border-radius: 4px; font-size: 14px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
                                placeholder="请输入提现金额" />
-                        <small style="color: #e5e7eb; margin-top: 1px; display: block; font-size: 11px; text-align: center;">可用积分：${userInfo.points} | 手续费：${feePercentage}%</small>
+                        <small style="color: #e5e7eb; margin-top: 1px; display: block; font-size: 11px; text-align: center;">可用积分：${userInfo.points} | 手续费：3%</small>
                     </div>
                     <div style="margin-bottom: 6px;">
                         <label style="display: block; margin-bottom: 0; font-weight: bold; color: #fbbf24; font-size: 13px; text-align: left;">收币地址</label>
@@ -1405,9 +1402,6 @@
                         <small style="color: #e5e7eb; margin-top: 1px; display: block; font-size: 11px; text-align: center;">${userInfo.defaultWalletAddress ? '已自动填充默认地址' : '请确保地址正确'}</small>
                     </div>
                     <div style="text-align: left;">
-                        ${consumeRatio < 0.5 ? `<p style="margin: 0; font-size: 11px; color: #ef4444;">
-                            ⚠️ 您的消费比例为${Math.round(consumeRatio * 100)}%，未达到50%，手续费为30%
-                        </p>` : ''}
                         <p style="margin: 0; font-size: 11px; color: #fbbf24;">
                             💡 管理员审核通过后转账到您的Pi钱包地址
                         </p>
@@ -2044,7 +2038,7 @@
                             <li>点击对应的按钮进入对应的界面，根据界面提示进行操作。</li>
                             <li>兑换比例：1π币=1积分。</li>
                             <li>充值多少到账多少。</li>
-                            <li>提现手续费3%（充值后消费不足50%时为30%）。</li>
+                            <li>提现手续费3%。</li>
                           </ul>
                         </div>
                       </div>
