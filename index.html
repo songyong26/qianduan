@@ -520,13 +520,35 @@
                         )}
                     </div>
                     {/* --- RIGHT CONTROLS --- */}
-                    <div>
+                    <div className="flex gap-1">
                         {/* 恢复投票按钮：不是自己创建的项目，进行中且未到截止时间，且未打开投票弹窗时显示 */}
                         {!isMyCreatedView && project.status === 'inprogress' && !deadlinePassed && !isVotingOpen && (
                             <button
                                 onClick={() => { setIsVotingOpen(true); setVoteChoice(null); setVotePoints(''); }}
                                 className="bg-red-600 hover:bg-red-700 text-white font-bold py-0.5 px-2 rounded-md shadow-md transition-colors duration-200 text-xs"
                             >投票</button>
+                        )}
+                        
+                        {/* 删除按钮：发起人视角，无人参与的项目 */}
+                        {isCreator && isMyCreatedView && project.participantCount === 0 && (
+                            <button
+                                onClick={() => {
+                                  showConfirm({
+                                    title: '删除项目',
+                                    content: `确定要删除项目"${project.title}"吗？删除后将返还冻结积分。`,
+                                    onConfirm: () => onDelete(project._id)
+                                  });
+                                }}
+                                className="bg-red-600 hover:bg-red-700 text-white font-bold py-0.5 px-2 rounded-md shadow-md transition-colors duration-200 text-xs"
+                            >删除</button>
+                        )}
+                        
+                        {/* 公布结果按钮：发起人视角，有人参与且已到截止时间的项目 */}
+                        {isCreator && isMyCreatedView && project.participantCount > 0 && deadlinePassed && project.status !== 'finished' && project.status !== 'pending_review' && project.status !== 'review_passed' && project.status !== 'review_rejected' && (
+                            <button
+                                onClick={() => setPublishDialog({ open: true, projectId: project._id })}
+                                className="bg-green-600 hover:bg-green-700 text-white font-bold py-0.5 px-2 rounded-md shadow-md transition-colors duration-200 text-xs"
+                            >公布结果</button>
                         )}
                     </div>
                 </div>
