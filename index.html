@@ -42,6 +42,37 @@
       .all-projects-title { display: flex; align-items: center; gap: 0.5rem; }
       .all-projects-stats { display: flex; align-items: center; gap: 2rem; color: #fde047; font-weight: bold; font-size: 1.1rem; }
       .all-projects-stats-inner { display: flex; align-items: center; gap: 2rem; color: #fde047; font-weight: bold; font-size: 1.1rem; margin-bottom: 1rem; margin-top: 0; }
+      
+      /* 移动设备适配样式 */
+      @media (max-width: 480px) {
+        .fixed.inset-0 {
+          padding: 8px !important;
+        }
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl {
+          max-width: calc(100vw - 16px) !important;
+          max-height: calc(100vh - 16px) !important;
+          overflow-y: auto !important;
+          padding: 12px !important;
+        }
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl h2 {
+          font-size: 16px !important;
+          margin-bottom: 12px !important;
+        }
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl .text-white\/90 {
+          font-size: 12px !important;
+          line-height: 1.4 !important;
+        }
+      }
+      
+      @media (max-width: 360px) {
+        .fixed.inset-0 {
+          padding: 4px !important;
+        }
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl {
+          max-width: calc(100vw - 8px) !important;
+          padding: 8px !important;
+        }
+      }
     </style>
 <script>
     window.onload = function() {
@@ -1110,14 +1141,8 @@
                 });
               });
           } else {
-            showConfirm({
-              title: '模拟登录',
-              content: '当前非 Pi 浏览器或 Pi SDK 加载失败，已自动切换为测试账户。',
-              confirmText: '确定',
-              onConfirm: () => {
-                loginWithUsername('TestUser');
-              }
-            });
+            // 非Pi浏览器环境直接使用测试账户登录，无需弹窗确认
+            loginWithUsername('TestUser');
           }
         };
         const handleLogout = () => {
@@ -1177,7 +1202,8 @@
                     await processChargePayment(amount);
                 },
                 onCancel: () => {
-                    // 对话框关闭时无需特殊处理
+                    // 用户取消充值操作
+                    console.log('用户取消充值操作');
                 }
             });
         };
@@ -1338,26 +1364,24 @@
             
             // 创建提现表单对话框
             const withdrawFormHtml = `
-                <div style="padding: 1.5px;">
-                    <div style="margin-bottom: 1.5px; display: flex; align-items: center; gap: 8px;">
-                        <label style="display: block; margin-bottom: 0; font-weight: bold; color: #fbbf24; font-size: 12px; text-align: left; min-width: 90px;">提现金额（积分）</label>
-                        <input type="number" id="withdrawAmount" min="1" max="999999" step="1" 
-                               style="width: 110px; padding: 1.5px; border: 2px solid #a855f7; border-radius: 3px; font-size: 13px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
-                               placeholder="金额" maxlength="6" />
-                        <span style="color: #e5e7eb; font-size: 10px; margin-left: 4px; white-space: nowrap;">可用积分：${Number(userInfo.points).toFixed(2).replace(/\.?0+$/, '')} | 手续费：3%</span>
+                <div style="padding: 8px; box-sizing: border-box;">
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: #fbbf24; font-size: 14px; text-align: left;">提现金额（积分）</label>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <input type="number" id="withdrawAmount" min="1" max="999999" step="1" 
+                                   style="width: 100%; padding: 8px; border: 2px solid #a855f7; border-radius: 6px; font-size: 16px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937; box-sizing: border-box;" 
+                                   placeholder="请输入提现金额" maxlength="6" />
+                            <span style="color: #e5e7eb; font-size: 12px; text-align: center; line-height: 1.3;">可用积分：${Number(userInfo.points).toFixed(2).replace(/\.?0+$/, '')} | 手续费：3%</span>
+                        </div>
                     </div>
-                    <div style="margin-bottom: 1.5px;">
-                        <label style="display: block; margin-bottom: 0; font-weight: bold; color: #fbbf24; font-size: 12px; text-align: left;">收币地址</label>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: #fbbf24; font-size: 14px; text-align: left;">收币地址</label>
                         <input type="text" id="withdrawAddress" 
-                               style="width: 100%; padding: 1.5px; border: 2px solid #a855f7; border-radius: 3px; font-size: 12px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
+                               style="width: 100%; padding: 8px; border: 2px solid #a855f7; border-radius: 6px; font-size: 14px; background: rgba(255,255,255,0.9); color: #1f2937; box-sizing: border-box;" 
                                placeholder="请输入您的Pi钱包地址" 
                                value="${userInfo.defaultWalletAddress || ''}" />
-                        <small style="color: #e5e7eb; margin-top: 0.25px; display: block; font-size: 10px; text-align: center;">${userInfo.defaultWalletAddress ? '已自动填充默认地址' : '请确保地址正确'}</small>
-                        <small style="color: #fbbf24; margin-top: 0.25px; display: block; font-size: 10px; text-align: center;">💡 管理员审核通过后转账到您的Pi钱包地址</small>
-                    </div>
-                    <div style="height: 44px;"></div>
-                    <div style="text-align: left; margin-top: 2px;">
-                        
+                        <small style="color: #e5e7eb; margin-top: 4px; display: block; font-size: 11px; text-align: center; line-height: 1.3;">${userInfo.defaultWalletAddress ? '已自动填充默认地址' : '请确保地址正确'}</small>
+                        <small style="color: #fbbf24; margin-top: 4px; display: block; font-size: 11px; text-align: center; line-height: 1.3;">💡 管理员审核通过后转账到您的Pi钱包地址</small>
                     </div>
                 </div>
             `;
@@ -1450,7 +1474,8 @@
                     }
                 },
                 onCancel: () => {
-                    // 对话框关闭时无需特殊处理
+                    // 用户取消提现操作
+                    console.log('用户取消提现操作');
                 }
             });
         };
