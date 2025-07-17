@@ -111,61 +111,10 @@
     <script type="text/babel">
       const { useState, useEffect, FC, SVGProps, ReactNode } = React;
       
-      // 钱包地址格式化函数
+      // 钱包地址格式化函数 - 移除所有格式化逻辑，保持完整显示
       function formatWalletAddress(input) {
-        const value = input.value;
-        
-        // 保存原始完整地址
-        if (!input.dataset.originalValue || !input.value.includes('...')) {
-          input.dataset.originalValue = value;
-        }
-        
-        // 添加事件监听器（避免重复添加）
-        if (!input.dataset.listenersAdded) {
-          input.dataset.listenersAdded = 'true';
-          
-          // 点击或聚焦时显示完整地址
-          input.addEventListener('focus', function() {
-            if (this.dataset.originalValue && this.value.includes('...')) {
-              this.value = this.dataset.originalValue;
-              this.style.textAlign = 'left';
-            }
-          });
-          
-          // 失去焦点时显示省略号格式
-          input.addEventListener('blur', function() {
-            const currentValue = this.value.trim();
-            this.dataset.originalValue = currentValue;
-            
-            if (currentValue.length > 10) {
-              // 计算输入框宽度，动态调整省略号数量
-              const inputWidth = this.offsetWidth;
-              const charWidth = 8; // 大约每个字符的宽度
-              const availableChars = Math.floor(inputWidth / charWidth) - 2; // 减去padding
-              const ellipsisCount = Math.max(3, availableChars - 10); // 至少3个点
-              
-              const ellipsis = '.'.repeat(ellipsisCount);
-              const formatted = currentValue.substring(0, 5) + ellipsis + currentValue.substring(currentValue.length - 5);
-              this.value = formatted;
-              this.style.textAlign = 'center';
-            } else {
-              this.style.textAlign = 'left';
-            }
-          });
-        }
-        
-        // 初始格式化（如果地址长度大于10位）
-        if (value.length > 10 && !value.includes('...')) {
-          const inputWidth = input.offsetWidth || 300; // 默认宽度
-          const charWidth = 8;
-          const availableChars = Math.floor(inputWidth / charWidth) - 2;
-          const ellipsisCount = Math.max(3, availableChars - 10);
-          
-          const ellipsis = '.'.repeat(ellipsisCount);
-          const formatted = value.substring(0, 5) + ellipsis + value.substring(value.length - 5);
-          input.value = formatted;
-          input.style.textAlign = 'center';
-        }
+        // 不再进行任何格式化，保持钱包地址完整显示
+        // 这样确保用户看到的和提交的都是完整地址
       }
       
       // 导入API函数
@@ -1436,8 +1385,7 @@
                         <input type="text" id="withdrawAddress" 
                                style="width: 100%; padding: 8px; border: 2px solid #a855f7; border-radius: 6px; font-size: 14px; background: rgba(255,255,255,0.9); color: #1f2937; box-sizing: border-box;" 
                                placeholder="请输入您的Pi钱包地址" 
-                               value="${userInfo.defaultWalletAddress || ''}" 
-                               oninput="formatWalletAddress(this)" />
+                               value="${userInfo.defaultWalletAddress || ''}" />
                         <small style="color: #e5e7eb; margin-top: 4px; display: block; font-size: 11px; text-align: center; line-height: 1.3;">${userInfo.defaultWalletAddress ? '已自动填充默认地址' : '请确保地址正确'}</small>
                         <small style="color: #fbbf24; margin-top: 4px; display: block; font-size: 11px; text-align: center; line-height: 1.3;">💡 管理员审核通过后转账到您的Pi钱包地址</small>
                     </div>
@@ -1455,8 +1403,7 @@
                 cancelText: '取消',
                 onConfirm: async () => {
                     const amount = parseInt(document.getElementById('withdrawAmount').value);
-                    const addressInput = document.getElementById('withdrawAddress');
-                    const address = (addressInput.dataset.originalValue || addressInput.value).trim();
+                    const address = document.getElementById('withdrawAddress').value.trim();
                     
                     if (!amount || amount <= 0) {
                         showConfirm({
