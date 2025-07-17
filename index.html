@@ -1197,8 +1197,14 @@
                 });
               });
           } else {
-            // 非Pi浏览器环境直接使用测试账户登录，无需弹窗确认
-            loginWithUsername('TestUser');
+            // 非Pi浏览器环境提示用户
+            showConfirm({
+              title: '登录提示',
+              content: '此应用专为Pi Network设计，请在Pi浏览器中打开使用。',
+              confirmText: '确定',
+              cancelText: '',
+              onCancel: undefined
+            });
           }
         };
         const handleLogout = () => {
@@ -1550,6 +1556,17 @@
                 return;
             }
             
+            if (Number(newProjectData.maxPoints) < 100) {
+                showConfirm({
+                  title: '积分设置错误',
+                  content: '单项最高可投票积分数不能少于100！',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+            }
+            
             if (userInfo.points < Number(newProjectData.maxPoints)) {
                 showConfirm({
                   title: '积分不足',
@@ -1775,7 +1792,7 @@
                 </div>
                 <div>
                     <label htmlFor="maxPoints" className="block text-sm font-medium text-yellow-400/80 mb-1">单项最高可投票积分数</label>
-                    <input type="number" name="maxPoints" id="maxPoints" min="1" step="1" value={newProjectData.maxPoints} onChange={handleProjectInputChange} className="w-full bg-purple-700/50 border border-purple-400/50 rounded-lg px-3 py-2 text-white focus:ring-yellow-400 focus:border-yellow-400" required />
+                    <input type="number" name="maxPoints" id="maxPoints" min="100" step="1" value={newProjectData.maxPoints} onChange={handleProjectInputChange} className="w-full bg-purple-700/50 border border-purple-400/50 rounded-lg px-3 py-2 text-white focus:ring-yellow-400 focus:border-yellow-400" required />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-yellow-400/80 mb-1">投票选项</label>
