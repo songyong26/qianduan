@@ -114,37 +114,58 @@
       // 钱包地址格式化函数
       function formatWalletAddress(input) {
         const value = input.value;
-        const originalValue = input.dataset.originalValue || value;
         
-        // 如果用户正在输入，保存原始值
-        if (!input.dataset.originalValue) {
+        // 保存原始完整地址
+        if (!input.dataset.originalValue || !input.value.includes('...')) {
           input.dataset.originalValue = value;
         }
         
-        // 如果地址长度大于10位，显示省略号格式
-        if (value.length > 10) {
-          const formatted = value.substring(0, 5) + '...' + value.substring(value.length - 5);
+        // 添加事件监听器（避免重复添加）
+        if (!input.dataset.listenersAdded) {
+          input.dataset.listenersAdded = 'true';
+          
+          // 点击或聚焦时显示完整地址
+          input.addEventListener('focus', function() {
+            if (this.dataset.originalValue && this.value.includes('...')) {
+              this.value = this.dataset.originalValue;
+              this.style.textAlign = 'left';
+            }
+          });
+          
+          // 失去焦点时显示省略号格式
+          input.addEventListener('blur', function() {
+            const currentValue = this.value.trim();
+            this.dataset.originalValue = currentValue;
+            
+            if (currentValue.length > 10) {
+              // 计算输入框宽度，动态调整省略号数量
+              const inputWidth = this.offsetWidth;
+              const charWidth = 8; // 大约每个字符的宽度
+              const availableChars = Math.floor(inputWidth / charWidth) - 2; // 减去padding
+              const ellipsisCount = Math.max(3, availableChars - 10); // 至少3个点
+              
+              const ellipsis = '.'.repeat(ellipsisCount);
+              const formatted = currentValue.substring(0, 5) + ellipsis + currentValue.substring(currentValue.length - 5);
+              this.value = formatted;
+              this.style.textAlign = 'center';
+            } else {
+              this.style.textAlign = 'left';
+            }
+          });
+        }
+        
+        // 初始格式化（如果地址长度大于10位）
+        if (value.length > 10 && !value.includes('...')) {
+          const inputWidth = input.offsetWidth || 300; // 默认宽度
+          const charWidth = 8;
+          const availableChars = Math.floor(inputWidth / charWidth) - 2;
+          const ellipsisCount = Math.max(3, availableChars - 10);
+          
+          const ellipsis = '.'.repeat(ellipsisCount);
+          const formatted = value.substring(0, 5) + ellipsis + value.substring(value.length - 5);
           input.value = formatted;
-          input.dataset.originalValue = value;
-        } else {
-          input.dataset.originalValue = value;
+          input.style.textAlign = 'center';
         }
-        
-        // 当输入框失去焦点时，如果是省略号格式，恢复原始值用于提交
-        input.addEventListener('focus', function() {
-          if (this.dataset.originalValue && this.value.includes('...')) {
-            this.value = this.dataset.originalValue;
-          }
-        });
-        
-        input.addEventListener('blur', function() {
-          const currentValue = this.value;
-          this.dataset.originalValue = currentValue;
-          if (currentValue.length > 10) {
-            const formatted = currentValue.substring(0, 5) + '...' + currentValue.substring(currentValue.length - 5);
-            this.value = formatted;
-          }
-        });
       }
       
       // 导入API函数
