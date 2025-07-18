@@ -1191,14 +1191,13 @@
           console.log('发现未完成的支付:', payment);
           
           if (payment && payment.identifier) {
-            console.log('处理未完成支付ID:', payment.identifier);
+            console.log('发现未完成支付ID:', payment.identifier);
             
-            // 主动处理未完成支付
-            setTimeout(() => {
-              handleIncompletePaymentsForUser();
-            }, 1000);
+            // 不再强制处理，只是记录日志
+            console.log('检测到未完成支付，用户可以选择在充值时清理');
           }
           
+          // 直接返回payment，不进行强制处理
           return payment;
         };
         
