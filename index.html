@@ -1460,6 +1460,30 @@
                     return;
                 }
                 
+                // 充值前强制重新认证，确保scope包含payments
+                let authResult;
+                try {
+                    authResult = await window.Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
+                } catch (e) {
+                    showConfirm({
+                        title: '认证失败',
+                        content: '请重新登录并授权Pi支付权限',
+                        confirmText: '确定',
+                        cancelText: '',
+                        onCancel: undefined
+                    });
+                    return;
+                }
+                if (!authResult.scope || !authResult.scope.includes('payments')) {
+                    showConfirm({
+                        title: '权限不足',
+                        content: '请授权Pi支付权限，否则无法充值！',
+                        confirmText: '确定',
+                        cancelText: '',
+                        onCancel: undefined
+                    });
+                    return;
+                }
                 // 检查用户是否已认证
                 if (!userInfo || !userInfo.username) {
                     showConfirm({
