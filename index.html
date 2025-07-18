@@ -1155,6 +1155,7 @@
         const onIncompletePaymentFound = (payment) => {
           debugLog('发现未完成的支付: ' + JSON.stringify(payment));
           if (payment && payment.identifier) {
+            debugLog('Pi SDK pending payment user_uid: ' + payment.user_uid);
             showConfirm({
               title: '发现未完成支付',
               content: '您有一笔未完成的支付，必须先清理后才能继续充值。是否立即清理？',
@@ -1176,9 +1177,7 @@
               debugLog('用户信息不完整');
               return;
             }
-            // 优先从localStorage和userInfo获取Pi UID
             let piUid = userInfo.piUid || localStorage.getItem('piUid');
-            // 如果还没有，尝试重新认证获取Pi UID
             if (!piUid && typeof window.Pi !== 'undefined' && typeof window.Pi.authenticate === 'function') {
               debugLog('尝试通过Pi.authenticate获取Pi UID');
               try {
@@ -1203,6 +1202,7 @@
               });
               return;
             }
+            debugLog('传给后端的userUid: ' + piUid);
             debugLog('清理未完成支付，userUid=' + piUid);
             // 调用后端处理未完成支付
             const response = await apiRequest('/user/handle-incomplete-payments', {
