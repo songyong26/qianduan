@@ -13,10 +13,8 @@
   <script>
     Pi.init({ 
       version: "2.0", 
-      sandbox: false
-      // 注意：生产环境需要配置应用ID
-      // 从Pi Developer Portal获取: https://develop.pi
-      // appId: "your_app_id_here"
+      sandbox: false,
+      appId: "1478946ec299f01f"
     });
   </script>
     <style>
@@ -1442,7 +1440,6 @@
                 },
                 onCancel: () => {
                     // 用户取消充值操作
-                    console.log('用户取消充值操作');
                 }
             });
         };
@@ -1454,6 +1451,18 @@
                     showConfirm({
                         title: '支付失败',
                         content: '请在Pi浏览器中打开此应用',
+                        confirmText: '确定',
+                        cancelText: '',
+                        onCancel: undefined
+                    });
+                    return;
+                }
+                
+                // 检查用户是否已认证
+                if (!userInfo || !userInfo.username) {
+                    showConfirm({
+                        title: '支付失败',
+                        content: '请先登录后再进行充值',
                         confirmText: '确定',
                         cancelText: '',
                         onCancel: undefined
@@ -1472,7 +1481,7 @@
                     }
                 };
 
-                console.log('开始创建Pi支付，支付数据:', paymentData);
+
                 
                 // 检查Pi SDK支付功能是否可用
                 if (typeof window.Pi.createPayment !== 'function') {
@@ -1482,13 +1491,13 @@
                 // 调用Pi SDK创建支付
                 const payment = await window.Pi.createPayment(paymentData, {
                     onReadyForServerApproval: async function(paymentId) {
-                        console.log('支付已创建，等待服务器批准:', paymentId);
+
                         try {
                             // 调用后端API批准支付
                             await approvePaymentOnServer(paymentId, userInfo.username, amount);
-                            console.log('服务器批准成功');
+
                         } catch (error) {
-                            console.error('服务器批准失败:', error);
+
                             showConfirm({
                                 title: '支付失败',
                                 content: '服务器批准支付失败，请重试',
@@ -1499,18 +1508,18 @@
                         }
                     },
                     onReadyForServerCompletion: async function(paymentId, txid) {
-                        console.log('支付已批准，等待服务器完成:', paymentId, txid);
+
                         try {
                             // 调用后端API完成支付
                             await completePaymentOnServer(paymentId, txid, userInfo.username, amount);
-                            console.log('支付流程完全成功');
+
                         } catch (error) {
-                            console.error('服务器完成支付失败:', error);
+
                             // 错误处理已在completePaymentOnServer中处理
                         }
                     },
                     onCancel: function(paymentId) {
-                        console.log('支付已取消:', paymentId);
+
                         showConfirm({
                             title: '支付取消',
                             content: '您已取消支付操作',
@@ -1520,19 +1529,42 @@
                         });
                     },
                     onError: function(error, payment) {
-                        console.error('Pi SDK支付错误:', error);
-                        console.error('支付对象:', payment);
-                        
                         let errorMessage = '支付过程中发生错误，请重试';
-                        if (error && error.message) {
-                            if (error.message.includes('insufficient')) {
-                                errorMessage = 'Pi余额不足，请检查您的Pi钱包余额';
-                            } else if (error.message.includes('network')) {
-                                errorMessage = '网络连接错误，请检查网络后重试';
-                            } else if (error.message.includes('cancelled')) {
-                                errorMessage = '支付已取消';
-                            } else {
-                                errorMessage = `支付失败: ${error.message}`;
+                        
+                        if (error) {
+                            // 检查错误类型
+                            if (typeof error === 'string') {
+                                errorMessage = error;
+                            } else if (error.message) {
+                                if (error.message.includes('insufficient')) {
+                                    errorMessage = 'Pi余额不足，请检查您的Pi钱包余额';
+                                } else if (error.message.includes('network')) {
+                                    errorMessage = '网络连接错误，请检查网络后重试';
+                                } else if (error.message.includes('cancelled')) {
+                                    errorMessage = '支付已取消';
+                                } else if (error.message.includes('user_cancelled')) {
+                                    errorMessage = '用户取消了支付';
+                                } else if (error.message.includes('invalid_amount')) {
+                                    errorMessage = '支付金额无效';
+                                } else if (error.message.includes('payment_not_found')) {
+                                    errorMessage = '支付记录未找到';
+                                } else {
+                                    errorMessage = `支付失败: ${error.message}`;
+                                }
+                            } else if (error.type) {
+                                switch(error.type) {
+                                    case 'user_cancelled':
+                                        errorMessage = '用户取消了支付';
+                                        break;
+                                    case 'payment_error':
+                                        errorMessage = '支付处理错误，请重试';
+                                        break;
+                                    case 'network_error':
+                                        errorMessage = '网络连接错误，请检查网络后重试';
+                                        break;
+                                    default:
+                                        errorMessage = `支付失败: ${error.type}`;
+                                }
                             }
                         }
                         
@@ -1546,10 +1578,10 @@
                     }
                 });
 
-                console.log('支付流程已启动:', payment);
+
                 
             } catch (error) {
-                console.error('创建支付失败:', error);
+
                 showConfirm({
                     title: '支付失败',
                     content: '创建支付失败，请重试',
@@ -1575,9 +1607,9 @@
                 if (!response.success) {
                     throw new Error(response.message || '服务器批准支付失败');
                 }
-                console.log('服务器批准支付成功:', response);
+
             } catch (error) {
-                console.error('服务器批准支付失败:', error);
+
                 throw error;
             }
         };
@@ -1611,7 +1643,6 @@
                     throw new Error(response.message || '服务器完成支付失败');
                 }
             } catch (error) {
-                console.error('服务器完成支付失败:', error);
                 showConfirm({
                     title: '充值失败',
                     content: '支付完成失败，请联系客服',
