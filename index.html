@@ -15,7 +15,7 @@
       version: "2.0", 
       sandbox: true,
       appId: "1478946ec299f01f",
-      scope: ['payments']
+      scope: ['username', 'payments']
     });
   </script>
     <style>
@@ -1747,7 +1747,7 @@
                         let piUid = '';
                         if (typeof window.Pi !== 'undefined') {
                             try {
-                                const authResult = await window.Pi.authenticate(['username'], onIncompletePaymentFound);
+                                const authResult = await window.Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
                                 if (authResult && authResult.user) {
                                     piUid = authResult.user.uid || authResult.user.username;
                                 }
