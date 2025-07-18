@@ -1964,7 +1964,7 @@
                 debugLog('onReadyForServerApproval触发, paymentId=' + paymentId);
                 try {
                   debugLog('调用approve接口: ' + JSON.stringify({paymentId, username: userInfo.username, amount}));
-                  const resp = await fetch('https://houduan.toupiao01.top/api/approve', {
+                  const resp = await fetch('https://houduan.toupiao01.top/api/user/approve', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
