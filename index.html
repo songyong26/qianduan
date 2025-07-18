@@ -1951,7 +1951,25 @@
             // 发起支付
             window.Pi.createPayment(paymentData, {
               onReadyForServerApproval: async function(paymentId) {
-                // 可选：可在此处调用后端API记录订单
+                try {
+                  await fetch('https://houduan.toupiao01.top/api/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      paymentId: paymentId,
+                      username: userInfo.username,
+                      amount: amount
+                    })
+                  });
+                } catch (e) {
+                  showConfirm({
+                    title: '支付失败',
+                    content: '服务器批准支付失败，请重试',
+                    confirmText: '确定',
+                    cancelText: '',
+                    onCancel: undefined
+                  });
+                }
               },
               onReadyForServerCompletion: async function(paymentId, txid) {
                 // 支付完成，刷新用户积分
