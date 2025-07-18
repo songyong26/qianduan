@@ -1952,7 +1952,8 @@
             window.Pi.createPayment(paymentData, {
               onReadyForServerApproval: async function(paymentId) {
                 try {
-                  await fetch('https://houduan.toupiao01.top/api/approve', {
+                  debugLog('调用approve接口: ' + JSON.stringify({paymentId, username: userInfo.username, amount}));
+                  const resp = await fetch('https://houduan.toupiao01.top/api/approve', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1961,7 +1962,10 @@
                       amount: amount
                     })
                   });
+                  const data = await resp.json();
+                  debugLog('approve响应: ' + JSON.stringify(data));
                 } catch (e) {
+                  debugLog('approve接口异常: ' + e.message);
                   showConfirm({
                     title: '支付失败',
                     content: '服务器批准支付失败，请重试',
@@ -2270,4 +2274,5 @@
 
     </script>
 </body>
+<div id="debug-panel" style="position:fixed;right:10px;bottom:10px;z-index:9999;background:rgba(0,0,0,0.8);color:#fff;padding:10px 16px;border-radius:8px;max-width:350px;max-height:300px;overflow:auto;font-size:12px;display:none"></div>
 </html>
