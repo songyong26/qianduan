@@ -1916,7 +1916,8 @@
               });
               return;
             }
-            if (!authResult.scope || !authResult.scope.includes('payments')) {
+            const scopes = authResult?.user?.credentials?.scopes || [];
+            if (!scopes.includes('payments')) {
               showConfirm({
                 title: '权限不足',
                 content: '请授权Pi支付权限，否则无法充值！如多次无弹窗，请在Pi浏览器设置-已授权的应用中移除本应用后再重新登录。',
