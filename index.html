@@ -14,7 +14,8 @@
     Pi.init({ 
       version: "2.0", 
       sandbox: false,
-      appId: "1478946ec299f01f"
+      appId: "1478946ec299f01f",
+      scope: ['payments']
     });
   </script>
     <style>
@@ -1470,49 +1471,24 @@
                     return;
                 }
                 
-                // 显示调试信息
-                showConfirm({
-                    title: '调试信息',
-                    content: `Pi SDK状态: ${typeof window.Pi}\n用户: ${userInfo.username}\n金额: ${amount}\nPi.createPayment: ${typeof window.Pi.createPayment}`,
-                    confirmText: '继续支付',
-                    cancelText: '取消',
-                    onConfirm: () => {
-                        // 继续执行支付流程
-                        executePayment(amount);
+                // 创建支付请求
+                const paymentData = {
+                    amount: amount,
+                    memo: `充值${amount}积分`,
+                    metadata: {
+                        username: userInfo.username,
+                        type: 'charge',
+                        amount: amount
                     }
-                });
-                return;
-            } catch (error) {
-                showConfirm({
-                    title: '支付失败',
-                    content: `初始化错误: ${error.message}`,
-                    confirmText: '确定',
-                    cancelText: '',
-                    onCancel: undefined
-                });
-            }
-        };
-        
-        const executePayment = async (amount) => {
-             try {
-                 // 创建支付请求
-                 const paymentData = {
-                     amount: amount,
-                     memo: `充值${amount}积分`,
-                     metadata: {
-                         username: userInfo.username,
-                         type: 'charge',
-                         amount: amount
-                     }
-                 };
-                 
-                 // 检查Pi SDK支付功能是否可用
-                 if (typeof window.Pi.createPayment !== 'function') {
-                     throw new Error('Pi SDK支付功能不可用');
-                 }
-                 
-                 // 调用Pi SDK创建支付
-                 const payment = await window.Pi.createPayment(paymentData, {
+                };
+                
+                // 检查Pi SDK支付功能是否可用
+                if (typeof window.Pi.createPayment !== 'function') {
+                    throw new Error('Pi SDK支付功能不可用');
+                }
+                
+                // 调用Pi SDK创建支付
+                const payment = await window.Pi.createPayment(paymentData, {
                     onReadyForServerApproval: async function(paymentId) {
 
                         try {
@@ -1615,14 +1591,6 @@
         // 服务器批准支付
         const approvePaymentOnServer = async (paymentId, username, amount) => {
             try {
-                showConfirm({
-                    title: '调试信息',
-                    content: `正在批准支付\nPaymentId: ${paymentId}\nUsername: ${username}\nAmount: ${amount}`,
-                    confirmText: '确定',
-                    cancelText: '',
-                    onCancel: undefined
-                });
-                
                 const response = await apiRequest('/user/approve', {
                     method: 'POST',
                     body: JSON.stringify({
@@ -1637,13 +1605,6 @@
                 }
 
             } catch (error) {
-                showConfirm({
-                    title: '批准支付错误',
-                    content: `错误详情: ${error.message}`,
-                    confirmText: '确定',
-                    cancelText: '',
-                    onCancel: undefined
-                });
                 throw error;
             }
         };
@@ -1651,14 +1612,6 @@
         // 服务器完成支付
         const completePaymentOnServer = async (paymentId, txid, username, amount) => {
             try {
-                showConfirm({
-                    title: '调试信息',
-                    content: `正在完成支付\nPaymentId: ${paymentId}\nTxid: ${txid}\nUsername: ${username}\nAmount: ${amount}`,
-                    confirmText: '确定',
-                    cancelText: '',
-                    onCancel: undefined
-                });
-                
                 const response = await apiRequest('/user/complete', {
                     method: 'POST',
                     body: JSON.stringify({
