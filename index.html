@@ -1392,11 +1392,18 @@
                   frozenPoints: 0,
                   pointDetails: []
                 });
-                setOpenAccordion('all_projects');
-                setShowPointsDetail(false);
+                setOpenAccordion(null); // 退出后收起所有折叠面板
+                setShowPointsDetail(false); // 关闭积分明细
+                setProjects([]); // 清空项目列表，防止残留
+                setParticipatedProjectIds([]); // 清空参与项目ID
+                setAllProjectsSorted(null); // 清空排序
+                setPublishDialog({ open: false, projectId: null, votes: { '是': 0, '否': 0 } }); // 关闭弹窗
+                setPointsPage(1); // 重置分页
                 // 新增：清除localStorage
                 localStorage.removeItem('isLoggedIn');
                 localStorage.removeItem('userInfo');
+                localStorage.removeItem('participatedProjectIds');
+                localStorage.removeItem('piUid');
               }
             });
         };
