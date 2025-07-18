@@ -1181,7 +1181,8 @@
             if (!piUid && typeof window.Pi !== 'undefined' && typeof window.Pi.authenticate === 'function') {
               debugLog('尝试通过Pi.authenticate获取Pi UID');
               try {
-                const authResult = await window.Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
+                // 在清理未完成支付时，不传入onIncompletePaymentFound回调，避免死循环
+                const authResult = await window.Pi.authenticate(['username', 'payments']);
                 if (authResult && authResult.user && authResult.user.uid) {
                   piUid = authResult.user.uid;
                   localStorage.setItem('piUid', piUid);
@@ -1218,14 +1219,16 @@
               if (response.processedCount > 0) {
                 const userData = await userAPI.getInfo(userInfo.username);
                 setUserInfo(userData);
+                debugLog('清理完成，处理了 ' + response.processedCount + ' 个支付，积分已刷新');
                 showConfirm({
                   title: '支付处理完成',
-                  content: `成功处理了 ${response.processedCount} 个未完成的支付！`,
+                  content: `成功处理了 ${response.processedCount} 个未完成的支付！现在可以继续充值了。`,
                   confirmText: '确定',
                   cancelText: '',
                   onCancel: undefined
                 });
               } else {
+                debugLog('清理完成，没有需要处理的支付');
                 showConfirm({
                   title: '无未完成支付',
                   content: '没有需要处理的未完成支付，可以继续充值。',
@@ -1287,7 +1290,7 @@
             console.log('认证范围:', scopes);
             
             // 添加超时处理
-            const authPromise = window.Pi.authenticate(scopes, onIncompletePaymentFound);
+            const authPromise = window.Pi.authenticate(scopes);
             const timeoutPromise = new Promise((_, reject) => {
               setTimeout(() => reject(new Error('认证超时，请重试')), 30000);
             });
@@ -1481,7 +1484,7 @@
                         let piUid = '';
                         if (typeof window.Pi !== 'undefined') {
                             try {
-                                const authResult = await window.Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
+                                const authResult = await window.Pi.authenticate(['username', 'payments']);
                                 if (authResult && authResult.user) {
                                     piUid = authResult.user.uid || authResult.user.username;
                                 }
@@ -1933,7 +1936,7 @@
             let authResult;
             try {
               debugLog('调用Pi.authenticate');
-              authResult = await window.Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
+              authResult = await window.Pi.authenticate(['username', 'payments']);
               debugLog('Pi授权结果: ' + JSON.stringify(authResult));
               alert('Pi授权结果：' + JSON.stringify(authResult));
             } catch (e) {
@@ -2071,7 +2074,7 @@
                   onCancel: undefined
                 });
               }
-            }, onIncompletePaymentFound);
+            });
           } catch (error) {
             debugLog('processPiCharge异常: ' + error.message);
             showConfirm({
