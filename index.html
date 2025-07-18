@@ -8,8 +8,11 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-    <script>Pi.init({ version: "2.0", sandbox: false })</script>
+    <!-- Pi SDK -->
+  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  <script>
+    Pi.init({ version: "2.0", sandbox: false });
+  </script>
     <style>
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
@@ -150,42 +153,44 @@
         getInfo: (username) => {
           return apiRequest(`/user/info?username=${encodeURIComponent(username)}`);
         },
-        charge: (username, amount, pi_payment_id) => {
-          return apiRequest('/user/charge', {
-            method: 'POST',
-            body: JSON.stringify({ username, amount, pi_payment_id })
-          });
-        },
-        approve: (paymentId, accessToken) => {
-          return apiRequest('/user/approve', {
-            method: 'POST',
-            body: JSON.stringify({ paymentId, accessToken })
-          });
-        },
-        complete: (paymentId, txid, accessToken) => {
-          return apiRequest('/user/complete', {
-            method: 'POST',
-            body: JSON.stringify({ paymentId, txid, accessToken })
-          });
-        },
+        charge: (username, amount) => {
+      return apiRequest('/user/charge', {
+        method: 'POST',
+        body: JSON.stringify({ username, amount })
+      });
+    },
+        // Pi支付相关API
+         createPayment: (paymentData) => {
+           return apiRequest('/user/create-payment', {
+             method: 'POST',
+             body: JSON.stringify(paymentData)
+           });
+         },
+         approve: (paymentId) => {
+           return apiRequest('/user/approve', {
+             method: 'POST',
+             body: JSON.stringify({ paymentId })
+           });
+         },
+         complete: (paymentId, txid) => {
+           return apiRequest('/user/complete', {
+             method: 'POST',
+             body: JSON.stringify({ paymentId, txid })
+           });
+         },
+         cancel: (paymentId) => {
+           return apiRequest('/user/cancel', {
+             method: 'POST',
+             body: JSON.stringify({ paymentId })
+           });
+         }
         withdraw: (username, amount, wallet, piUid, remark) => {
           return apiRequest('/user/withdraw', {
             method: 'POST',
             body: JSON.stringify({ username, amount, wallet, piUid, remark, method: 'pi' })
           });
         },
-        cancel: (paymentId) => {
-          return apiRequest('/user/cancel', {
-            method: 'POST',
-            body: JSON.stringify({ paymentId })
-          });
-        },
-        createPayment: (paymentData) => {
-          return apiRequest('/user/create-payment', {
-            method: 'POST',
-            body: JSON.stringify(paymentData)
-          });
-        }
+        
       };
       
       // 项目相关API
@@ -1176,80 +1181,67 @@
         };
 
         const handleLogin = async () => {
-          const scopes = ['username', 'payments'];
-          function onIncompletePaymentFound(payment) {
-            console.log('Incomplete payment found:', payment);
-            // 处理未完成的支付
-            showConfirm({
-              title: '发现未完成的支付',
-              content: `检测到您有一笔未完成的支付（金额：${payment.amount}π币）。\n\n为了能够进行新的充值，您需要先处理这笔支付。\n\n请选择：`,
-              confirmText: '取消此支付',
-              cancelText: '稍后处理',
-              onConfirm: async () => {
-                try {
-                  await userAPI.cancel(payment.identifier);
-                  showConfirm({
-                    title: '支付已取消',
-                    content: '未完成的支付已成功取消，现在可以进行新的充值了。',
-                    confirmText: '确定',
-                    cancelText: '',
-                    onCancel: undefined
-                  });
-                } catch (error) {
-                  console.error('取消支付失败:', error);
-                  showConfirm({
-                    title: '取消失败',
-                    content: error.message || '取消支付失败，请稍后重试',
-                    confirmText: '确定',
-                    cancelText: '',
-                    onCancel: undefined
-                  });
-                }
-              },
-              onCancel: () => {
+          try {
+            // 检查Pi SDK是否可用
+            if (typeof window.Pi === 'undefined') {
+              showConfirm({
+                title: '登录失败',
+                content: '请在Pi浏览器中打开此应用',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+              return;
+            }
+
+            // 使用Pi SDK进行用户认证
+            const scopes = ['username', 'payments'];
+            const authResult = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+            
+            if (authResult && authResult.user) {
+              const username = authResult.user.username;
+              
+              try {
+                // 获取用户信息
+                const userData = await userAPI.getInfo(username);
+                setUserInfo(userData);
+                setIsLoggedIn(true);
+                
+                // 保存登录状态到localStorage
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('userInfo', JSON.stringify(userData));
+                
                 showConfirm({
-                  title: '提示',
-                  content: '如果遇到充值问题，请先处理未完成的支付，或尝试刷新页面后重试。',
+                  title: '登录成功',
+                  content: `欢迎回来，${username}！`,
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              } catch (error) {
+                console.error('获取用户信息失败:', error);
+                showConfirm({
+                  title: '登录失败',
+                  content: '获取用户信息失败，请重试',
                   confirmText: '确定',
                   cancelText: '',
                   onCancel: undefined
                 });
               }
-            });
-          }
-          
-          const loginWithUsername = async (username) => {
-            try {
-              const userData = await userAPI.getInfo(username);
-              setIsLoggedIn(true);
-              setUserInfo(userData);
-              await loadProjects();
-            } catch (error) {
+            } else {
               showConfirm({
                 title: '登录失败',
-                content: error.message || '获取用户信息失败，请重试',
-                confirmText: '确定'
+                content: '用户认证失败，请重试',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
               });
             }
-          };
-          
-          if (window.Pi && typeof window.Pi.authenticate === 'function') {
-            Pi.authenticate(scopes, onIncompletePaymentFound)
-              .then(function(auth) {
-                loginWithUsername(auth.user.username);
-              })
-              .catch(function(error) {
-                showConfirm({
-                  title: '登录失败',
-                  content: error && error.message ? error.message : 'Pi登录失败，请重试',
-                  confirmText: '确定'
-                });
-              });
-          } else {
-            // 非Pi浏览器环境提示用户
+          } catch (error) {
+            console.error('Pi认证错误:', error);
             showConfirm({
-              title: '登录提示',
-              content: '此应用专为Pi Network设计，请在Pi浏览器中打开使用。',
+              title: '登录失败',
+              content: '认证过程中发生错误，请重试',
               confirmText: '确定',
               cancelText: '',
               onCancel: undefined
@@ -1320,206 +1312,144 @@
         };
         
         const processChargePayment = async (amount) => {
-            if (amount && amount > 0) {
-                try {
-                  // 确保Pi SDK可用
-                  if (!window.Pi) {
-                    throw new Error('Pi SDK未加载，请在Pi浏览器中打开');
-                  }
-                  
-                  // 检查Pi SDK方法是否可用
-                  if (typeof window.Pi.createPayment !== 'function' || typeof window.Pi.authenticate !== 'function') {
-                    throw new Error('Pi SDK方法不可用');
-                  }
-                  
-                  console.log('开始Pi支付流程，金额:', amount);
-                  console.log('用户信息:', userInfo.username);
-                  
-                  // 检查Pi SDK初始化状态
-                  console.log('Pi SDK状态检查:');
-                  console.log('- Pi对象存在:', !!window.Pi);
-                  console.log('- authenticate方法:', typeof window.Pi.authenticate);
-                  console.log('- createPayment方法:', typeof window.Pi.createPayment);
-                  
-                  // 重新认证以确保有payments权限
-                  const scopes = ['username', 'payments'];
-                  function onIncompletePaymentFound(payment) {
-                    console.log('发现未完成的支付:', payment);
-                    // 处理未完成的支付
+            try {
+                // 检查Pi SDK是否可用
+                if (typeof window.Pi === 'undefined') {
                     showConfirm({
-                      title: '发现未完成的支付',
-                      content: `检测到您有一笔未完成的支付（金额：${payment.amount}π币）。\n\n为了能够进行新的充值，您需要先处理这笔支付。\n\n请选择：`,
-                      confirmText: '取消此支付',
-                      cancelText: '稍后处理',
-                      onConfirm: async () => {
-                        try {
-                          await userAPI.cancel(payment.identifier);
-                          showConfirm({
-                            title: '支付已取消',
-                            content: '未完成的支付已成功取消，现在可以进行新的充值了。',
-                            confirmText: '确定',
-                            cancelText: '',
-                            onCancel: undefined
-                          });
-                        } catch (error) {
-                          console.error('取消支付失败:', error);
-                          showConfirm({
-                            title: '取消失败',
-                            content: error.message || '取消支付失败，请稍后重试',
-                            confirmText: '确定',
-                            cancelText: '',
-                            onCancel: undefined
-                          });
-                        }
-                      },
-                      onCancel: () => {
-                        showConfirm({
-                          title: '提示',
-                          content: '如果遇到充值问题，请先处理未完成的支付，或尝试刷新页面后重试。',
-                          confirmText: '确定',
-                          cancelText: '',
-                          onCancel: undefined
-                        });
-                      }
+                        title: '支付失败',
+                        content: '请在Pi浏览器中打开此应用',
+                        confirmText: '确定',
+                        cancelText: '',
+                        onCancel: undefined
                     });
-                    throw new Error('存在未完成的支付，请先处理');
-                  }
-                  
-                  console.log('正在进行Pi认证...');
-                  const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
-                  console.log('Pi认证成功:', auth);
-                  
-                  if (!auth || !auth.user) {
-                    throw new Error('Pi认证失败，无法获取用户信息');
-                  }
-                  
-                  // 使用Pi SDK创建支付
-                  const paymentData = {
-                    amount: Number(amount),
-                    memo: `充值${amount}积分到投票平台`,
-                    metadata: { 
-                      username: auth.user.username || userInfo.username,
-                      type: 'charge',
-                      amount: Number(amount),
-                      timestamp: new Date().toISOString()
+                    return;
+                }
+
+                // 创建支付请求
+                const paymentData = {
+                    amount: amount,
+                    memo: `充值${amount}积分`,
+                    metadata: {
+                        username: userInfo.username,
+                        type: 'charge',
+                        amount: amount
                     }
-                  };
-                  
-                  console.log('支付数据:', paymentData);
-                  console.log('认证用户:', auth.user.username);
-                  console.log('当前环境: 生产模式');
-                  
-                  const payment = await Pi.createPayment(paymentData, {
-                    // 服务器端审批回调
-                    onReadyForServerApproval: async function(paymentId) {
-                      console.log('支付等待服务器审批:', paymentId);
-                      try {
-                        // 先记录支付信息到数据库
-                        await userAPI.createPayment({
-                          paymentId,
-                          amount: Number(amount),
-                          memo: paymentData.memo,
-                          metadata: paymentData.metadata
-                        });
-                        console.log('支付记录已创建:', paymentId);
-                        
-                        // 调用后端API进行支付审批，传递accessToken
-                        await userAPI.approve(paymentId, auth.accessToken);
-                        console.log('支付审批成功:', paymentId);
-                      } catch (error) {
-                        console.error('支付审批失败:', error);
-                        // 审批失败时显示错误信息
-                        showConfirm({
-                          title: '支付审批失败',
-                          content: error.message || '支付审批失败，请重试',
-                          confirmText: '确定',
-                          cancelText: '',
-                          onCancel: undefined
-                        });
-                      }
+                };
+
+                // 调用Pi SDK创建支付
+                const payment = await window.Pi.createPayment(paymentData, {
+                    onReadyForServerApproval: function(paymentId) {
+                        console.log('支付已创建，等待服务器批准:', paymentId);
+                        // 调用后端API批准支付
+                        approvePaymentOnServer(paymentId, userInfo.username, amount);
                     },
-                    // 服务器端完成回调
-                    onReadyForServerCompletion: async function(paymentId, txid) {
-                      console.log('支付等待服务器完成:', paymentId, txid);
-                      try {
-                        // 调用后端API完成充值，传递accessToken
-                        console.log('使用accessToken完成充值');
-                        await userAPI.complete(paymentId, txid, auth.accessToken);
-                        // 充值后刷新用户信息
-                        const userData = await userAPI.getInfo(userInfo.username);
-                        setUserInfo(userData);
-                        showConfirm({
-                          title: '充值成功',
-                          content: `成功充值 ${amount} 积分！`,
-                          confirmText: '确定',
-                          cancelText: '',
-                          onCancel: undefined
-                        });
-                      } catch (error) {
-                        console.error('充值完成失败:', error);
-                        showConfirm({
-                          title: '充值失败',
-                          content: error.message || '充值完成失败，请重试',
-                          confirmText: '确定',
-                          cancelText: '',
-                          onCancel: undefined
-                        });
-                      }
+                    onReadyForServerCompletion: function(paymentId, txid) {
+                        console.log('支付已批准，等待服务器完成:', paymentId, txid);
+                        // 调用后端API完成支付
+                        completePaymentOnServer(paymentId, txid, userInfo.username, amount);
                     },
-                    // 支付取消回调
                     onCancel: function(paymentId) {
-                      console.log('支付已取消:', paymentId);
-                      showConfirm({
-                        title: '充值取消',
-                        content: '您已取消充值操作',
-                        confirmText: '确定',
-                        cancelText: '',
-                        onCancel: undefined
-                      });
+                        console.log('支付已取消:', paymentId);
+                        showConfirm({
+                            title: '支付取消',
+                            content: '您已取消支付操作',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
                     },
-                    // 支付错误回调
                     onError: function(error, payment) {
-                      console.error('支付错误:', error, payment);
-                      
-                      let errorMessage = error.message || '支付过程中发生错误，请重试';
-                      
-                      // 检查是否是pending payment错误
-                      if (error.message && (error.message.includes('pending') || error.message.includes('incomplete'))) {
-                        errorMessage = '检测到有未完成的支付。\n\n解决方法：\n1. 刷新页面重试\n2. 如果问题持续，请联系客服\n3. 或等待几分钟后重试';
-                      }
-                      
-                      showConfirm({
-                        title: '支付错误',
-                        content: errorMessage,
-                        confirmText: '确定',
-                        cancelText: '',
-                        onCancel: undefined
-                      });
+                        console.error('支付错误:', error, payment);
+                        showConfirm({
+                            title: '支付失败',
+                            content: '支付过程中发生错误，请重试',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
                     }
-                  });
-                  
-                  console.log('Pi支付创建成功:', payment);
-                  
-                } catch (error) {
-                  console.error('创建Pi支付失败:', error);
-                  
-                  let errorMessage = error.message || '创建支付失败';
-                  
-                  // 针对常见错误提供更详细的解决方案
-                  if (error.message && error.message.includes('payments') && error.message.includes('scope')) {
-                    errorMessage = '支付权限错误：请确保在Pi浏览器中打开应用，并且已经正确授权支付权限。\n\n解决步骤：\n1. 确保在Pi浏览器中打开应用\n2. 检查是否已授权支付权限\n3. 重新尝试支付';
-                  } else if (error.message && error.message.includes('SDK')) {
-                    errorMessage = 'Pi SDK错误：请在Pi浏览器中打开此应用';
-                  }
-                  
-                  showConfirm({
-                    title: '充值失败',
-                    content: errorMessage,
+                });
+
+                console.log('支付流程已启动:', payment);
+                
+            } catch (error) {
+                console.error('创建支付失败:', error);
+                showConfirm({
+                    title: '支付失败',
+                    content: '创建支付失败，请重试',
                     confirmText: '确定',
                     cancelText: '',
                     onCancel: undefined
-                  });
+                });
+            }
+        };
+
+        // 服务器批准支付
+        const approvePaymentOnServer = async (paymentId, username, amount) => {
+            try {
+                const response = await fetch('/api/user/approve-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        paymentId: paymentId,
+                        username: username,
+                        amount: amount
+                    })
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.message || '服务器批准支付失败');
                 }
+                console.log('服务器批准支付成功:', result);
+            } catch (error) {
+                console.error('服务器批准支付失败:', error);
+            }
+        };
+
+        // 服务器完成支付
+        const completePaymentOnServer = async (paymentId, txid, username, amount) => {
+            try {
+                const response = await fetch('/api/user/complete-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        paymentId: paymentId,
+                        txid: txid,
+                        username: username,
+                        amount: amount
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    // 刷新用户信息
+                    const userData = await userAPI.getInfo(username);
+                    setUserInfo(userData);
+                    
+                    showConfirm({
+                        title: '充值成功',
+                        content: `成功充值${amount}积分！`,
+                        confirmText: '确定',
+                        cancelText: '',
+                        onCancel: undefined
+                    });
+                } else {
+                    throw new Error(result.message || '服务器完成支付失败');
+                }
+            } catch (error) {
+                console.error('服务器完成支付失败:', error);
+                showConfirm({
+                    title: '充值失败',
+                    content: '支付完成失败，请联系客服',
+                    confirmText: '确定',
+                    cancelText: '',
+                    onCancel: undefined
+                });
             }
         };
 
@@ -1599,23 +1529,17 @@
                     }
                     
                     try {
-                        // 先进行Pi认证获取用户UID
+                        // 获取Pi用户ID用于提现
                         let piUid = '';
-                        if (window.Pi && typeof window.Pi.authenticate === 'function') {
+                        if (typeof window.Pi !== 'undefined') {
                             try {
-                                const scopes = ['username'];
-                                const auth = await Pi.authenticate(scopes, function() {});
-                                if (auth && auth.user && auth.user.uid) {
-                                    piUid = auth.user.uid;
-                                    console.log('获取到Pi用户UID:', piUid);
-                                } else {
-                                    console.warn('Pi认证成功但未获取到UID:', auth);
+                                const authResult = await window.Pi.authenticate(['username'], onIncompletePaymentFound);
+                                if (authResult && authResult.user) {
+                                    piUid = authResult.user.uid || authResult.user.username;
                                 }
-                            } catch (piError) {
-                                console.warn('Pi认证失败，将使用空UID:', piError);
+                            } catch (error) {
+                                console.log('获取Pi用户ID失败，使用空值:', error);
                             }
-                        } else {
-                            console.warn('Pi SDK不可用，将使用空UID');
                         }
                         
                         await userAPI.withdraw(userInfo.username, amount, address, piUid, feeRate);

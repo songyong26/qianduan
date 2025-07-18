@@ -34,10 +34,10 @@ export const userAPI = {
   },
   
   // 充值
-  charge: (username, amount, pi_payment_id) => {
+  charge: (username, amount) => {
     return apiRequest('/user/charge', {
       method: 'POST',
-      body: JSON.stringify({ username, amount, pi_payment_id })
+      body: JSON.stringify({ username, amount })
     });
   },
   
