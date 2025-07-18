@@ -1487,16 +1487,13 @@
                     throw new Error('Pi SDK支付功能不可用');
                 }
                 
-                // 调用Pi SDK创建支付
-                const payment = await window.Pi.createPayment(paymentData, {
+                // 定义支付回调函数
+                const paymentCallbacks = {
                     onReadyForServerApproval: async function(paymentId) {
-
                         try {
                             // 调用后端API批准支付
                             await approvePaymentOnServer(paymentId, userInfo.username, amount);
-
                         } catch (error) {
-
                             showConfirm({
                                 title: '支付失败',
                                 content: '服务器批准支付失败，请重试',
@@ -1507,18 +1504,14 @@
                         }
                     },
                     onReadyForServerCompletion: async function(paymentId, txid) {
-
                         try {
                             // 调用后端API完成支付
                             await completePaymentOnServer(paymentId, txid, userInfo.username, amount);
-
                         } catch (error) {
-
                             // 错误处理已在completePaymentOnServer中处理
                         }
                     },
                     onCancel: function(paymentId) {
-
                         showConfirm({
                             title: '支付取消',
                             content: '您已取消支付操作',
@@ -1575,7 +1568,10 @@
                             onCancel: undefined
                         });
                     }
-                });
+                };
+                
+                // 调用Pi SDK创建支付
+                const payment = await window.Pi.createPayment(paymentData, paymentCallbacks);
                 
             } catch (error) {
                 showConfirm({
