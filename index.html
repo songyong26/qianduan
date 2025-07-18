@@ -1153,16 +1153,19 @@
 
         // Pi SDK未完成支付处理函数
         const onIncompletePaymentFound = (payment) => {
-          console.log('发现未完成的支付:', payment);
-          
+          debugLog('发现未完成的支付: ' + JSON.stringify(payment));
           if (payment && payment.identifier) {
-            console.log('发现未完成支付ID:', payment.identifier);
-            
-            // 不再强制处理，只是记录日志
-            console.log('检测到未完成支付，用户可以选择在充值时清理');
+            showConfirm({
+              title: '发现未完成支付',
+              content: '您有一笔未完成的支付，必须先清理后才能继续充值。是否立即清理？',
+              confirmText: '立即清理',
+              cancelText: '取消',
+              onConfirm: async () => {
+                await handleIncompletePaymentsForUser();
+              },
+              onCancel: undefined
+            });
           }
-          
-          // 直接返回payment，不进行强制处理
           return payment;
         };
         
@@ -1908,7 +1911,7 @@
             let authResult;
             try {
               debugLog('调用Pi.authenticate');
-              authResult = await window.Pi.authenticate(['username', 'payments']);
+              authResult = await window.Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
               debugLog('Pi授权结果: ' + JSON.stringify(authResult));
               alert('Pi授权结果：' + JSON.stringify(authResult));
             } catch (e) {
@@ -2046,7 +2049,7 @@
                   onCancel: undefined
                 });
               }
-            });
+            }, onIncompletePaymentFound);
           } catch (error) {
             debugLog('processPiCharge异常: ' + error.message);
             showConfirm({
