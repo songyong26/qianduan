@@ -112,12 +112,13 @@
     <div id="root"></div>
 
     <script type="text/babel">
-      const { useState, useEffect, FC, SVGProps, ReactNode } = React;
+      const { useState, useEffect } = React;
       
       // 钱包地址格式化函数 - 移除所有格式化逻辑，保持完整显示
       function formatWalletAddress(input) {
         // 不再进行任何格式化，保持钱包地址完整显示
         // 这样确保用户看到的和提交的都是完整地址
+        return input;
       }
       
       // 导入API函数
@@ -183,7 +184,7 @@
              method: 'POST',
              body: JSON.stringify({ paymentId })
            });
-         }
+         },
         withdraw: (username, amount, wallet, piUid, remark) => {
           return apiRequest('/user/withdraw', {
             method: 'POST',
