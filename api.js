@@ -57,6 +57,21 @@ export const userAPI = {
     });
   },
   
+  // 取消支付
+  cancelPayment: (paymentId, username) => {
+    return apiRequest('/user/cancel-payment', {
+      method: 'POST',
+      body: JSON.stringify({ paymentId, username })
+    });
+  },
+  
+  // 处理未完成支付
+  handleIncompletePayments: (username, userUid) => {
+    return apiRequest('/user/handle-incomplete-payments', {
+      method: 'POST',
+      body: JSON.stringify({ username, userUid })
+    });
+  }
 
 };
 
