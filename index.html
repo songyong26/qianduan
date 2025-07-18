@@ -159,44 +159,9 @@
         getInfo: (username) => {
           return apiRequest(`/user/info?username=${encodeURIComponent(username)}`);
         },
-        charge: (username, amount) => {
-      return apiRequest('/user/charge', {
-        method: 'POST',
-        body: JSON.stringify({ username, amount })
-      });
-    },
-        // Pi支付相关API
-         createPayment: (paymentData) => {
-           return apiRequest('/user/create-payment', {
-             method: 'POST',
-             body: JSON.stringify(paymentData)
-           });
-         },
-         approve: (paymentId) => {
-           return apiRequest('/user/approve', {
-             method: 'POST',
-             body: JSON.stringify({ paymentId })
-           });
-         },
-         complete: (paymentId, txid) => {
-           return apiRequest('/user/complete', {
-             method: 'POST',
-             body: JSON.stringify({ paymentId, txid })
-           });
-         },
-         cancel: (paymentId) => {
-           return apiRequest('/user/cancel', {
-             method: 'POST',
-             body: JSON.stringify({ paymentId })
-           });
-         },
-        withdraw: (username, amount, wallet, piUid, remark) => {
-          return apiRequest('/user/withdraw', {
-            method: 'POST',
-            body: JSON.stringify({ username, amount, wallet, piUid, remark, method: 'pi' })
-          });
-        },
-        
+        // 删除所有充值和Pi支付相关API
+        // charge: (username, amount) => {...}
+        // createPayment, approve, complete, cancel, withdraw
       };
       
       // 项目相关API
@@ -1410,296 +1375,6 @@
             });
         };
 
-        const handleCharge = async () => {
-            // 创建充值表单对话框
-            const chargeFormHtml = `
-                <div style="padding: 15px; text-align: center;">
-                    <div style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #fbbf24;">充值金额（积分）</label>
-                        <input type="number" id="chargeAmount" min="1" step="1" 
-                               style="width: 100%; padding: 12px; border: 2px solid #a855f7; border-radius: 8px; font-size: 16px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;" 
-                               placeholder="请输入充值金额" />
-                        <small style="color: #e5e7eb; margin-top: 5px; display: block;">兑换比例：1π币 = 1积分</small>
-                    </div>
-                    <div style="margin-top: 15px; padding: 10px; background: rgba(251, 191, 36, 0.1); border-radius: 6px; border: 1px solid #fbbf24;">
-                        <small style="color: #fbbf24; font-size: 12px; line-height: 1.4;">💡 如果遇到"pending payment"错误，请先点击下方按钮清理未完成支付</small>
-                    </div>
-                </div>
-            `;
-            
-            showConfirm({
-                title: '充值积分',
-                content: chargeFormHtml,
-                confirmText: '确认充值',
-                cancelText: '清理未完成支付',
-                onConfirm: async () => {
-                    const amount = parseInt(document.getElementById('chargeAmount').value);
-                    
-                    if (!amount || amount <= 0) {
-                        showConfirm({
-                            title: '输入错误',
-                            content: '请输入有效的充值金额！',
-                            confirmText: '确定',
-                            cancelText: '',
-                            onCancel: undefined
-                        });
-                        return;
-                    }
-                    
-                    await processChargePayment(amount);
-                },
-                onCancel: async () => {
-                    // 用户选择清理未完成支付
-                    await handleIncompletePaymentsForUser();
-                }
-            });
-        };
-        
-        const processChargePayment = async (amount) => {
-            try {
-                // 检查Pi SDK是否可用
-                if (typeof window.Pi === 'undefined') {
-                    showConfirm({
-                        title: '支付失败',
-                        content: '请在Pi浏览器中打开此应用',
-                        confirmText: '确定',
-                        cancelText: '',
-                        onCancel: undefined
-                    });
-                    return;
-                }
-                
-                // 充值前强制重新认证，确保scope包含payments
-                let authResult;
-                try {
-                    authResult = await window.Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
-                } catch (e) {
-                    showConfirm({
-                        title: '认证失败',
-                        content: '请重新登录并授权Pi支付权限',
-                        confirmText: '确定',
-                        cancelText: '',
-                        onCancel: undefined
-                    });
-                    return;
-                }
-                if (!authResult.scope || !authResult.scope.includes('payments')) {
-                    showConfirm({
-                        title: '权限不足',
-                        content: '请授权Pi支付权限，否则无法充值！',
-                        confirmText: '确定',
-                        cancelText: '',
-                        onCancel: undefined
-                    });
-                    return;
-                }
-                // 检查用户是否已认证
-                if (!userInfo || !userInfo.username) {
-                    showConfirm({
-                        title: '支付失败',
-                        content: '请先登录后再进行充值',
-                        confirmText: '确定',
-                        cancelText: '',
-                        onCancel: undefined
-                    });
-                    return;
-                }
-                
-                // 创建支付请求
-                const paymentData = {
-                    amount: amount,
-                    memo: `充值${amount}积分`,
-                    metadata: {
-                        username: userInfo.username,
-                        type: 'charge',
-                        amount: amount
-                    }
-                };
-                
-                // 检查Pi SDK支付功能是否可用
-                if (typeof window.Pi.createPayment !== 'function') {
-                    throw new Error('Pi SDK支付功能不可用');
-                }
-                
-                // 定义支付回调函数
-                const paymentCallbacks = {
-                    onReadyForServerApproval: async function(paymentId) {
-                        try {
-                            // 调用后端API批准支付
-                            await approvePaymentOnServer(paymentId, userInfo.username, amount);
-                        } catch (error) {
-                            showConfirm({
-                                title: '支付失败',
-                                content: '服务器批准支付失败，请重试',
-                                confirmText: '确定',
-                                cancelText: '',
-                                onCancel: undefined
-                            });
-                        }
-                    },
-                    onReadyForServerCompletion: async function(paymentId, txid) {
-                        try {
-                            // 调用后端API完成支付
-                            await completePaymentOnServer(paymentId, txid, userInfo.username, amount);
-                        } catch (error) {
-                            // 错误处理已在completePaymentOnServer中处理
-                        }
-                    },
-                    onCancel: function(paymentId) {
-                        showConfirm({
-                            title: '支付取消',
-                            content: '您已取消支付操作',
-                            confirmText: '确定',
-                            cancelText: '',
-                            onCancel: undefined
-                        });
-                    },
-                    onError: function(error, payment) {
-                        let errorMessage = '支付过程中发生错误，请重试';
-                        let isPendingPaymentError = false;
-                        
-                        if (error) {
-                            // 检查错误类型
-                            if (typeof error === 'string') {
-                                errorMessage = error;
-                                if (error.includes('pending payment') || error.includes('already have a pending')) {
-                                    isPendingPaymentError = true;
-                                    errorMessage = '您有未完成的支付需要处理。请先清理未完成支付后再试。';
-                                }
-                            } else if (error.message) {
-                                if (error.message.includes('pending payment') || error.message.includes('already have a pending')) {
-                                    isPendingPaymentError = true;
-                                    errorMessage = '您有未完成的支付需要处理。请先清理未完成支付后再试。';
-                                } else if (error.message.includes('insufficient')) {
-                                    errorMessage = 'Pi余额不足，请检查您的Pi钱包余额';
-                                } else if (error.message.includes('network')) {
-                                    errorMessage = '网络连接错误，请检查网络后重试';
-                                } else if (error.message.includes('cancelled')) {
-                                    errorMessage = '支付已取消';
-                                } else if (error.message.includes('user_cancelled')) {
-                                    errorMessage = '用户取消了支付';
-                                } else if (error.message.includes('invalid_amount')) {
-                                    errorMessage = '支付金额无效';
-                                } else if (error.message.includes('payment_not_found')) {
-                                    errorMessage = '支付记录未找到';
-                                } else {
-                                    errorMessage = `支付失败: ${error.message}`;
-                                }
-                            } else if (error.type) {
-                                switch(error.type) {
-                                    case 'user_cancelled':
-                                        errorMessage = '用户取消了支付';
-                                        break;
-                                    case 'payment_error':
-                                        errorMessage = '支付处理错误，请重试';
-                                        break;
-                                    case 'network_error':
-                                        errorMessage = '网络连接错误，请检查网络后重试';
-                                        break;
-                                    default:
-                                        errorMessage = `支付失败: ${error.type}`;
-                                }
-                            }
-                        }
-                        
-                        if (isPendingPaymentError) {
-                            showConfirm({
-                                title: '支付失败',
-                                content: errorMessage,
-                                confirmText: '清理未完成支付',
-                                cancelText: '取消',
-                                onConfirm: () => {
-                                    handleIncompletePaymentsForUser();
-                                },
-                                onCancel: undefined
-                            });
-                        } else {
-                            showConfirm({
-                                title: '支付失败',
-                                content: errorMessage,
-                                confirmText: '确定',
-                                cancelText: '',
-                                onCancel: undefined
-                            });
-                        }
-                    }
-                };
-                
-                // 调用Pi SDK创建支付
-                const payment = await window.Pi.createPayment(paymentData, paymentCallbacks);
-                
-            } catch (error) {
-                showConfirm({
-                    title: '支付失败',
-                    content: `创建支付失败: ${error.message}`,
-                    confirmText: '确定',
-                    cancelText: '',
-                    onCancel: undefined
-                });
-            }
-        };
-
-        // 服务器批准支付
-        const approvePaymentOnServer = async (paymentId, username, amount) => {
-            try {
-                const response = await apiRequest('/user/approve', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        paymentId: paymentId,
-                        username: username,
-                        amount: amount
-                    })
-                });
-
-                if (!response.success) {
-                    throw new Error(response.message || '服务器批准支付失败');
-                }
-
-            } catch (error) {
-                throw error;
-            }
-        };
-
-        // 服务器完成支付
-        const completePaymentOnServer = async (paymentId, txid, username, amount) => {
-            try {
-                const response = await apiRequest('/user/complete', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        paymentId: paymentId,
-                        txid: txid,
-                        username: username,
-                        amount: amount
-                    })
-                });
-
-                if (response.success) {
-                    // 刷新用户信息
-                    const userData = await userAPI.getInfo(username);
-                    setUserInfo(userData);
-                    
-                    showConfirm({
-                        title: '充值成功',
-                        content: `成功充值${amount}积分！`,
-                        confirmText: '确定',
-                        cancelText: '',
-                        onCancel: undefined
-                    });
-                } else {
-                    throw new Error(response.message || '服务器完成支付失败');
-                }
-            } catch (error) {
-                showConfirm({
-                    title: '完成支付错误',
-                    content: `错误详情: ${error.message}`,
-                    confirmText: '确定',
-                    cancelText: '',
-                    onCancel: undefined
-                });
-                throw error;
-            }
-        };
-
         const handleWithdraw = async () => {
             // 统一设置提现手续费为3%
             const feeRate = 0.03;
@@ -2168,6 +1843,166 @@
           setPointsPage(1);
         }, [userInfo.pointDetails]);
 
+        // 在App组件内部添加全新充值支付逻辑
+        const handleChargeNew = async () => {
+          if (!isLoggedIn || !userInfo.username) {
+            showConfirm({
+              title: '请先登录',
+              content: '充值前请先登录账号',
+              confirmText: '确定',
+              cancelText: '',
+              onCancel: undefined
+            });
+            return;
+          }
+          // 弹窗输入金额
+          let inputAmount = '';
+          const chargeFormHtml = `
+            <div style='padding: 15px; text-align: center;'>
+              <label style='display: block; margin-bottom: 8px; font-weight: bold; color: #fbbf24;'>充值金额（积分）</label>
+              <input type='number' id='chargeAmountNew' min='1' step='1' style='width: 100%; padding: 12px; border: 2px solid #a855f7; border-radius: 8px; font-size: 16px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;' placeholder='请输入充值金额' />
+              <small style='color: #e5e7eb; margin-top: 5px; display: block;'>兑换比例：1π币 = 1积分</small>
+            </div>
+          `;
+          showConfirm({
+            title: '充值积分',
+            content: chargeFormHtml,
+            confirmText: '确认充值',
+            cancelText: '取消',
+            onConfirm: async () => {
+              const amount = parseInt(document.getElementById('chargeAmountNew').value);
+              if (!amount || amount <= 0) {
+                showConfirm({
+                  title: '输入错误',
+                  content: '请输入有效的充值金额！',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+              }
+              await processPiCharge(amount);
+            },
+            onCancel: undefined
+          });
+        };
+
+        async function processPiCharge(amount) {
+          try {
+            if (typeof window.Pi === 'undefined') {
+              showConfirm({
+                title: '支付失败',
+                content: '请在Pi浏览器中打开此应用',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+              return;
+            }
+            // 强制scope校验
+            let authResult;
+            try {
+              authResult = await window.Pi.authenticate(['username', 'payments']);
+            } catch (e) {
+              showConfirm({
+                title: '认证失败',
+                content: '请重新登录并授权Pi支付权限',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+              return;
+            }
+            if (!authResult.scope || !authResult.scope.includes('payments')) {
+              showConfirm({
+                title: '权限不足',
+                content: '请授权Pi支付权限，否则无法充值！如多次无弹窗，请在Pi浏览器设置-已授权的应用中移除本应用后再重新登录。',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+              return;
+            }
+            // 构造支付参数
+            const paymentData = {
+              amount: amount,
+              memo: `充值${amount}积分`,
+              metadata: {
+                username: userInfo.username,
+                type: 'charge',
+                amount: amount
+              }
+            };
+            // 检查Pi SDK支付功能
+            if (typeof window.Pi.createPayment !== 'function') {
+              showConfirm({
+                title: '支付失败',
+                content: 'Pi SDK支付功能不可用',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+              return;
+            }
+            // 发起支付
+            window.Pi.createPayment(paymentData, {
+              onReadyForServerApproval: async function(paymentId) {
+                // 可选：可在此处调用后端API记录订单
+              },
+              onReadyForServerCompletion: async function(paymentId, txid) {
+                // 支付完成，刷新用户积分
+                try {
+                  const userData = await userAPI.getInfo(userInfo.username);
+                  setUserInfo(userData);
+                  showConfirm({
+                    title: '充值成功',
+                    content: `成功充值${amount}积分！`,
+                    confirmText: '确定',
+                    cancelText: '',
+                    onCancel: undefined
+                  });
+                } catch (e) {
+                  showConfirm({
+                    title: '充值成功',
+                    content: '积分已到账，但用户信息刷新失败，请手动刷新页面。',
+                    confirmText: '确定',
+                    cancelText: '',
+                    onCancel: undefined
+                  });
+                }
+              },
+              onCancel: function(paymentId) {
+                showConfirm({
+                  title: '支付取消',
+                  content: '您已取消支付操作',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              },
+              onError: function(error, payment) {
+                let errorMessage = '支付过程中发生错误，请重试';
+                if (error && error.message) errorMessage = error.message;
+                showConfirm({
+                  title: '支付失败',
+                  content: errorMessage,
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              }
+            });
+          } catch (error) {
+            showConfirm({
+              title: '支付失败',
+              content: `创建支付失败: ${error.message}`,
+              confirmText: '确定',
+              cancelText: '',
+              onCancel: undefined
+            });
+          }
+        }
+
         return (
           <div className="min-h-screen w-full bg-gradient-to-b from-purple-700 to-purple-900 text-white">
             <div className="w-full max-w-md mx-auto p-4 sm:p-6 flex flex-col space-y-6">
@@ -2252,7 +2087,7 @@
                   )}
                   
                   <div className="flex justify-around items-center pt-2 pb-2">
-                      <button onClick={handleCharge} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">充币</button>
+                      <button onClick={handleChargeNew} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">充币</button>
                       <button onClick={handleLogout} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">退出</button>
                       <button onClick={handleWithdraw} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">提币</button>
                   </div>
