@@ -1190,13 +1190,87 @@
         // Pi SDK未完成支付处理函数
         const onIncompletePaymentFound = (payment) => {
           console.log('发现未完成的支付:', payment);
-          // 处理未完成的支付
+          
           if (payment && payment.identifier) {
             console.log('处理未完成支付ID:', payment.identifier);
-            // 可以在这里添加处理未完成支付的逻辑
-            // 例如：显示提示信息或自动完成支付
+            
+            // 显示未完成支付提示
+            showConfirm({
+              title: '支付失败',
+              content: 'A pending payment needs to be handled.',
+              confirmText: '确定',
+              cancelText: '',
+              onConfirm: () => {
+                // 用户确认后，尝试处理未完成的支付
+                handleIncompletePaymentsForUser();
+              },
+              onCancel: undefined
+            });
           }
+          
           return payment;
+        };
+        
+        // 处理用户的未完成支付
+        const handleIncompletePaymentsForUser = async () => {
+          try {
+            if (!userInfo || !userInfo.username) {
+              console.error('用户信息不完整');
+              return;
+            }
+            
+            // 获取Pi用户信息
+            let piUid = '';
+            if (typeof window.Pi !== 'undefined') {
+              try {
+                const authResult = await window.Pi.authenticate(['username'], () => {});
+                if (authResult && authResult.user) {
+                  piUid = authResult.user.uid || authResult.user.username;
+                }
+              } catch (error) {
+                console.log('获取Pi用户ID失败:', error);
+                return;
+              }
+            }
+            
+            if (!piUid) {
+              console.error('无法获取Pi用户ID');
+              return;
+            }
+            
+            // 调用后端处理未完成支付
+            const response = await apiRequest('/user/handle-incomplete-payments', {
+              method: 'POST',
+              body: JSON.stringify({
+                username: userInfo.username,
+                userUid: piUid
+              })
+            });
+            
+            if (response.success) {
+              console.log('未完成支付处理结果:', response);
+              
+              if (response.processedCount > 0) {
+                // 有支付被处理，刷新用户信息
+                const userData = await userAPI.getInfo(userInfo.username);
+                setUserInfo(userData);
+                
+                showConfirm({
+                  title: '支付处理完成',
+                  content: `成功处理了 ${response.processedCount} 个未完成的支付！`,
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              } else {
+                console.log('没有需要处理的未完成支付');
+              }
+            } else {
+              console.error('处理未完成支付失败:', response.message);
+            }
+          } catch (error) {
+            console.error('处理未完成支付时出错:', error);
+          }
         };
 
         const handleLogin = async () => {
