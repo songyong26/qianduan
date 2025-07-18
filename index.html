@@ -11,7 +11,11 @@
     <!-- Pi SDK -->
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
   <script>
-    Pi.init({ version: "2.0", sandbox: false });
+    Pi.init({ 
+      version: "2.0", 
+      sandbox: false,
+      environment: "production"
+    });
   </script>
     <style>
       body {
@@ -1181,10 +1185,23 @@
           setOpenAccordion(prevId => (prevId === id ? null : id));
         };
 
+        // Pi SDK未完成支付处理函数
+        const onIncompletePaymentFound = (payment) => {
+          console.log('发现未完成的支付:', payment);
+          // 处理未完成的支付
+          if (payment && payment.identifier) {
+            console.log('处理未完成支付ID:', payment.identifier);
+            // 可以在这里添加处理未完成支付的逻辑
+            // 例如：显示提示信息或自动完成支付
+          }
+          return payment;
+        };
+
         const handleLogin = async () => {
           try {
             // 检查Pi SDK是否可用
             if (typeof window.Pi === 'undefined') {
+              console.error('Pi SDK未加载');
               showConfirm({
                 title: '登录失败',
                 content: '请在Pi浏览器中打开此应用',
@@ -1195,9 +1212,14 @@
               return;
             }
 
+            console.log('Pi SDK已加载，开始认证...');
+            console.log('Pi对象:', window.Pi);
+            
             // 使用Pi SDK进行用户认证
             const scopes = ['username', 'payments'];
+            console.log('认证范围:', scopes);
             const authResult = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+            console.log('认证结果:', authResult);
             
             if (authResult && authResult.user) {
               const username = authResult.user.username;
@@ -1240,9 +1262,30 @@
             }
           } catch (error) {
             console.error('Pi认证错误:', error);
+            console.error('错误详情:', {
+              name: error.name,
+              message: error.message,
+              stack: error.stack
+            });
+            
+            let errorMessage = '认证过程中发生错误，请重试';
+            
+            // 根据错误类型提供更具体的错误信息
+            if (error.message) {
+              if (error.message.includes('User denied')) {
+                errorMessage = '用户拒绝了认证请求';
+              } else if (error.message.includes('Network')) {
+                errorMessage = '网络连接错误，请检查网络后重试';
+              } else if (error.message.includes('SDK')) {
+                errorMessage = 'Pi SDK错误，请确保在Pi浏览器中打开';
+              } else {
+                errorMessage = `认证失败: ${error.message}`;
+              }
+            }
+            
             showConfirm({
               title: '登录失败',
-              content: '认证过程中发生错误，请重试',
+              content: errorMessage,
               confirmText: '确定',
               cancelText: '',
               onCancel: undefined
