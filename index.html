@@ -1193,12 +1193,10 @@
           if (payment && payment.identifier) {
             console.log('处理未完成支付ID:', payment.identifier);
             
-            // 静默处理未完成支付，不阻止用户正常充值流程
-            // 只记录日志，不弹出提示
-            console.log('检测到未完成支付，但不阻止用户继续操作');
-            
-            // 可选：在后台静默处理未完成支付
-            // handleIncompletePaymentsForUser();
+            // 主动处理未完成支付
+            setTimeout(() => {
+              handleIncompletePaymentsForUser();
+            }, 1000);
           }
           
           return payment;
@@ -1415,6 +1413,9 @@
                                placeholder="请输入充值金额" />
                         <small style="color: #e5e7eb; margin-top: 5px; display: block;">兑换比例：1π币 = 1积分</small>
                     </div>
+                    <div style="margin-top: 15px; padding: 10px; background: rgba(251, 191, 36, 0.1); border-radius: 6px; border: 1px solid #fbbf24;">
+                        <small style="color: #fbbf24; font-size: 12px; line-height: 1.4;">💡 如果遇到"pending payment"错误，请先点击下方按钮清理未完成支付</small>
+                    </div>
                 </div>
             `;
             
@@ -1422,7 +1423,7 @@
                 title: '充值积分',
                 content: chargeFormHtml,
                 confirmText: '确认充值',
-                cancelText: '取消',
+                cancelText: '清理未完成支付',
                 onConfirm: async () => {
                     const amount = parseInt(document.getElementById('chargeAmount').value);
                     
@@ -1439,8 +1440,9 @@
                     
                     await processChargePayment(amount);
                 },
-                onCancel: () => {
-                    // 用户取消充值操作
+                onCancel: async () => {
+                    // 用户选择清理未完成支付
+                    await handleIncompletePaymentsForUser();
                 }
             });
         };
@@ -1522,13 +1524,21 @@
                     },
                     onError: function(error, payment) {
                         let errorMessage = '支付过程中发生错误，请重试';
+                        let isPendingPaymentError = false;
                         
                         if (error) {
                             // 检查错误类型
                             if (typeof error === 'string') {
                                 errorMessage = error;
+                                if (error.includes('pending payment') || error.includes('already have a pending')) {
+                                    isPendingPaymentError = true;
+                                    errorMessage = '您有未完成的支付需要处理。请先清理未完成支付后再试。';
+                                }
                             } else if (error.message) {
-                                if (error.message.includes('insufficient')) {
+                                if (error.message.includes('pending payment') || error.message.includes('already have a pending')) {
+                                    isPendingPaymentError = true;
+                                    errorMessage = '您有未完成的支付需要处理。请先清理未完成支付后再试。';
+                                } else if (error.message.includes('insufficient')) {
                                     errorMessage = 'Pi余额不足，请检查您的Pi钱包余额';
                                 } else if (error.message.includes('network')) {
                                     errorMessage = '网络连接错误，请检查网络后重试';
@@ -1560,13 +1570,26 @@
                             }
                         }
                         
-                        showConfirm({
-                            title: '支付失败',
-                            content: errorMessage,
-                            confirmText: '确定',
-                            cancelText: '',
-                            onCancel: undefined
-                        });
+                        if (isPendingPaymentError) {
+                            showConfirm({
+                                title: '支付失败',
+                                content: errorMessage,
+                                confirmText: '清理未完成支付',
+                                cancelText: '取消',
+                                onConfirm: () => {
+                                    handleIncompletePaymentsForUser();
+                                },
+                                onCancel: undefined
+                            });
+                        } else {
+                            showConfirm({
+                                title: '支付失败',
+                                content: errorMessage,
+                                confirmText: '确定',
+                                cancelText: '',
+                                onCancel: undefined
+                            });
+                        }
                     }
                 };
                 
