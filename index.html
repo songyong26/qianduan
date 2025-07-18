@@ -1269,6 +1269,7 @@
             
             const authResult = await Promise.race([authPromise, timeoutPromise]);
             console.log('认证结果:', authResult);
+            alert('Pi授权结果：' + JSON.stringify(authResult));
             
             if (authResult && authResult.user) {
               const username = authResult.user.username;
@@ -1903,6 +1904,8 @@
             let authResult;
             try {
               authResult = await window.Pi.authenticate(['username', 'payments']);
+              console.log('Pi授权结果:', authResult);
+              alert('Pi授权结果：' + JSON.stringify(authResult));
             } catch (e) {
               showConfirm({
                 title: '认证失败',
