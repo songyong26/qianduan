@@ -1404,6 +1404,8 @@
                 localStorage.removeItem('userInfo');
                 localStorage.removeItem('participatedProjectIds');
                 localStorage.removeItem('piUid');
+                // 关键：强制刷新页面，彻底恢复未登录界面
+                window.location.reload();
               }
             });
         };
