@@ -1210,22 +1210,18 @@
               return;
             }
             
-            // 获取Pi用户信息
-            let piUid = '';
-            if (typeof window.Pi !== 'undefined') {
-              try {
-                const authResult = await window.Pi.authenticate(['username'], () => {});
-                if (authResult && authResult.user) {
-                  piUid = authResult.user.uid || authResult.user.username;
-                }
-              } catch (error) {
-                console.log('获取Pi用户ID失败:', error);
-                return;
-              }
-            }
+            // 获取Pi用户ID
+            let piUid = userInfo.piUid || localStorage.getItem('piUid');
             
             if (!piUid) {
-              console.error('无法获取Pi用户ID');
+              console.error('无法获取Pi用户ID，请重新登录');
+              showConfirm({
+                title: '错误',
+                content: '无法获取Pi用户ID，请重新登录后再试',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
               return;
             }
             
@@ -1312,16 +1308,20 @@
             
             if (authResult && authResult.user) {
               const username = authResult.user.username;
+              const piUid = authResult.user.uid || authResult.user.username;
               
               try {
                 // 获取用户信息
                 const userData = await userAPI.getInfo(username);
+                // 添加Pi用户ID到用户信息中
+                userData.piUid = piUid;
                 setUserInfo(userData);
                 setIsLoggedIn(true);
                 
                 // 保存登录状态到localStorage
                 localStorage.setItem('isLoggedIn', 'true');
                 localStorage.setItem('userInfo', JSON.stringify(userData));
+                localStorage.setItem('piUid', piUid);
                 
                 showConfirm({
                   title: '登录成功',
