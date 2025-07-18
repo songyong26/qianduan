@@ -168,6 +168,12 @@
             body: JSON.stringify({ paymentId, txid, accessToken })
           });
         },
+        handlePendingPayment: (paymentId, accessToken) => {
+          return apiRequest('/user/handle-pending-payment', {
+            method: 'POST',
+            body: JSON.stringify({ paymentId, accessToken })
+          });
+        },
         withdraw: (username, amount, wallet, piUid, remark) => {
           return apiRequest('/user/withdraw', {
             method: 'POST',
@@ -1442,8 +1448,58 @@
                   
                   let errorMessage = error.message || '创建支付失败';
                   
+                  // 检查是否是pending payment错误
+                  if (error.message && error.message.includes('pending payment')) {
+                    console.log('检测到pending payment错误，尝试处理...');
+                    try {
+                      // 重新认证获取accessToken
+                      const scopes = ['username', 'payments'];
+                      const auth = await Pi.authenticate(scopes, function() {});
+                      
+                      if (auth && auth.accessToken) {
+                        // 调用处理pending payment的API
+                        const result = await userAPI.handlePendingPayment(null, auth.accessToken);
+                        console.log('Pending payment处理结果:', result);
+                        
+                        if (result.status === 'completed') {
+                          // 如果支付已完成，刷新用户信息
+                          const userData = await userAPI.getInfo(userInfo.username);
+                          setUserInfo(userData);
+                          showConfirm({
+                            title: '充值成功',
+                            content: '检测到您有未完成的支付已处理完成，积分已到账！',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                          });
+                          return;
+                        } else if (result.status === 'cancelled') {
+                          showConfirm({
+                            title: '支付已取消',
+                            content: '检测到您有已取消的支付，请重新发起充值。',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                          });
+                          return;
+                        } else {
+                          showConfirm({
+                            title: '处理中',
+                            content: '检测到您有待处理的支付，已尝试处理。请稍后重试充值。',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                          });
+                          return;
+                        }
+                      }
+                    } catch (pendingError) {
+                      console.error('处理pending payment失败:', pendingError);
+                      errorMessage = '检测到您有未完成的支付需要处理，请稍后重试或联系客服。';
+                    }
+                  }
                   // 针对常见错误提供更详细的解决方案
-                  if (error.message && error.message.includes('payments') && error.message.includes('scope')) {
+                  else if (error.message && error.message.includes('payments') && error.message.includes('scope')) {
                     errorMessage = '支付权限错误：请确保在Pi浏览器中打开应用，并且已经正确授权支付权限。\n\n解决步骤：\n1. 确保在Pi浏览器中打开应用\n2. 检查是否已授权支付权限\n3. 重新尝试支付';
                   } else if (error.message && error.message.includes('SDK')) {
                     errorMessage = 'Pi SDK错误：请在Pi浏览器中打开此应用';
@@ -1457,6 +1513,89 @@
                     onCancel: undefined
                   });
                 }
+            }
+        };
+
+        const handlePendingPayment = async () => {
+            try {
+              // 确保Pi SDK可用
+              if (!window.Pi) {
+                showConfirm({
+                  title: '错误',
+                  content: 'Pi SDK未加载，请在Pi浏览器中打开',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+              }
+              
+              console.log('开始处理待处理支付...');
+              
+              // 重新认证获取accessToken
+              const scopes = ['username', 'payments'];
+              const auth = await Pi.authenticate(scopes, function() {});
+              
+              if (!auth || !auth.accessToken) {
+                showConfirm({
+                  title: '认证失败',
+                  content: 'Pi认证失败，无法处理待支付',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+              }
+              
+              // 调用处理pending payment的API
+              const result = await userAPI.handlePendingPayment(null, auth.accessToken);
+              console.log('Pending payment处理结果:', result);
+              
+              if (result.status === 'completed') {
+                // 如果支付已完成，刷新用户信息
+                const userData = await userAPI.getInfo(userInfo.username);
+                setUserInfo(userData);
+                showConfirm({
+                  title: '处理成功',
+                  content: '检测到您有未完成的支付已处理完成，积分已到账！',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              } else if (result.status === 'cancelled') {
+                showConfirm({
+                  title: '支付已取消',
+                  content: '检测到您有已取消的支付记录。',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              } else if (result.status === 'no_pending') {
+                showConfirm({
+                  title: '无待处理支付',
+                  content: '当前没有检测到待处理的支付。',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              } else {
+                showConfirm({
+                  title: '处理中',
+                  content: '检测到您有待处理的支付，已尝试处理。请稍后查看积分变化。',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              }
+            } catch (error) {
+              console.error('处理pending payment失败:', error);
+              showConfirm({
+                title: '处理失败',
+                content: error.message || '处理待支付失败，请稍后重试',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
             }
         };
 
@@ -2021,6 +2160,9 @@
                       <button onClick={handleCharge} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">充币</button>
                       <button onClick={handleLogout} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">退出</button>
                       <button onClick={handleWithdraw} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">提币</button>
+                  </div>
+                  <div className="flex justify-center items-center pt-1 pb-2">
+                      <button onClick={handlePendingPayment} className="bg-orange-600 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-orange-700 transition-colors duration-200 text-sm">处理待支付</button>
                   </div>
                 </>
               ) : (
