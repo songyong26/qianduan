@@ -127,7 +127,7 @@
       }
       
       // 导入API函数
-      const API_BASE = 'https://api.toupiao01.top/api';
+      const API_BASE = 'https://houduan.toupiao01.top/api';
       
       // 通用请求函数
       async function apiRequest(url, options = {}) {
@@ -934,7 +934,7 @@
             
             const connectWebSocket = () => {
               try {
-                ws = new WebSocket('wss://api.toupiao01.top');
+                ws = new WebSocket('wss://houduan.toupiao01.top');
                 
                 // 心跳机制
                 let heartbeatInterval = null;

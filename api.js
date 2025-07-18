@@ -1,5 +1,5 @@
 // API配置文件
-const API_BASE = 'https://api.toupiao01.top/api';
+const API_BASE = 'https://houduan.toupiao01.top/api';
 
 // 通用请求函数
 async function apiRequest(url, options = {}) {
