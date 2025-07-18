@@ -1988,8 +1988,21 @@
               },
               onReadyForServerCompletion: async function(paymentId, txid) {
                 debugLog('onReadyForServerCompletion触发, paymentId=' + paymentId + ', txid=' + txid);
-                // 支付完成，刷新用户积分
                 try {
+                  debugLog('调用complete接口: ' + JSON.stringify({paymentId, txid, username: userInfo.username, amount}));
+                  const resp = await fetch('https://houduan.toupiao01.top/api/user/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      paymentId: paymentId,
+                      txid: txid,
+                      username: userInfo.username,
+                      amount: amount
+                    })
+                  });
+                  const data = await resp.json();
+                  debugLog('complete响应: ' + JSON.stringify(data));
+                  // 支付完成，刷新用户积分
                   const userData = await userAPI.getInfo(userInfo.username);
                   setUserInfo(userData);
                   debugLog('充值成功，积分已刷新');
@@ -2001,7 +2014,7 @@
                     onCancel: undefined
                   });
                 } catch (e) {
-                  debugLog('充值成功但刷新用户信息失败: ' + e.message);
+                  debugLog('complete接口异常: ' + e.message);
                   showConfirm({
                     title: '充值成功',
                     content: '积分已到账，但用户信息刷新失败，请手动刷新页面。',
