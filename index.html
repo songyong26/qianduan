@@ -2046,6 +2046,16 @@
           }
         }
 
+        // 全局调试方法，确保所有流程都能调用
+        function debugLog(msg) {
+          const panel = document.getElementById('debug-panel');
+          if (panel) {
+            panel.style.display = 'block';
+            panel.innerHTML = (new Date().toLocaleTimeString() + ' ' + msg + '<br>') + panel.innerHTML;
+          }
+        }
+        window.debugLog = debugLog;
+
         return (
           <div className="min-h-screen w-full bg-gradient-to-b from-purple-700 to-purple-900 text-white">
             <div className="w-full max-w-md mx-auto p-4 sm:p-6 flex flex-col space-y-6">
