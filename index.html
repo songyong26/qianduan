@@ -1194,18 +1194,12 @@
           if (payment && payment.identifier) {
             console.log('处理未完成支付ID:', payment.identifier);
             
-            // 显示未完成支付提示
-            showConfirm({
-              title: '支付失败',
-              content: 'A pending payment needs to be handled.',
-              confirmText: '确定',
-              cancelText: '',
-              onConfirm: () => {
-                // 用户确认后，尝试处理未完成的支付
-                handleIncompletePaymentsForUser();
-              },
-              onCancel: undefined
-            });
+            // 静默处理未完成支付，不阻止用户正常充值流程
+            // 只记录日志，不弹出提示
+            console.log('检测到未完成支付，但不阻止用户继续操作');
+            
+            // 可选：在后台静默处理未完成支付
+            // handleIncompletePaymentsForUser();
           }
           
           return payment;
