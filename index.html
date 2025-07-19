@@ -1753,7 +1753,6 @@
 
         // 在App组件内部添加全新充值支付逻辑
         const handleChargeNew = async () => {
-          debugLog('点击充值按钮');
           if (!isLoggedIn || !userInfo.username) {
             showConfirm({
               title: '请先登录',
@@ -1780,7 +1779,7 @@
             cancelText: '取消',
             onConfirm: async () => {
               const amount = parseInt(document.getElementById('chargeAmountNew').value);
-              debugLog('充值弹窗确认，输入金额=' + amount);
+              // 充值弹窗确认
               if (!amount || amount <= 0) {
                 showConfirm({
                   title: '输入错误',
@@ -1798,12 +1797,9 @@
         };
 
         async function processPiCharge(amount) {
-          clearDebugLog(); // 清除之前的调试信息
-          debugLog('processPiCharge开始，amount=' + amount);
-          debugLog('Pi SDK版本: ' + (window.Pi && window.Pi.version ? window.Pi.version : '未知'));
+          // 处理Pi充值
           try {
             if (typeof window.Pi === 'undefined') {
-              debugLog('window.Pi未定义');
               showConfirm({
                 title: '支付失败',
                 content: '请在Pi浏览器中打开此应用',
@@ -1816,14 +1812,13 @@
             // 强制scope校验
             let authResult;
             try {
-              debugLog('调用Pi.authenticate');
               
               // 移除了未完成支付处理功能
               
               authResult = await window.Pi.authenticate(['username', 'payments']);
-              debugLog('Pi授权结果: ' + JSON.stringify(authResult));
+              // Pi授权结果
             } catch (e) {
-              debugLog('Pi.authenticate异常: ' + e.message);
+              // Pi.authenticate异常
               showConfirm({
                 title: '认证失败',
                 content: '请重新登录并授权Pi支付权限',
@@ -1834,9 +1829,8 @@
               return;
             }
             const scopes = authResult?.user?.credentials?.scopes || [];
-            debugLog('授权scopes: ' + JSON.stringify(scopes));
+            // 检查授权范围
             if (!scopes.includes('payments')) {
-              debugLog('scopes不包含payments');
               showConfirm({
                 title: '权限不足',
                 content: '请授权Pi支付权限，否则无法充值！如多次无弹窗，请在Pi浏览器设置-已授权的应用中移除本应用后再重新登录。',
@@ -1856,10 +1850,9 @@
                 amount: amount
               }
             };
-            debugLog('准备调用Pi.createPayment, paymentData=' + JSON.stringify(paymentData));
+            // 准备调用Pi.createPayment
             // 检查Pi SDK支付功能
             if (typeof window.Pi.createPayment !== 'function') {
-              debugLog('window.Pi.createPayment未定义');
               showConfirm({
                 title: '支付失败',
                 content: 'Pi SDK支付功能不可用',
@@ -1872,9 +1865,9 @@
             // 发起支付
             window.Pi.createPayment(paymentData, {
               onReadyForServerApproval: async function(paymentId) {
-                debugLog('onReadyForServerApproval触发, paymentId=' + paymentId);
+                // 服务器批准回调
                 try {
-                  debugLog('调用approve接口: ' + JSON.stringify({paymentId, username: userInfo.username, amount}));
+                  // 调用approve接口
                   const resp = await fetch('https://houduan.toupiao01.top/api/user/approve', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1885,11 +1878,11 @@
                     })
                   });
                   const data = await resp.json();
-                  debugLog('approve响应: ' + JSON.stringify(data));
+                  // approve响应
                   
                   // 检查后端响应是否成功
                   if (!data.success) {
-                    debugLog('approve接口返回失败: ' + data.message);
+                    // approve接口返回失败
                     showConfirm({
                       title: '支付批准失败',
                       content: data.message || '服务器批准支付失败，请重试',
@@ -1899,7 +1892,7 @@
                     });
                   }
                 } catch (e) {
-                  debugLog('approve接口异常: ' + e.message);
+                  // approve接口异常
                   showConfirm({
                     title: '支付失败',
                     content: '网络错误或服务器异常，请重试',
@@ -1910,9 +1903,9 @@
                 }
               },
               onReadyForServerCompletion: async function(paymentId, txid) {
-                debugLog('onReadyForServerCompletion触发, paymentId=' + paymentId + ', txid=' + txid);
+                // 服务器完成回调
                 try {
-                  debugLog('调用complete接口: ' + JSON.stringify({paymentId, txid, username: userInfo.username, amount}));
+                  // 调用complete接口
                   const resp = await fetch('https://houduan.toupiao01.top/api/user/complete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1924,14 +1917,14 @@
                     })
                   });
                   const data = await resp.json();
-                  debugLog('complete响应: ' + JSON.stringify(data));
+                  // complete响应
                   
                   // 检查后端响应是否成功
                   if (data.success) {
                     // 支付完成，刷新用户积分
                     const userData = await userAPI.getInfo(userInfo.username);
                     setUserInfo(userData);
-                    debugLog('充值成功，积分已刷新');
+                    // 充值成功，积分已刷新
                     showConfirm({
                       title: '充值成功',
                       content: `成功充值${amount}积分！`,
@@ -1941,7 +1934,7 @@
                     });
                   } else {
                     // 后端处理失败
-                    debugLog('complete接口返回失败: ' + data.message);
+                    // complete接口返回失败
                     showConfirm({
                       title: '支付处理失败',
                       content: data.message || '服务器处理支付时出现错误，请联系客服',
@@ -1951,7 +1944,7 @@
                     });
                   }
                 } catch (e) {
-                  debugLog('complete接口异常: ' + e.message);
+                  // debugLog('complete接口异常: ' + e.message);
                   showConfirm({
                     title: '支付处理失败',
                     content: '网络错误或服务器异常，请稍后重试或联系客服',
@@ -1962,7 +1955,7 @@
                 }
               },
               onCancel: async function(paymentId) {
-                debugLog('onCancel触发, paymentId=' + paymentId);
+                // debugLog('onCancel触发, paymentId=' + paymentId);
                 try {
                   // 调用后端取消支付接口
                   const response = await fetch('https://houduan.toupiao01.top/api/user/cancel-payment', {
@@ -1974,9 +1967,9 @@
                     })
                   });
                   const data = await response.json();
-                  debugLog('取消支付响应: ' + JSON.stringify(data));
+                  // debugLog('取消支付响应: ' + JSON.stringify(data));
                 } catch (e) {
-                  debugLog('取消支付接口异常: ' + e.message);
+                  // debugLog('取消支付接口异常: ' + e.message);
                 }
                 showConfirm({
                   title: '支付取消',
@@ -1987,7 +1980,7 @@
                 });
               },
               onError: function(error, payment) {
-                debugLog('onError触发: ' + (error && error.message));
+                // debugLog('onError触发: ' + (error && error.message));
                 let errorMessage = '支付过程中发生错误，请重试';
                 if (error && error.message) {
                   errorMessage = error.message;
@@ -2006,7 +1999,7 @@
               }
             });
           } catch (error) {
-            debugLog('processPiCharge异常: ' + error.message);
+            // debugLog('processPiCharge异常: ' + error.message);
             showConfirm({
               title: '支付失败',
               content: `创建支付失败: ${error.message}`,
