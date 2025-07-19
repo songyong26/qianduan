@@ -2030,6 +2030,7 @@
             }
             // 发起支付
             window.Pi.createPayment(paymentData, {
+              onIncompletePaymentFound: onIncompletePaymentFound,
               onReadyForServerApproval: async function(paymentId) {
                 debugLog('onReadyForServerApproval触发, paymentId=' + paymentId);
                 try {
