@@ -1151,10 +1151,62 @@
           setOpenAccordion(prevId => (prevId === id ? null : id));
         };
 
-        // 创建一个空的onIncompletePaymentFound函数，避免Pi SDK报错
+        // 创建一个完善的 onIncompletePaymentFound 函数，处理未完成支付
         const onIncompletePaymentFound = (payment) => {
-          debugLog('检测到未完成支付，但已忽略: ' + JSON.stringify(payment));
-          // 直接返回payment，不做任何处理，让用户可以继续充值
+          debugLog('检测到未完成支付: ' + JSON.stringify(payment));
+          showConfirm({
+            title: '检测到未完成支付',
+            content: '您有一笔未完成的充值，请选择继续处理或取消该支付。',
+            confirmText: '继续处理',
+            cancelText: '取消支付',
+            onConfirm: async () => {
+              try {
+                await userAPI.handleIncompletePayments(userInfo.username, userInfo.piUid || userInfo.username);
+                // 处理后刷新用户信息
+                const userData = await userAPI.getInfo(userInfo.username);
+                setUserInfo(userData);
+                showConfirm({
+                  title: '处理成功',
+                  content: '未完成支付已处理，请重新发起充值。',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              } catch (error) {
+                showConfirm({
+                  title: '处理失败',
+                  content: error.message || '处理未完成支付失败，请重试',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              }
+            },
+            onCancel: async () => {
+              try {
+                await userAPI.cancelPayment(payment.identifier || payment.paymentId, userInfo.username);
+                // 取消后刷新用户信息
+                const userData = await userAPI.getInfo(userInfo.username);
+                setUserInfo(userData);
+                showConfirm({
+                  title: '已取消',
+                  content: '未完成支付已取消，请重新发起充值。',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              } catch (error) {
+                showConfirm({
+                  title: '取消失败',
+                  content: error.message || '取消未完成支付失败，请重试',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              }
+            }
+          });
+          // 返回 payment，防止SDK报错
           return payment;
         };
 
