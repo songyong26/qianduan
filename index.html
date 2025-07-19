@@ -1151,8 +1151,7 @@
           setOpenAccordion(prevId => (prevId === id ? null : id));
         };
 
-        // 处理未完成支付的函数
-        // onIncompletePaymentFound函数已内联到Pi SDK调用中
+        // 移除了未完成支付处理功能
 
         const handleLogin = async () => {
           try {
@@ -1191,40 +1190,10 @@
             const scopes = ['username', 'payments'];
             console.log('认证范围:', scopes);
             
-            // 定义未完成支付处理函数
-            const onIncompletePaymentFound = async (payment) => {
-              console.log('检测到未完成支付:', payment);
-              
-              try {
-                // 调用后端处理未完成支付
-                const response = await fetch('https://houduan.toupiao01.top/api/user/handle-incomplete-payments', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    userUid: payment.user_uid || payment.identifier,
-                    username: payment.user_uid || payment.identifier
-                  })
-                });
-                
-                const data = await response.json();
-                console.log('处理未完成支付响应:', data);
-                
-                if (data.success && data.processedCount > 0) {
-                  showConfirm({
-                    title: '支付处理完成',
-                    content: `检测到${data.processedCount}个未完成的支付已处理完成，积分已到账！`,
-                    confirmText: '确定',
-                    cancelText: '',
-                    onCancel: undefined
-                  });
-                }
-              } catch (error) {
-                console.error('处理未完成支付异常:', error);
-              }
-            };
+            // 移除了未完成支付处理功能
             
             // 添加超时处理
-            const authPromise = window.Pi.authenticate(scopes, onIncompletePaymentFound);
+            const authPromise = window.Pi.authenticate(scopes);
             const timeoutPromise = new Promise((_, reject) => {
               setTimeout(() => reject(new Error('认证超时，请重试')), 30000);
             });
@@ -1454,88 +1423,7 @@
             });
         };
 
-        // 自动完成已成功支付函数
-        const handleAutoCompletePayments = async () => {
-            if (!isLoggedIn || !userInfo.username) {
-                showConfirm({
-                    title: '请先登录',
-                    content: '请先登录后再使用此功能',
-                    confirmText: '确定',
-                    cancelText: '',
-                    onCancel: undefined
-                });
-                return;
-            }
-            
-            showConfirm({
-                title: '自动完成支付',
-                content: '此功能将检查您所有未完成的支付，如果Pi官方已经完成但本地未完成的，将自动给您补充积分。是否继续？',
-                confirmText: '开始检查',
-                cancelText: '取消',
-                onConfirm: async () => {
-                    try {
-                        // 获取Pi用户ID
-                        let piUid = '';
-                        if (typeof window.Pi !== 'undefined') {
-                            try {
-                                const authResult = await window.Pi.authenticate(['username', 'payments']);
-                                if (authResult && authResult.user) {
-                                    piUid = authResult.user.uid || authResult.user.username;
-                                }
-                            } catch (error) {
-                                console.log('获取Pi用户ID失败，使用用户名:', error);
-                                piUid = userInfo.username;
-                            }
-                        } else {
-                            piUid = userInfo.username;
-                        }
-                        
-                        // 调用自动完成支付API
-                        const response = await fetch('https://houduan.toupiao01.top/api/user/auto-complete-payments', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                username: userInfo.username,
-                                userUid: piUid
-                            })
-                        });
-                        
-                        const data = await response.json();
-                        
-                        if (data.success) {
-                            // 刷新用户信息
-                            const userData = await userAPI.getInfo(userInfo.username);
-                            setUserInfo(userData);
-                            
-                            showConfirm({
-                                title: '处理完成',
-                                content: `检查完成！${data.summary || ''}${data.completedCount > 0 ? '\n\n积分已自动到账，请查看积分明细。' : ''}`,
-                                confirmText: '确定',
-                                cancelText: '',
-                                onCancel: undefined
-                            });
-                        } else {
-                            showConfirm({
-                                title: '处理失败',
-                                content: data.message || '自动完成支付失败，请重试',
-                                confirmText: '确定',
-                                cancelText: '',
-                                onCancel: undefined
-                            });
-                        }
-                    } catch (error) {
-                        showConfirm({
-                            title: '处理失败',
-                            content: '网络错误或服务器异常: ' + error.message,
-                            confirmText: '确定',
-                            cancelText: '',
-                            onCancel: undefined
-                        });
-                    }
-                },
-                onCancel: undefined
-            });
-        };
+
 
         const handleProjectInputChange = (e) => {
             const { name, value } = e.target;
@@ -1951,43 +1839,9 @@
             try {
               debugLog('调用Pi.authenticate');
               
-              // 定义未完成支付处理函数
-              const onIncompletePaymentFound = async (payment) => {
-                debugLog('检测到未完成支付: ' + JSON.stringify(payment));
-                
-                try {
-                  // 调用后端处理未完成支付
-                  const response = await fetch('https://houduan.toupiao01.top/api/user/handle-incomplete-payments', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      userUid: userInfo.piUid || userInfo.username,
-                      username: userInfo.username
-                    })
-                  });
-                  
-                  const data = await response.json();
-                  debugLog('处理未完成支付响应: ' + JSON.stringify(data));
-                  
-                  if (data.success && data.processedCount > 0) {
-                    // 有支付被处理，刷新用户信息
-                    const userData = await userAPI.getInfo(userInfo.username);
-                    setUserInfo(userData);
-                    
-                    showConfirm({
-                      title: '支付处理完成',
-                      content: `检测到${data.processedCount}个未完成的支付已处理完成，积分已到账！`,
-                      confirmText: '确定',
-                      cancelText: '',
-                      onCancel: undefined
-                    });
-                  }
-                } catch (error) {
-                  debugLog('处理未完成支付异常: ' + error.message);
-                }
-              };
+              // 移除了未完成支付处理功能
               
-              authResult = await window.Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
+              authResult = await window.Pi.authenticate(['username', 'payments']);
               debugLog('Pi授权结果: ' + JSON.stringify(authResult));
             } catch (e) {
               debugLog('Pi.authenticate异常: ' + e.message);
@@ -2159,71 +2013,7 @@
                 if (error && error.message) {
                   errorMessage = error.message;
                   
-                  // 检测是否是pending payment错误
-                  if (errorMessage.toLowerCase().includes('pending payment') || 
-                      errorMessage.toLowerCase().includes('already have') ||
-                      errorMessage.toLowerCase().includes('挂起') ||
-                      errorMessage.toLowerCase().includes('未完成')) {
-                    
-                    // 提供强制清理选项
-                    showConfirm({
-                      title: '检测到挂起支付',
-                      content: '检测到您有未完成的支付记录，这可能阻止新的支付。是否要强制清理所有挂起的支付？',
-                      confirmText: '强制清理',
-                      cancelText: '取消',
-                      onConfirm: async () => {
-                        try {
-                          debugLog('开始强制清理挂起支付...');
-                          
-                          // 调用强制清理API
-                          const response = await fetch('https://houduan.toupiao01.top/api/user/force-cleanup-payments', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              username: userInfo.username,
-                              userUid: authResult.user.uid || authResult.user.username
-                            })
-                          });
-                          
-                          const data = await response.json();
-                          debugLog('强制清理响应: ' + JSON.stringify(data));
-                          
-                          if (data.success) {
-                            showConfirm({
-                              title: '清理完成',
-                              content: `支付清理完成！${data.summary || ''}\n\n现在可以重新尝试充值。`,
-                              confirmText: '重新充值',
-                              cancelText: '稍后再试',
-                              onConfirm: () => {
-                                // 重新尝试充值
-                                setTimeout(() => processPiCharge(amount), 1000);
-                              },
-                              onCancel: undefined
-                            });
-                          } else {
-                            showConfirm({
-                              title: '清理失败',
-                              content: `清理失败: ${data.message || '未知错误'}\n\n请联系客服处理。`,
-                              confirmText: '确定',
-                              cancelText: '',
-                              onCancel: undefined
-                            });
-                          }
-                        } catch (cleanupError) {
-                          debugLog('强制清理异常: ' + cleanupError.message);
-                          showConfirm({
-                            title: '清理异常',
-                            content: `清理过程中发生错误: ${cleanupError.message}`,
-                            confirmText: '确定',
-                            cancelText: '',
-                            onCancel: undefined
-                          });
-                        }
-                      },
-                      onCancel: undefined
-                    });
-                    return; // 不显示默认错误消息
-                  }
+                  // 移除了挂起支付检测功能
                 }
                 
                 // 显示默认错误消息
@@ -2345,9 +2135,6 @@
                       <button onClick={handleChargeNew} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">充币</button>
                       <button onClick={handleLogout} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">退出</button>
                       <button onClick={handleWithdraw} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">提币</button>
-                  </div>
-                  <div className="flex justify-center items-center pt-1 pb-2">
-                      <button onClick={handleAutoCompletePayments} className="bg-green-600 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-green-700 transition-colors duration-200 text-sm">自动完成支付</button>
                   </div>
                 </>
               ) : (

@@ -65,29 +65,7 @@ export const userAPI = {
     });
   },
   
-  // 处理未完成支付
-  handleIncompletePayments: (username, userUid) => {
-    return apiRequest('/user/handle-incomplete-payments', {
-      method: 'POST',
-      body: JSON.stringify({ username, userUid })
-    });
-  },
-  
-  // 强制清理挂起支付
-  forceCleanupPayments: (username, userUid) => {
-    return apiRequest('/user/force-cleanup-payments', {
-      method: 'POST',
-      body: JSON.stringify({ username, userUid })
-    });
-  },
-  
-  // 自动完成已成功支付
-  autoCompletePayments: (username, userUid) => {
-    return apiRequest('/user/auto-complete-payments', {
-      method: 'POST',
-      body: JSON.stringify({ username, userUid })
-    });
-  }
+  // 移除了未完成支付处理和强制清理功能
 
 };
 
