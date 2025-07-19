@@ -1203,7 +1203,6 @@
             
             const authResult = await Promise.race([authPromise, timeoutPromise]);
             console.log('认证结果:', authResult);
-            alert('Pi授权结果：' + JSON.stringify(authResult));
             
             if (authResult && authResult.user) {
               const username = authResult.user.username;
@@ -1844,7 +1843,6 @@
               debugLog('调用Pi.authenticate');
               authResult = await window.Pi.authenticate(['username', 'payments']);
               debugLog('Pi授权结果: ' + JSON.stringify(authResult));
-              alert('Pi授权结果：' + JSON.stringify(authResult));
             } catch (e) {
               debugLog('Pi.authenticate异常: ' + e.message);
               showConfirm({
