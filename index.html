@@ -1454,7 +1454,88 @@
             });
         };
 
-
+        // 自动完成已成功支付函数
+        const handleAutoCompletePayments = async () => {
+            if (!isLoggedIn || !userInfo.username) {
+                showConfirm({
+                    title: '请先登录',
+                    content: '请先登录后再使用此功能',
+                    confirmText: '确定',
+                    cancelText: '',
+                    onCancel: undefined
+                });
+                return;
+            }
+            
+            showConfirm({
+                title: '自动完成支付',
+                content: '此功能将检查您所有未完成的支付，如果Pi官方已经完成但本地未完成的，将自动给您补充积分。是否继续？',
+                confirmText: '开始检查',
+                cancelText: '取消',
+                onConfirm: async () => {
+                    try {
+                        // 获取Pi用户ID
+                        let piUid = '';
+                        if (typeof window.Pi !== 'undefined') {
+                            try {
+                                const authResult = await window.Pi.authenticate(['username', 'payments']);
+                                if (authResult && authResult.user) {
+                                    piUid = authResult.user.uid || authResult.user.username;
+                                }
+                            } catch (error) {
+                                console.log('获取Pi用户ID失败，使用用户名:', error);
+                                piUid = userInfo.username;
+                            }
+                        } else {
+                            piUid = userInfo.username;
+                        }
+                        
+                        // 调用自动完成支付API
+                        const response = await fetch('https://houduan.toupiao01.top/api/user/auto-complete-payments', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                username: userInfo.username,
+                                userUid: piUid
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            // 刷新用户信息
+                            const userData = await userAPI.getInfo(userInfo.username);
+                            setUserInfo(userData);
+                            
+                            showConfirm({
+                                title: '处理完成',
+                                content: `检查完成！${data.summary || ''}${data.completedCount > 0 ? '\n\n积分已自动到账，请查看积分明细。' : ''}`,
+                                confirmText: '确定',
+                                cancelText: '',
+                                onCancel: undefined
+                            });
+                        } else {
+                            showConfirm({
+                                title: '处理失败',
+                                content: data.message || '自动完成支付失败，请重试',
+                                confirmText: '确定',
+                                cancelText: '',
+                                onCancel: undefined
+                            });
+                        }
+                    } catch (error) {
+                        showConfirm({
+                            title: '处理失败',
+                            content: '网络错误或服务器异常: ' + error.message,
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                    }
+                },
+                onCancel: undefined
+            });
+        };
 
         const handleProjectInputChange = (e) => {
             const { name, value } = e.target;
@@ -2264,6 +2345,9 @@
                       <button onClick={handleChargeNew} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">充币</button>
                       <button onClick={handleLogout} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">退出</button>
                       <button onClick={handleWithdraw} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">提币</button>
+                  </div>
+                  <div className="flex justify-center items-center pt-1 pb-2">
+                      <button onClick={handleAutoCompletePayments} className="bg-green-600 text-white font-bold py-2 px-4 rounded-full shadow-md hover:bg-green-700 transition-colors duration-200 text-sm">自动完成支付</button>
                   </div>
                 </>
               ) : (

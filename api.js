@@ -79,6 +79,14 @@ export const userAPI = {
       method: 'POST',
       body: JSON.stringify({ username, userUid })
     });
+  },
+  
+  // 自动完成已成功支付
+  autoCompletePayments: (username, userUid) => {
+    return apiRequest('/user/auto-complete-payments', {
+      method: 'POST',
+      body: JSON.stringify({ username, userUid })
+    });
   }
 
 };
