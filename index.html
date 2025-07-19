@@ -1151,12 +1151,44 @@
           setOpenAccordion(prevId => (prevId === id ? null : id));
         };
 
-        // 创建一个空的onIncompletePaymentFound函数，避免Pi SDK报错
-        const onIncompletePaymentFound = (payment) => {
-          debugLog('检测到未完成支付，但已忽略: ' + JSON.stringify(payment));
-          // 直接返回payment，不做任何处理，让用户可以继续充值
-          return payment;
-        };
+        // 处理未完成支付的函数
+        const onIncompletePaymentFound = async (payment) => {
+          debugLog('检测到未完成支付: ' + JSON.stringify(payment));
+          
+          try {
+            // 调用后端处理未完成支付
+            const response = await fetch('https://houduan.toupiao01.top/api/user/handle-incomplete-payments', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userUid: userInfo.piUid || userInfo.username,
+                username: userInfo.username
+              })
+            });
+            
+            const data = await response.json();
+            debugLog('处理未完成支付响应: ' + JSON.stringify(data));
+            
+            if (data.success && data.processedCount > 0) {
+              // 有支付被处理，刷新用户信息
+              const userData = await userAPI.getInfo(userInfo.username);
+              setUserInfo(userData);
+              
+              showConfirm({
+                title: '支付处理完成',
+                content: `检测到${data.processedCount}个未完成的支付已处理完成，积分已到账！`,
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+            }
+          } catch (error) {
+            debugLog('处理未完成支付异常: ' + error.message);
+          }
+          
+          // 返回payment以继续正常的支付流程
+           return payment;
+         };
 
         const handleLogin = async () => {
           try {
