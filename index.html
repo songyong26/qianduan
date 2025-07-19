@@ -953,7 +953,6 @@
                 let heartbeatInterval = null;
 
                 ws.onopen = () => {
-                  console.log('WebSocket connected');
                   // 连接成功后，如果项目列表为空，则加载初始数据
                   if (projects.length === 0) {
                     loadProjects();
@@ -968,9 +967,7 @@
                     if (ws.readyState === WebSocket.OPEN) {
                       try {
                         ws.send(JSON.stringify({ type: 'ping' }));
-                        console.log('发送心跳消息');
                       } catch (error) {
-                        console.error('发送心跳失败:', error);
                         // 如果发送心跳失败，可能需要重新连接
                         if (ws.readyState === WebSocket.OPEN) {
                           ws.close();
@@ -985,27 +982,21 @@
                     const message = JSON.parse(event.data);
                     const { type, payload } = message;
                     
-                    console.log('收到WebSocket消息:', type, payload?._id || payload?.id, '时间:', new Date().toLocaleTimeString());
-
                     // 处理心跳响应
                     if (type === 'pong') {
-                      console.log('收到心跳响应');
                       return;
                     }
                     
                     // 处理提现状态更新
                     if (type === 'withdrawal_update') {
-                      console.log('收到提现状态更新消息:', payload);
                       // 如果是当前用户的提现更新，刷新用户信息
                       if (payload && payload.username === userInfo.username) {
-                        console.log('当前用户提现状态更新，刷新用户信息');
                         userAPI.getInfo(userInfo.username)
                           .then(userData => {
-                            console.log('用户信息刷新成功:', userData);
                             setUserInfo(userData);
                           })
                           .catch(error => {
-                            console.error('用户信息刷新失败:', error);
+                            // 静默处理错误
                           });
                       }
                       return;
@@ -1013,7 +1004,6 @@
                     
                     // 验证payload是否有效（仅对项目相关消息）
                     if (!payload || (!payload._id && !payload.id)) {
-                      console.warn('WebSocket消息payload无效:', payload);
                       return;
                     }
                     
@@ -1046,7 +1036,6 @@
                           }
                         case 'project_deleted':
                           // 项目被完全删除（只有无参与者的项目才会真正删除）
-                          console.log('项目被完全删除，从列表中移除:', projectId);
                           return prevProjects.filter(p => p._id !== projectId);
                         default:
                           return prevProjects;
@@ -1071,17 +1060,13 @@
                           (payload.participants && payload.participants.includes(userInfo.username));
                         
                         if (isAffectedUser || type === 'project_created') {
-                          console.log(`收到${type}消息，当前用户受影响，刷新用户信息:`, userInfo.username);
                           userAPI.getInfo(userInfo.username)
                             .then(userData => {
-                              console.log('用户信息刷新成功:', userData);
                               setUserInfo(userData);
                             })
                             .catch(error => {
-                              console.error('用户信息刷新失败:', error);
+                              // 静默处理错误
                             });
-                        } else {
-                          console.log(`收到${type}消息，但当前用户未受影响，跳过刷新:`, userInfo.username);
                         }
                       }
                       
@@ -1101,14 +1086,11 @@
                       }
                     }
                   } catch (error) {
-                    console.error('WebSocket消息处理错误:', error);
-                    console.error('原始消息数据:', event.data);
+                    // 静默处理错误
                   }
                 };
 
                 ws.onclose = (event) => {
-                  console.log('WebSocket disconnected:', event.code, event.reason);
-                  
                   // 清除心跳定时器
                   if (heartbeatInterval) {
                     clearInterval(heartbeatInterval);
@@ -1117,17 +1099,14 @@
                   
                   // 如果不是正常关闭，尝试重连
                   if (event.code !== 1000) {
-                    console.log('WebSocket连接异常断开，5秒后尝试重连...');
                     reconnectTimer = setTimeout(connectWebSocket, 5000);
                   }
                 };
 
                 ws.onerror = (error) => {
-                  console.error('WebSocket error:', error);
-                  console.error('WebSocket连接状态:', ws.readyState);
+                  // 静默处理错误
                 };
               } catch (error) {
-                console.error('WebSocket连接失败:', error);
                 // 连接失败，5秒后重试
                 reconnectTimer = setTimeout(connectWebSocket, 5000);
               }
@@ -1194,14 +1173,8 @@
               return;
             }
 
-            console.log('Pi SDK已加载，开始认证...');
-            console.log('Pi对象方法:', Object.keys(window.Pi));
-            console.log('当前URL:', window.location.href);
-            console.log('User Agent:', navigator.userAgent);
-            
             // 使用Pi SDK进行用户认证
             const scopes = ['username', 'payments'];
-            console.log('认证范围:', scopes);
             
             // 移除了未完成支付处理功能
             
@@ -1212,7 +1185,6 @@
             });
             
             const authResult = await Promise.race([authPromise, timeoutPromise]);
-            console.log('认证结果:', authResult);
             
             if (authResult && authResult.user) {
               const username = authResult.user.username;
@@ -1239,7 +1211,6 @@
                   onCancel: undefined
                 });
               } catch (error) {
-                console.error('获取用户信息失败:', error);
                 showConfirm({
                   title: '登录失败',
                   content: '获取用户信息失败，请重试',
@@ -1258,12 +1229,6 @@
               });
             }
           } catch (error) {
-            console.error('Pi认证错误:', error);
-            console.error('错误详情:', {
-              name: error.name,
-              message: error.message,
-              stack: error.stack
-            });
             
             let errorMessage = '认证过程中发生错误，请重试';
             
@@ -1404,7 +1369,7 @@
                                     piUid = authResult.user.uid || authResult.user.username;
                                 }
                             } catch (error) {
-                                console.log('获取Pi用户ID失败，使用空值:', error);
+                                // 获取Pi用户ID失败，使用空值
                             }
                         }
                         
@@ -1431,7 +1396,6 @@
                 },
                 onCancel: () => {
                     // 用户取消提现操作
-                    console.log('用户取消提现操作');
                 }
             });
         };
@@ -2053,26 +2017,7 @@
           }
         }
 
-        // 全局调试方法，确保所有流程都能调用
-        function debugLog(msg) {
-          const panel = document.getElementById('debug-panel');
-          if (panel) {
-            panel.style.display = 'block';
-            panel.innerHTML = (new Date().toLocaleTimeString() + ' ' + msg + '<br>') + panel.innerHTML;
-          }
-        }
-        
-        // 清除调试日志
-        function clearDebugLog() {
-          const panel = document.getElementById('debug-panel');
-          if (panel) {
-            panel.innerHTML = '';
-            panel.style.display = 'none';
-          }
-        }
-        
-        window.debugLog = debugLog;
-        window.clearDebugLog = clearDebugLog;
+
 
         return (
           <div className="min-h-screen w-full bg-gradient-to-b from-purple-700 to-purple-900 text-white">
@@ -2303,31 +2248,7 @@
               </div>
 
             </div>
-            {/* 调试面板 */}
-            <div id="debug-panel" style={{
-              position: 'fixed',
-              bottom: '10px',
-              left: '10px',
-              right: '10px',
-              maxHeight: '200px',
-              backgroundColor: 'rgba(0,0,0,0.8)',
-              color: 'white',
-              padding: '10px',
-              borderRadius: '8px',
-              fontSize: '12px',
-              overflowY: 'auto',
-              zIndex: 9999,
-              display: 'none'
-            }}>
-              <div style={{
-                position: 'absolute',
-                top: '5px',
-                right: '10px',
-                cursor: 'pointer',
-                fontSize: '16px',
-                fontWeight: 'bold'
-              }} onClick={() => clearDebugLog()}>×</div>
-            </div>
+
             {/* 全局确认弹窗 */}
             <ConfirmDialog {...confirmDialog} />
             {/* 公布结果弹窗 */}
