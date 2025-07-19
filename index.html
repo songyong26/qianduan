@@ -1152,43 +1152,7 @@
         };
 
         // 处理未完成支付的函数
-        const onIncompletePaymentFound = async (payment) => {
-          debugLog('检测到未完成支付: ' + JSON.stringify(payment));
-          
-          try {
-            // 调用后端处理未完成支付
-            const response = await fetch('https://houduan.toupiao01.top/api/user/handle-incomplete-payments', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userUid: userInfo.piUid || userInfo.username,
-                username: userInfo.username
-              })
-            });
-            
-            const data = await response.json();
-            debugLog('处理未完成支付响应: ' + JSON.stringify(data));
-            
-            if (data.success && data.processedCount > 0) {
-              // 有支付被处理，刷新用户信息
-              const userData = await userAPI.getInfo(userInfo.username);
-              setUserInfo(userData);
-              
-              showConfirm({
-                title: '支付处理完成',
-                content: `检测到${data.processedCount}个未完成的支付已处理完成，积分已到账！`,
-                confirmText: '确定',
-                cancelText: '',
-                onCancel: undefined
-              });
-            }
-          } catch (error) {
-            debugLog('处理未完成支付异常: ' + error.message);
-          }
-          
-          // 返回payment以继续正常的支付流程
-           return payment;
-         };
+        // onIncompletePaymentFound函数已内联到Pi SDK调用中
 
         const handleLogin = async () => {
           try {
@@ -1227,8 +1191,40 @@
             const scopes = ['username', 'payments'];
             console.log('认证范围:', scopes);
             
+            // 定义未完成支付处理函数
+            const onIncompletePaymentFound = async (payment) => {
+              console.log('检测到未完成支付:', payment);
+              
+              try {
+                // 调用后端处理未完成支付
+                const response = await fetch('https://houduan.toupiao01.top/api/user/handle-incomplete-payments', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    userUid: payment.user_uid || payment.identifier,
+                    username: payment.user_uid || payment.identifier
+                  })
+                });
+                
+                const data = await response.json();
+                console.log('处理未完成支付响应:', data);
+                
+                if (data.success && data.processedCount > 0) {
+                  showConfirm({
+                    title: '支付处理完成',
+                    content: `检测到${data.processedCount}个未完成的支付已处理完成，积分已到账！`,
+                    confirmText: '确定',
+                    cancelText: '',
+                    onCancel: undefined
+                  });
+                }
+              } catch (error) {
+                console.error('处理未完成支付异常:', error);
+              }
+            };
+            
             // 添加超时处理
-            const authPromise = window.Pi.authenticate(scopes);
+            const authPromise = window.Pi.authenticate(scopes, onIncompletePaymentFound);
             const timeoutPromise = new Promise((_, reject) => {
               setTimeout(() => reject(new Error('认证超时，请重试')), 30000);
             });
@@ -1873,7 +1869,44 @@
             let authResult;
             try {
               debugLog('调用Pi.authenticate');
-              authResult = await window.Pi.authenticate(['username', 'payments']);
+              
+              // 定义未完成支付处理函数
+              const onIncompletePaymentFound = async (payment) => {
+                debugLog('检测到未完成支付: ' + JSON.stringify(payment));
+                
+                try {
+                  // 调用后端处理未完成支付
+                  const response = await fetch('https://houduan.toupiao01.top/api/user/handle-incomplete-payments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      userUid: userInfo.piUid || userInfo.username,
+                      username: userInfo.username
+                    })
+                  });
+                  
+                  const data = await response.json();
+                  debugLog('处理未完成支付响应: ' + JSON.stringify(data));
+                  
+                  if (data.success && data.processedCount > 0) {
+                    // 有支付被处理，刷新用户信息
+                    const userData = await userAPI.getInfo(userInfo.username);
+                    setUserInfo(userData);
+                    
+                    showConfirm({
+                      title: '支付处理完成',
+                      content: `检测到${data.processedCount}个未完成的支付已处理完成，积分已到账！`,
+                      confirmText: '确定',
+                      cancelText: '',
+                      onCancel: undefined
+                    });
+                  }
+                } catch (error) {
+                  debugLog('处理未完成支付异常: ' + error.message);
+                }
+              };
+              
+              authResult = await window.Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
               debugLog('Pi授权结果: ' + JSON.stringify(authResult));
             } catch (e) {
               debugLog('Pi.authenticate异常: ' + e.message);
@@ -1924,7 +1957,6 @@
             }
             // 发起支付
             window.Pi.createPayment(paymentData, {
-              onIncompletePaymentFound: onIncompletePaymentFound,
               onReadyForServerApproval: async function(paymentId) {
                 debugLog('onReadyForServerApproval触发, paymentId=' + paymentId);
                 try {
