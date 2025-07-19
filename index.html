@@ -51,34 +51,179 @@
       .all-projects-stats { display: flex; align-items: center; gap: 2rem; color: #fde047; font-weight: bold; font-size: 1.1rem; }
       .all-projects-stats-inner { display: flex; align-items: center; gap: 2rem; color: #fde047; font-weight: bold; font-size: 1.1rem; margin-bottom: 1rem; margin-top: 0; }
       
+      /* 表单样式 */
+      .charge-form-container {
+        padding: 8px;
+        box-sizing: border-box;
+      }
+      
+      .form-group {
+        margin-bottom: 12px;
+      }
+      
+      .form-label {
+        display: block;
+        margin-bottom: 4px;
+        font-weight: bold;
+        color: #fbbf24;
+        font-size: 14px;
+      }
+      
+      .form-input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #a855f7;
+        border-radius: 4px;
+        font-size: 14px;
+        box-sizing: border-box;
+        background: rgba(255,255,255,0.9);
+        color: #1f2937;
+      }
+      
+      .form-input:focus {
+        outline: none;
+        border-color: #7c3aed;
+        box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+      }
+      
+      .form-tips {
+        font-size: 12px;
+        color: #e5e7eb;
+        margin-top: 8px;
+        line-height: 1.4;
+      }
+      
+      .form-tips p {
+        margin: 2px 0;
+      }
+      
       /* 移动设备适配样式 */
-      @media (max-width: 480px) {
+      @media (max-width: 768px) {
+        /* 弹窗容器优化 */
         .fixed.inset-0 {
-          padding: 8px !important;
-        }
-        .bg-purple-800.border.border-purple-400\/60.rounded-2xl {
-          max-width: calc(100vw - 16px) !important;
-          max-height: calc(100vh - 16px) !important;
-          overflow-y: auto !important;
           padding: 12px !important;
+          align-items: flex-start !important;
+          padding-top: 20px !important;
         }
+        
+        /* 弹窗主体优化 */
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl {
+          max-width: calc(100vw - 24px) !important;
+          max-height: calc(100vh - 40px) !important;
+          overflow-y: auto !important;
+          padding: 16px !important;
+          margin: 0 auto !important;
+          width: 100% !important;
+        }
+        
+        /* 标题优化 */
         .bg-purple-800.border.border-purple-400\/60.rounded-2xl h2 {
-          font-size: 16px !important;
-          margin-bottom: 12px !important;
+          font-size: 18px !important;
+          margin-bottom: 16px !important;
+          line-height: 1.3 !important;
         }
+        
+        /* 内容区域优化 */
         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .text-white\/90 {
+          font-size: 14px !important;
+          line-height: 1.5 !important;
+          margin-bottom: 16px !important;
+        }
+        
+        /* 输入框优化 */
+         .bg-purple-800.border.border-purple-400\/60.rounded-2xl input,
+         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-input {
+           font-size: 16px !important;
+           padding: 12px !important;
+           border-radius: 8px !important;
+           border: 2px solid #a855f7 !important;
+           background: rgba(255,255,255,0.95) !important;
+           color: #1f2937 !important;
+           width: 100% !important;
+           box-sizing: border-box !important;
+           margin-bottom: 8px !important;
+         }
+         
+         /* 标签优化 */
+         .bg-purple-800.border.border-purple-400\/60.rounded-2xl label,
+         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-label {
+           font-size: 14px !important;
+           margin-bottom: 8px !important;
+           display: block !important;
+           color: #fbbf24 !important;
+           font-weight: bold !important;
+         }
+         
+         /* 表单组优化 */
+         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-group {
+           margin-bottom: 16px !important;
+         }
+         
+         /* 表单提示优化 */
+         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-tips {
+           font-size: 12px !important;
+           color: #e5e7eb !important;
+           line-height: 1.4 !important;
+           margin-top: 12px !important;
+         }
+        
+        /* 按钮区域优化 */
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl .flex.gap-4 {
+          flex-direction: column !important;
+          gap: 12px !important;
+          margin-top: 20px !important;
+        }
+        
+        /* 按钮优化 */
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl button {
+          padding: 14px !important;
+          font-size: 16px !important;
+          border-radius: 8px !important;
+          font-weight: bold !important;
+          width: 100% !important;
+        }
+        
+        /* 提示文字优化 */
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl small,
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl .text-xs {
           font-size: 12px !important;
           line-height: 1.4 !important;
+          margin-top: 4px !important;
         }
       }
       
-      @media (max-width: 360px) {
+      @media (max-width: 480px) {
         .fixed.inset-0 {
-          padding: 4px !important;
-        }
-        .bg-purple-800.border.border-purple-400\/60.rounded-2xl {
-          max-width: calc(100vw - 8px) !important;
           padding: 8px !important;
+          padding-top: 16px !important;
+        }
+        
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl {
+          max-width: calc(100vw - 16px) !important;
+          padding: 12px !important;
+        }
+        
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl h2 {
+          font-size: 16px !important;
+        }
+        
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl input,
+         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-input {
+           font-size: 16px !important;
+           padding: 10px !important;
+         }
+         
+         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-group {
+           margin-bottom: 12px !important;
+         }
+         
+         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-label {
+           font-size: 13px !important;
+         }
+        
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl button {
+          padding: 12px !important;
+          font-size: 14px !important;
         }
       }
     </style>
@@ -1354,18 +1499,16 @@
 
                 // 创建充值表单对话框
                 const chargeFormHtml = `
-                    <div style="padding: 8px; box-sizing: border-box;">
-                        <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333;">充值金额 (Pi):</label>
-                            <input type="number" id="chargeAmount" min="0.01" step="0.01" placeholder="请输入充值金额" 
-                                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box;" />
+                    <div class="charge-form-container">
+                        <div class="form-group">
+                            <label class="form-label">充值金额 (Pi):</label>
+                            <input type="number" id="chargeAmount" min="0.01" step="0.01" placeholder="请输入充值金额" class="form-input" />
                         </div>
-                        <div style="margin-bottom: 12px;">
-                            <label style="display: block; margin-bottom: 4px; font-weight: bold; color: #333;">备注 (可选):</label>
-                            <input type="text" id="chargeRemark" placeholder="充值备注" 
-                                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box;" />
+                        <div class="form-group">
+                            <label class="form-label">备注 (可选):</label>
+                            <input type="text" id="chargeRemark" placeholder="充值备注" class="form-input" />
                         </div>
-                        <div style="font-size: 12px; color: #666; margin-top: 8px;">
+                        <div class="form-tips">
                             <p>• 充值将通过Pi Network进行</p>
                             <p>• 充值成功后积分将自动到账</p>
                             <p>• 最小充值金额为0.01 Pi</p>
