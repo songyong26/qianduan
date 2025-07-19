@@ -1151,7 +1151,12 @@
           setOpenAccordion(prevId => (prevId === id ? null : id));
         };
 
-
+        // 创建一个空的onIncompletePaymentFound函数，避免Pi SDK报错
+        const onIncompletePaymentFound = (payment) => {
+          debugLog('检测到未完成支付，但已忽略: ' + JSON.stringify(payment));
+          // 直接返回payment，不做任何处理，让用户可以继续充值
+          return payment;
+        };
 
         const handleLogin = async () => {
           try {
@@ -1889,6 +1894,7 @@
             }
             // 发起支付
             window.Pi.createPayment(paymentData, {
+              onIncompletePaymentFound: onIncompletePaymentFound,
               onReadyForServerApproval: async function(paymentId) {
                 debugLog('onReadyForServerApproval触发, paymentId=' + paymentId);
                 try {
