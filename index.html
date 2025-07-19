@@ -159,9 +159,22 @@
         getInfo: (username) => {
           return apiRequest(`/user/info?username=${encodeURIComponent(username)}`);
         },
-        // 删除所有充值和Pi支付相关API
-        // charge: (username, amount) => {...}
-        // createPayment, approve, complete, cancel, withdraw
+        
+        // 提现
+        withdraw: (username, amount, wallet, piUid, feeRate, remark = '') => {
+          return apiRequest('/user/withdraw', {
+            method: 'POST',
+            body: JSON.stringify({ 
+              username, 
+              amount, 
+              wallet, // 收币地址
+              piUid,
+              feeRate, // 手续费率
+              remark,
+              method: 'pi'
+            })
+          });
+        }
       };
       
       // 项目相关API
