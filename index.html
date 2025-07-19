@@ -1821,7 +1821,9 @@
         };
 
         async function processPiCharge(amount) {
+          clearDebugLog(); // 清除之前的调试信息
           debugLog('processPiCharge开始，amount=' + amount);
+          debugLog('Pi SDK版本: ' + (window.Pi && window.Pi.version ? window.Pi.version : '未知'));
           try {
             if (typeof window.Pi === 'undefined') {
               debugLog('window.Pi未定义');
@@ -2046,7 +2048,18 @@
             panel.innerHTML = (new Date().toLocaleTimeString() + ' ' + msg + '<br>') + panel.innerHTML;
           }
         }
+        
+        // 清除调试日志
+        function clearDebugLog() {
+          const panel = document.getElementById('debug-panel');
+          if (panel) {
+            panel.innerHTML = '';
+            panel.style.display = 'none';
+          }
+        }
+        
         window.debugLog = debugLog;
+        window.clearDebugLog = clearDebugLog;
 
         return (
           <div className="min-h-screen w-full bg-gradient-to-b from-purple-700 to-purple-900 text-white">
@@ -2276,6 +2289,31 @@
                   </AccordionItem>
               </div>
 
+            </div>
+            {/* 调试面板 */}
+            <div id="debug-panel" style={{
+              position: 'fixed',
+              bottom: '10px',
+              left: '10px',
+              right: '10px',
+              maxHeight: '200px',
+              backgroundColor: 'rgba(0,0,0,0.8)',
+              color: 'white',
+              padding: '10px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              overflowY: 'auto',
+              zIndex: 9999,
+              display: 'none'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '5px',
+                right: '10px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold'
+              }} onClick={() => clearDebugLog()}>×</div>
             </div>
             {/* 全局确认弹窗 */}
             <ConfirmDialog {...confirmDialog} />
