@@ -2075,7 +2075,77 @@
               onError: function(error, payment) {
                 debugLog('onError触发: ' + (error && error.message));
                 let errorMessage = '支付过程中发生错误，请重试';
-                if (error && error.message) errorMessage = error.message;
+                if (error && error.message) {
+                  errorMessage = error.message;
+                  
+                  // 检测是否是pending payment错误
+                  if (errorMessage.toLowerCase().includes('pending payment') || 
+                      errorMessage.toLowerCase().includes('already have') ||
+                      errorMessage.toLowerCase().includes('挂起') ||
+                      errorMessage.toLowerCase().includes('未完成')) {
+                    
+                    // 提供强制清理选项
+                    showConfirm({
+                      title: '检测到挂起支付',
+                      content: '检测到您有未完成的支付记录，这可能阻止新的支付。是否要强制清理所有挂起的支付？',
+                      confirmText: '强制清理',
+                      cancelText: '取消',
+                      onConfirm: async () => {
+                        try {
+                          debugLog('开始强制清理挂起支付...');
+                          
+                          // 调用强制清理API
+                          const response = await fetch('https://houduan.toupiao01.top/api/user/force-cleanup-payments', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              username: userInfo.username,
+                              userUid: authResult.user.uid || authResult.user.username
+                            })
+                          });
+                          
+                          const data = await response.json();
+                          debugLog('强制清理响应: ' + JSON.stringify(data));
+                          
+                          if (data.success) {
+                            showConfirm({
+                              title: '清理完成',
+                              content: `支付清理完成！${data.summary || ''}\n\n现在可以重新尝试充值。`,
+                              confirmText: '重新充值',
+                              cancelText: '稍后再试',
+                              onConfirm: () => {
+                                // 重新尝试充值
+                                setTimeout(() => processPiCharge(amount), 1000);
+                              },
+                              onCancel: undefined
+                            });
+                          } else {
+                            showConfirm({
+                              title: '清理失败',
+                              content: `清理失败: ${data.message || '未知错误'}\n\n请联系客服处理。`,
+                              confirmText: '确定',
+                              cancelText: '',
+                              onCancel: undefined
+                            });
+                          }
+                        } catch (cleanupError) {
+                          debugLog('强制清理异常: ' + cleanupError.message);
+                          showConfirm({
+                            title: '清理异常',
+                            content: `清理过程中发生错误: ${cleanupError.message}`,
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                          });
+                        }
+                      },
+                      onCancel: undefined
+                    });
+                    return; // 不显示默认错误消息
+                  }
+                }
+                
+                // 显示默认错误消息
                 showConfirm({
                   title: '支付失败',
                   content: errorMessage,

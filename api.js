@@ -71,6 +71,14 @@ export const userAPI = {
       method: 'POST',
       body: JSON.stringify({ username, userUid })
     });
+  },
+  
+  // 强制清理挂起支付
+  forceCleanupPayments: (username, userUid) => {
+    return apiRequest('/user/force-cleanup-payments', {
+      method: 'POST',
+      body: JSON.stringify({ username, userUid })
+    });
   }
 
 };
