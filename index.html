@@ -1867,6 +1867,48 @@
               });
               return;
             }
+            // 先调用后端创建支付记录
+            debugLog('调用后端createPayment接口');
+            let backendPaymentId;
+            try {
+              const createResp = await fetch('https://houduan.toupiao01.top/api/user/create-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  username: userInfo.username,
+                  amount: amount,
+                  memo: `充值${amount}积分`
+                })
+              });
+              const createData = await createResp.json();
+              debugLog('createPayment响应: ' + JSON.stringify(createData));
+              
+              if (!createData.success) {
+                debugLog('createPayment接口返回失败: ' + createData.message);
+                showConfirm({
+                  title: '创建支付失败',
+                  content: createData.message || '创建支付记录失败，请重试',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+              }
+              
+              backendPaymentId = createData.paymentId;
+              debugLog('后端支付记录创建成功，paymentId: ' + backendPaymentId);
+            } catch (e) {
+              debugLog('createPayment接口异常: ' + e.message);
+              showConfirm({
+                title: '创建支付失败',
+                content: '网络错误或服务器异常，请重试',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+              return;
+            }
+            
             // 构造支付参数
             const paymentData = {
               amount: amount,
@@ -1874,7 +1916,8 @@
               metadata: {
                 username: userInfo.username,
                 type: 'charge',
-                amount: amount
+                amount: amount,
+                backendPaymentId: backendPaymentId
               }
             };
             debugLog('准备调用Pi.createPayment, paymentData=' + JSON.stringify(paymentData));
@@ -1892,15 +1935,15 @@
             }
             // 发起支付
             window.Pi.createPayment(paymentData, {
-              onReadyForServerApproval: async function(paymentId) {
-                debugLog('onReadyForServerApproval触发, paymentId=' + paymentId);
+              onReadyForServerApproval: async function(piPaymentId) {
+                debugLog('onReadyForServerApproval触发, Pi paymentId=' + piPaymentId + ', 后端paymentId=' + backendPaymentId);
                 try {
-                  debugLog('调用approve接口: ' + JSON.stringify({paymentId, username: userInfo.username, amount}));
+                  debugLog('调用approve接口: ' + JSON.stringify({paymentId: backendPaymentId, username: userInfo.username, amount}));
                   const resp = await fetch('https://houduan.toupiao01.top/api/user/approve', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      paymentId: paymentId,
+                      paymentId: backendPaymentId, // 使用后端创建的paymentId
                       username: userInfo.username,
                       amount: amount
                     })
@@ -1930,15 +1973,15 @@
                   });
                 }
               },
-              onReadyForServerCompletion: async function(paymentId, txid) {
-                debugLog('onReadyForServerCompletion触发, paymentId=' + paymentId + ', txid=' + txid);
+              onReadyForServerCompletion: async function(piPaymentId, txid) {
+                debugLog('onReadyForServerCompletion触发, Pi paymentId=' + piPaymentId + ', txid=' + txid + ', 后端paymentId=' + backendPaymentId);
                 try {
-                  debugLog('调用complete接口: ' + JSON.stringify({paymentId, txid, username: userInfo.username, amount}));
+                  debugLog('调用complete接口: ' + JSON.stringify({paymentId: backendPaymentId, txid, username: userInfo.username, amount}));
                   const resp = await fetch('https://houduan.toupiao01.top/api/user/complete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      paymentId: paymentId,
+                      paymentId: backendPaymentId, // 使用后端创建的paymentId
                       txid: txid,
                       username: userInfo.username,
                       amount: amount
@@ -1982,15 +2025,15 @@
                   });
                 }
               },
-              onCancel: async function(paymentId) {
-                debugLog('onCancel触发, paymentId=' + paymentId);
+              onCancel: async function(piPaymentId) {
+                debugLog('onCancel触发, Pi paymentId=' + piPaymentId + ', 后端paymentId=' + backendPaymentId);
                 try {
                   // 调用后端取消支付接口
                   const response = await fetch('https://houduan.toupiao01.top/api/user/cancel-payment', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      paymentId: paymentId,
+                      paymentId: backendPaymentId, // 使用后端创建的paymentId
                       username: userInfo.username
                     })
                   });
