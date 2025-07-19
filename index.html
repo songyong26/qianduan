@@ -51,179 +51,34 @@
       .all-projects-stats { display: flex; align-items: center; gap: 2rem; color: #fde047; font-weight: bold; font-size: 1.1rem; }
       .all-projects-stats-inner { display: flex; align-items: center; gap: 2rem; color: #fde047; font-weight: bold; font-size: 1.1rem; margin-bottom: 1rem; margin-top: 0; }
       
-      /* 表单样式 */
-      .charge-form-container {
-        padding: 8px;
-        box-sizing: border-box;
-      }
-      
-      .form-group {
-        margin-bottom: 12px;
-      }
-      
-      .form-label {
-        display: block;
-        margin-bottom: 4px;
-        font-weight: bold;
-        color: #fbbf24;
-        font-size: 14px;
-      }
-      
-      .form-input {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #a855f7;
-        border-radius: 4px;
-        font-size: 14px;
-        box-sizing: border-box;
-        background: rgba(255,255,255,0.9);
-        color: #1f2937;
-      }
-      
-      .form-input:focus {
-        outline: none;
-        border-color: #7c3aed;
-        box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
-      }
-      
-      .form-tips {
-        font-size: 12px;
-        color: #e5e7eb;
-        margin-top: 8px;
-        line-height: 1.4;
-      }
-      
-      .form-tips p {
-        margin: 2px 0;
-      }
-      
       /* 移动设备适配样式 */
-      @media (max-width: 768px) {
-        /* 弹窗容器优化 */
-        .fixed.inset-0 {
-          padding: 12px !important;
-          align-items: flex-start !important;
-          padding-top: 20px !important;
-        }
-        
-        /* 弹窗主体优化 */
-        .bg-purple-800.border.border-purple-400\/60.rounded-2xl {
-          max-width: calc(100vw - 24px) !important;
-          max-height: calc(100vh - 40px) !important;
-          overflow-y: auto !important;
-          padding: 16px !important;
-          margin: 0 auto !important;
-          width: 100% !important;
-        }
-        
-        /* 标题优化 */
-        .bg-purple-800.border.border-purple-400\/60.rounded-2xl h2 {
-          font-size: 18px !important;
-          margin-bottom: 16px !important;
-          line-height: 1.3 !important;
-        }
-        
-        /* 内容区域优化 */
-        .bg-purple-800.border.border-purple-400\/60.rounded-2xl .text-white\/90 {
-          font-size: 14px !important;
-          line-height: 1.5 !important;
-          margin-bottom: 16px !important;
-        }
-        
-        /* 输入框优化 */
-         .bg-purple-800.border.border-purple-400\/60.rounded-2xl input,
-         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-input {
-           font-size: 16px !important;
-           padding: 12px !important;
-           border-radius: 8px !important;
-           border: 2px solid #a855f7 !important;
-           background: rgba(255,255,255,0.95) !important;
-           color: #1f2937 !important;
-           width: 100% !important;
-           box-sizing: border-box !important;
-           margin-bottom: 8px !important;
-         }
-         
-         /* 标签优化 */
-         .bg-purple-800.border.border-purple-400\/60.rounded-2xl label,
-         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-label {
-           font-size: 14px !important;
-           margin-bottom: 8px !important;
-           display: block !important;
-           color: #fbbf24 !important;
-           font-weight: bold !important;
-         }
-         
-         /* 表单组优化 */
-         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-group {
-           margin-bottom: 16px !important;
-         }
-         
-         /* 表单提示优化 */
-         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-tips {
-           font-size: 12px !important;
-           color: #e5e7eb !important;
-           line-height: 1.4 !important;
-           margin-top: 12px !important;
-         }
-        
-        /* 按钮区域优化 */
-        .bg-purple-800.border.border-purple-400\/60.rounded-2xl .flex.gap-4 {
-          flex-direction: column !important;
-          gap: 12px !important;
-          margin-top: 20px !important;
-        }
-        
-        /* 按钮优化 */
-        .bg-purple-800.border.border-purple-400\/60.rounded-2xl button {
-          padding: 14px !important;
-          font-size: 16px !important;
-          border-radius: 8px !important;
-          font-weight: bold !important;
-          width: 100% !important;
-        }
-        
-        /* 提示文字优化 */
-        .bg-purple-800.border.border-purple-400\/60.rounded-2xl small,
-        .bg-purple-800.border.border-purple-400\/60.rounded-2xl .text-xs {
-          font-size: 12px !important;
-          line-height: 1.4 !important;
-          margin-top: 4px !important;
-        }
-      }
-      
       @media (max-width: 480px) {
         .fixed.inset-0 {
           padding: 8px !important;
-          padding-top: 16px !important;
         }
-        
         .bg-purple-800.border.border-purple-400\/60.rounded-2xl {
           max-width: calc(100vw - 16px) !important;
+          max-height: calc(100vh - 16px) !important;
+          overflow-y: auto !important;
           padding: 12px !important;
         }
-        
         .bg-purple-800.border.border-purple-400\/60.rounded-2xl h2 {
           font-size: 16px !important;
+          margin-bottom: 12px !important;
         }
-        
-        .bg-purple-800.border.border-purple-400\/60.rounded-2xl input,
-         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-input {
-           font-size: 16px !important;
-           padding: 10px !important;
-         }
-         
-         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-group {
-           margin-bottom: 12px !important;
-         }
-         
-         .bg-purple-800.border.border-purple-400\/60.rounded-2xl .form-label {
-           font-size: 13px !important;
-         }
-        
-        .bg-purple-800.border.border-purple-400\/60.rounded-2xl button {
-          padding: 12px !important;
-          font-size: 14px !important;
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl .text-white\/90 {
+          font-size: 12px !important;
+          line-height: 1.4 !important;
+        }
+      }
+      
+      @media (max-width: 360px) {
+        .fixed.inset-0 {
+          padding: 4px !important;
+        }
+        .bg-purple-800.border.border-purple-400\/60.rounded-2xl {
+          max-width: calc(100vw - 8px) !important;
+          padding: 8px !important;
         }
       }
     </style>
@@ -304,44 +159,9 @@
         getInfo: (username) => {
           return apiRequest(`/user/info?username=${encodeURIComponent(username)}`);
         },
-        
-        // 充值相关API
-        approvePayment: (paymentId, username) => {
-          return apiRequest('/user/approve', {
-            method: 'POST',
-            body: JSON.stringify({ paymentId, username })
-          });
-        },
-        
-        completePayment: (paymentId, txid, username) => {
-          return apiRequest('/user/complete', {
-            method: 'POST',
-            body: JSON.stringify({ paymentId, txid, username })
-          });
-        },
-        
-        cancelPayment: (paymentId, username) => {
-          return apiRequest('/user/cancel', {
-            method: 'POST',
-            body: JSON.stringify({ paymentId, username })
-          });
-        },
-        
-        // 提现
-        withdraw: (username, amount, wallet, piUid, feeRate, remark = '') => {
-          return apiRequest('/user/withdraw', {
-            method: 'POST',
-            body: JSON.stringify({ 
-              username, 
-              amount, 
-              wallet,
-              piUid,
-              feeRate,
-              remark,
-              method: 'pi'
-            })
-          });
-        }
+        // 删除所有充值和Pi支付相关API
+        // charge: (username, amount) => {...}
+        // createPayment, approve, complete, cancel, withdraw
       };
       
       // 项目相关API
@@ -1331,7 +1151,12 @@
           setOpenAccordion(prevId => (prevId === id ? null : id));
         };
 
-
+        // 创建一个空的onIncompletePaymentFound函数，避免Pi SDK报错
+        const onIncompletePaymentFound = (payment) => {
+          debugLog('检测到未完成支付，但已忽略: ' + JSON.stringify(payment));
+          // 直接返回payment，不做任何处理，让用户可以继续充值
+          return payment;
+        };
 
         const handleLogin = async () => {
           try {
@@ -1483,155 +1308,6 @@
                 window.location.reload();
               }
             });
-        };
-
-        const handleCharge = async () => {
-            try {
-                // 检查Pi SDK是否可用
-                if (typeof window.Pi === 'undefined') {
-                    showConfirm({
-                        title: '充值失败',
-                        content: '请在Pi浏览器中打开此应用',
-                        confirmText: '确定'
-                    });
-                    return;
-                }
-
-                // 创建充值表单对话框
-                const chargeFormHtml = `
-                    <div class="charge-form-container">
-                        <div class="form-group">
-                            <label class="form-label">充值金额 (Pi):</label>
-                            <input type="number" id="chargeAmount" min="0.01" step="0.01" placeholder="请输入充值金额" class="form-input" />
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">备注 (可选):</label>
-                            <input type="text" id="chargeRemark" placeholder="充值备注" class="form-input" />
-                        </div>
-                        <div class="form-tips">
-                            <p>• 充值将通过Pi Network进行</p>
-                            <p>• 充值成功后积分将自动到账</p>
-                            <p>• 最小充值金额为0.01 Pi</p>
-                        </div>
-                    </div>
-                `;
-
-                showConfirm({
-                    title: '充值积分',
-                    content: chargeFormHtml,
-                    confirmText: '确认充值',
-                    onConfirm: async () => {
-                        const amount = parseFloat(document.getElementById('chargeAmount').value);
-                        const remark = document.getElementById('chargeRemark').value.trim() || '用户充值';
-
-                        if (!amount || amount <= 0) {
-                            showConfirm({
-                                title: '输入错误',
-                                content: '请输入有效的充值金额',
-                                confirmText: '确定'
-                            });
-                            return;
-                        }
-
-                        if (amount < 0.01) {
-                            showConfirm({
-                                title: '充值金额过小',
-                                content: '最小充值金额为0.01 Pi',
-                                confirmText: '确定'
-                            });
-                            return;
-                        }
-
-                        try {
-                            // 使用Pi SDK创建支付
-                            const paymentData = {
-                                amount: amount,
-                                memo: remark,
-                                metadata: {
-                                    username: userInfo.username,
-                                    type: 'charge'
-                                }
-                            };
-
-                            console.log('创建支付请求:', paymentData);
-                            const payment = await window.Pi.createPayment(paymentData, {
-                                onReadyForServerApproval: function(paymentId) {
-                                    console.log('支付已创建，等待服务器批准:', paymentId);
-                                    // 调用后端API批准支付
-                                    userAPI.approvePayment(paymentId, userInfo.username)
-                                        .then(() => {
-                                            console.log('支付已批准');
-                                        })
-                                        .catch(error => {
-                                            console.error('批准支付失败:', error);
-                                        });
-                                },
-                                onReadyForServerCompletion: function(paymentId, txid) {
-                                    console.log('支付已完成，交易ID:', txid);
-                                    // 调用后端API完成支付
-                                    userAPI.completePayment(paymentId, txid, userInfo.username)
-                                        .then(() => {
-                                            console.log('支付处理完成');
-                                            // 刷新用户信息
-                                            return userAPI.getInfo(userInfo.username);
-                                        })
-                                        .then(userData => {
-                                            setUserInfo(userData);
-                                            showConfirm({
-                                                title: '充值成功',
-                                                content: `成功充值 ${amount} Pi，积分已到账！`,
-                                                confirmText: '确定'
-                                            });
-                                        })
-                                        .catch(error => {
-                                            console.error('完成支付失败:', error);
-                                            showConfirm({
-                                                title: '充值处理失败',
-                                                content: '支付已完成但处理失败，请联系客服',
-                                                confirmText: '确定'
-                                            });
-                                        });
-                                },
-                                onCancel: function(paymentId) {
-                                    console.log('支付已取消:', paymentId);
-                                    // 调用后端API取消支付
-                                    userAPI.cancelPayment(paymentId, userInfo.username)
-                                        .catch(error => {
-                                            console.error('取消支付失败:', error);
-                                        });
-                                },
-                                onError: function(error, payment) {
-                                    console.error('支付错误:', error, payment);
-                                    showConfirm({
-                                        title: '充值失败',
-                                        content: `支付过程中发生错误: ${error.message || '未知错误'}`,
-                                        confirmText: '确定'
-                                    });
-                                }
-                            });
-
-                            console.log('支付创建成功:', payment);
-
-                        } catch (error) {
-                            console.error('创建支付失败:', error);
-                            showConfirm({
-                                title: '充值失败',
-                                content: `创建支付失败: ${error.message || '未知错误'}`,
-                                confirmText: '确定'
-                            });
-                        }
-                    },
-                    cancelText: '取消'
-                });
-
-            } catch (error) {
-                console.error('充值过程错误:', error);
-                showConfirm({
-                    title: '充值失败',
-                    content: '充值过程中发生错误，请重试',
-                    confirmText: '确定'
-                });
-            }
         };
 
         const handleWithdraw = async () => {
@@ -2102,9 +1778,236 @@
           setPointsPage(1);
         }, [userInfo.pointDetails]);
 
+        // 在App组件内部添加全新充值支付逻辑
+        const handleChargeNew = async () => {
+          debugLog('点击充值按钮');
+          if (!isLoggedIn || !userInfo.username) {
+            showConfirm({
+              title: '请先登录',
+              content: '充值前请先登录账号',
+              confirmText: '确定',
+              cancelText: '',
+              onCancel: undefined
+            });
+            return;
+          }
+          // 弹窗输入金额
+          let inputAmount = '';
+          const chargeFormHtml = `
+            <div style='padding: 15px; text-align: center;'>
+              <label style='display: block; margin-bottom: 8px; font-weight: bold; color: #fbbf24;'>充值金额（积分）</label>
+              <input type='number' id='chargeAmountNew' min='1' step='1' style='width: 100%; padding: 12px; border: 2px solid #a855f7; border-radius: 8px; font-size: 16px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937;' placeholder='请输入充值金额' />
+              <small style='color: #e5e7eb; margin-top: 5px; display: block;'>兑换比例：1π币 = 1积分</small>
+            </div>
+          `;
+          showConfirm({
+            title: '充值积分',
+            content: chargeFormHtml,
+            confirmText: '确认充值',
+            cancelText: '取消',
+            onConfirm: async () => {
+              const amount = parseInt(document.getElementById('chargeAmountNew').value);
+              debugLog('充值弹窗确认，输入金额=' + amount);
+              if (!amount || amount <= 0) {
+                showConfirm({
+                  title: '输入错误',
+                  content: '请输入有效的充值金额！',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+              }
+              await processPiCharge(amount);
+            },
+            onCancel: undefined
+          });
+        };
 
-
-
+        async function processPiCharge(amount) {
+          debugLog('processPiCharge开始，amount=' + amount);
+          try {
+            if (typeof window.Pi === 'undefined') {
+              debugLog('window.Pi未定义');
+              showConfirm({
+                title: '支付失败',
+                content: '请在Pi浏览器中打开此应用',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+              return;
+            }
+            // 强制scope校验
+            let authResult;
+            try {
+              debugLog('调用Pi.authenticate');
+              authResult = await window.Pi.authenticate(['username', 'payments']);
+              debugLog('Pi授权结果: ' + JSON.stringify(authResult));
+              alert('Pi授权结果：' + JSON.stringify(authResult));
+            } catch (e) {
+              debugLog('Pi.authenticate异常: ' + e.message);
+              showConfirm({
+                title: '认证失败',
+                content: '请重新登录并授权Pi支付权限',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+              return;
+            }
+            const scopes = authResult?.user?.credentials?.scopes || [];
+            debugLog('授权scopes: ' + JSON.stringify(scopes));
+            if (!scopes.includes('payments')) {
+              debugLog('scopes不包含payments');
+              showConfirm({
+                title: '权限不足',
+                content: '请授权Pi支付权限，否则无法充值！如多次无弹窗，请在Pi浏览器设置-已授权的应用中移除本应用后再重新登录。',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+              return;
+            }
+            // 构造支付参数
+            const paymentData = {
+              amount: amount,
+              memo: `充值${amount}积分`,
+              metadata: {
+                username: userInfo.username,
+                type: 'charge',
+                amount: amount
+              }
+            };
+            debugLog('准备调用Pi.createPayment, paymentData=' + JSON.stringify(paymentData));
+            // 检查Pi SDK支付功能
+            if (typeof window.Pi.createPayment !== 'function') {
+              debugLog('window.Pi.createPayment未定义');
+              showConfirm({
+                title: '支付失败',
+                content: 'Pi SDK支付功能不可用',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+              return;
+            }
+            // 发起支付
+            window.Pi.createPayment(paymentData, {
+              onIncompletePaymentFound: onIncompletePaymentFound,
+              onReadyForServerApproval: async function(paymentId) {
+                debugLog('onReadyForServerApproval触发, paymentId=' + paymentId);
+                try {
+                  debugLog('调用approve接口: ' + JSON.stringify({paymentId, username: userInfo.username, amount}));
+                  const resp = await fetch('https://houduan.toupiao01.top/api/user/approve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      paymentId: paymentId,
+                      username: userInfo.username,
+                      amount: amount
+                    })
+                  });
+                  const data = await resp.json();
+                  debugLog('approve响应: ' + JSON.stringify(data));
+                } catch (e) {
+                  debugLog('approve接口异常: ' + e.message);
+                  showConfirm({
+                    title: '支付失败',
+                    content: '服务器批准支付失败，请重试',
+                    confirmText: '确定',
+                    cancelText: '',
+                    onCancel: undefined
+                  });
+                }
+              },
+              onReadyForServerCompletion: async function(paymentId, txid) {
+                debugLog('onReadyForServerCompletion触发, paymentId=' + paymentId + ', txid=' + txid);
+                try {
+                  debugLog('调用complete接口: ' + JSON.stringify({paymentId, txid, username: userInfo.username, amount}));
+                  const resp = await fetch('https://houduan.toupiao01.top/api/user/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      paymentId: paymentId,
+                      txid: txid,
+                      username: userInfo.username,
+                      amount: amount
+                    })
+                  });
+                  const data = await resp.json();
+                  debugLog('complete响应: ' + JSON.stringify(data));
+                  // 支付完成，刷新用户积分
+                  const userData = await userAPI.getInfo(userInfo.username);
+                  setUserInfo(userData);
+                  debugLog('充值成功，积分已刷新');
+                  showConfirm({
+                    title: '充值成功',
+                    content: `成功充值${amount}积分！`,
+                    confirmText: '确定',
+                    cancelText: '',
+                    onCancel: undefined
+                  });
+                } catch (e) {
+                  debugLog('complete接口异常: ' + e.message);
+                  showConfirm({
+                    title: '充值成功',
+                    content: '积分已到账，但用户信息刷新失败，请手动刷新页面。',
+                    confirmText: '确定',
+                    cancelText: '',
+                    onCancel: undefined
+                  });
+                }
+              },
+              onCancel: async function(paymentId) {
+                debugLog('onCancel触发, paymentId=' + paymentId);
+                try {
+                  // 调用后端取消支付接口
+                  const response = await fetch('https://houduan.toupiao01.top/api/user/cancel-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      paymentId: paymentId,
+                      username: userInfo.username
+                    })
+                  });
+                  const data = await response.json();
+                  debugLog('取消支付响应: ' + JSON.stringify(data));
+                } catch (e) {
+                  debugLog('取消支付接口异常: ' + e.message);
+                }
+                showConfirm({
+                  title: '支付取消',
+                  content: '您已取消支付操作',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              },
+              onError: function(error, payment) {
+                debugLog('onError触发: ' + (error && error.message));
+                let errorMessage = '支付过程中发生错误，请重试';
+                if (error && error.message) errorMessage = error.message;
+                showConfirm({
+                  title: '支付失败',
+                  content: errorMessage,
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              }
+            });
+          } catch (error) {
+            debugLog('processPiCharge异常: ' + error.message);
+            showConfirm({
+              title: '支付失败',
+              content: `创建支付失败: ${error.message}`,
+              confirmText: '确定',
+              cancelText: '',
+              onCancel: undefined
+            });
+          }
+        }
 
         // 全局调试方法，确保所有流程都能调用
         function debugLog(msg) {
@@ -2200,8 +2103,8 @@
                   )}
                   
                   <div className="flex justify-around items-center pt-2 pb-2">
+                      <button onClick={handleChargeNew} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">充币</button>
                       <button onClick={handleLogout} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">退出</button>
-                      <button onClick={handleCharge} className="bg-yellow-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-yellow-700 transition-colors duration-200">充币</button>
                       <button onClick={handleWithdraw} className="bg-red-600 text-white font-bold py-2.5 px-6 rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">提币</button>
                   </div>
                 </>

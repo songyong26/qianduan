@@ -33,6 +33,14 @@ export const userAPI = {
     return apiRequest(`/user/info?username=${encodeURIComponent(username)}`);
   },
   
+  // 充值
+  charge: (username, amount) => {
+    return apiRequest('/user/charge', {
+      method: 'POST',
+      body: JSON.stringify({ username, amount })
+    });
+  },
+  
   // 提现
   withdraw: (username, amount, wallet, piUid, feeRate, remark = '') => {
     return apiRequest('/user/withdraw', {
@@ -49,29 +57,22 @@ export const userAPI = {
     });
   },
   
-  // Pi支付批准
-  approvePayment: (paymentId, username) => {
-    return apiRequest('/user/approve', {
-      method: 'POST',
-      body: JSON.stringify({ paymentId, username })
-    });
-  },
-  
-  // Pi支付完成
-  completePayment: (paymentId, txid, username) => {
-    return apiRequest('/user/complete', {
-      method: 'POST',
-      body: JSON.stringify({ paymentId, txid, username })
-    });
-  },
-  
-  // Pi支付取消
+  // 取消支付
   cancelPayment: (paymentId, username) => {
-    return apiRequest('/user/cancel', {
+    return apiRequest('/user/cancel-payment', {
       method: 'POST',
       body: JSON.stringify({ paymentId, username })
+    });
+  },
+  
+  // 处理未完成支付
+  handleIncompletePayments: (username, userUid) => {
+    return apiRequest('/user/handle-incomplete-payments', {
+      method: 'POST',
+      body: JSON.stringify({ username, userUid })
     });
   }
+
 };
 
 // 项目相关API
