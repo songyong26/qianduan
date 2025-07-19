@@ -815,59 +815,6 @@
         );
       };
 
-      // === 全局弹窗和未完成支付处理函数（插入到 App 组件定义之前） ===
-      window.showConfirm = function({ title, content, onConfirm, onCancel, confirmText = '确认', cancelText = '取消' }) {
-        alert(title + '\n' + content);
-        if (onConfirm) onConfirm();
-      };
-
-      window.onIncompletePaymentFound = function(payment) {
-        debugLog('检测到未完成支付: ' + JSON.stringify(payment));
-        window.showConfirm({
-          title: '检测到未完成支付',
-          content: '您有一笔未完成的充值，请选择继续处理或取消该支付。',
-          confirmText: '继续处理',
-          cancelText: '取消支付',
-          onConfirm: async () => {
-            try {
-              await userAPI.handleIncompletePayments(userInfo.username, userInfo.piUid || userInfo.username);
-              const userData = await userAPI.getInfo(userInfo.username);
-              setUserInfo(userData);
-              window.showConfirm({
-                title: '处理成功',
-                content: '未完成支付已处理，请重新发起充值。',
-                confirmText: '确定'
-              });
-            } catch (error) {
-              window.showConfirm({
-                title: '处理失败',
-                content: error.message || '处理未完成支付失败，请重试',
-                confirmText: '确定'
-              });
-            }
-          },
-          onCancel: async () => {
-            try {
-              await userAPI.cancelPayment(payment.identifier || payment.paymentId, userInfo.username);
-              const userData = await userAPI.getInfo(userInfo.username);
-              setUserInfo(userData);
-              window.showConfirm({
-                title: '已取消',
-                content: '未完成支付已取消，请重新发起充值。',
-                confirmText: '确定'
-              });
-            } catch (error) {
-              window.showConfirm({
-                title: '取消失败',
-                content: error.message || '取消未完成支付失败，请重试',
-                confirmText: '确定'
-              });
-            }
-          }
-        });
-        return payment;
-      };
-
       // --- MAIN APP COMPONENT ---
       const App = () => {
         // 1. 默认所有卡片折叠
@@ -1204,6 +1151,632 @@
           setOpenAccordion(prevId => (prevId === id ? null : id));
         };
 
+        // 创建一个空的onIncompletePaymentFound函数，避免Pi SDK报错
+        const onIncompletePaymentFound = (payment) => {
+          debugLog('检测到未完成支付，但已忽略: ' + JSON.stringify(payment));
+          // 直接返回payment，不做任何处理，让用户可以继续充值
+          return payment;
+        };
+
+        const handleLogin = async () => {
+          try {
+            // 检查Pi SDK是否可用
+            if (typeof window.Pi === 'undefined') {
+              console.error('Pi SDK未加载');
+              showConfirm({
+                title: '登录失败',
+                content: '请在Pi浏览器中打开此应用。如果您已在Pi浏览器中，请刷新页面重试。',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+              return;
+            }
+
+            // 检查Pi SDK是否正确初始化
+            if (typeof window.Pi.authenticate !== 'function') {
+              console.error('Pi SDK未正确初始化');
+              showConfirm({
+                title: '登录失败',
+                content: 'Pi SDK未正确加载，请刷新页面重试',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+              return;
+            }
+
+            console.log('Pi SDK已加载，开始认证...');
+            console.log('Pi对象方法:', Object.keys(window.Pi));
+            console.log('当前URL:', window.location.href);
+            console.log('User Agent:', navigator.userAgent);
+            
+            // 使用Pi SDK进行用户认证
+            const scopes = ['username', 'payments'];
+            console.log('认证范围:', scopes);
+            
+            // 添加超时处理
+            const authPromise = window.Pi.authenticate(scopes);
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('认证超时，请重试')), 30000);
+            });
+            
+            const authResult = await Promise.race([authPromise, timeoutPromise]);
+            console.log('认证结果:', authResult);
+            
+            if (authResult && authResult.user) {
+              const username = authResult.user.username;
+              const piUid = authResult.user.uid || authResult.user.username;
+              
+              try {
+                // 获取用户信息
+                const userData = await userAPI.getInfo(username);
+                // 添加Pi用户ID到用户信息中
+                userData.piUid = piUid;
+                setUserInfo(userData);
+                setIsLoggedIn(true);
+                
+                // 保存登录状态到localStorage
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('userInfo', JSON.stringify(userData));
+                localStorage.setItem('piUid', piUid);
+                
+                showConfirm({
+                  title: '登录成功',
+                  content: `欢迎回来，${username}！`,
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              } catch (error) {
+                console.error('获取用户信息失败:', error);
+                showConfirm({
+                  title: '登录失败',
+                  content: '获取用户信息失败，请重试',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+              }
+            } else {
+              showConfirm({
+                title: '登录失败',
+                content: '用户认证失败，请重试',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+            }
+          } catch (error) {
+            console.error('Pi认证错误:', error);
+            console.error('错误详情:', {
+              name: error.name,
+              message: error.message,
+              stack: error.stack
+            });
+            
+            let errorMessage = '认证过程中发生错误，请重试';
+            
+            // 根据错误类型提供更具体的错误信息
+            if (error.message) {
+              if (error.message.includes('User denied')) {
+                errorMessage = '用户拒绝了认证请求';
+              } else if (error.message.includes('Network')) {
+                errorMessage = '网络连接错误，请检查网络后重试';
+              } else if (error.message.includes('SDK')) {
+                errorMessage = 'Pi SDK错误，请确保在Pi浏览器中打开';
+              } else {
+                errorMessage = `认证失败: ${error.message}`;
+              }
+            }
+            
+            showConfirm({
+              title: '登录失败',
+              content: errorMessage,
+              confirmText: '确定',
+              cancelText: '',
+              onCancel: undefined
+            });
+          }
+        };
+        const handleLogout = () => {
+            showConfirm({
+              title: '退出登录',
+              content: '确定要退出登录吗？',
+              onConfirm: () => {
+                setIsLoggedIn(false);
+                setUserInfo({
+                  username: null,
+                  points: 0,
+                  frozenPoints: 0,
+                  pointDetails: []
+                });
+                setOpenAccordion(null); // 退出后收起所有折叠面板
+                setShowPointsDetail(false); // 关闭积分明细
+                setProjects([]); // 清空项目列表，防止残留
+                setParticipatedProjectIds([]); // 清空参与项目ID
+                setAllProjectsSorted(null); // 清空排序
+                setPublishDialog({ open: false, projectId: null, votes: { '是': 0, '否': 0 } }); // 关闭弹窗
+                setPointsPage(1); // 重置分页
+                // 新增：清除localStorage
+                localStorage.removeItem('isLoggedIn');
+                localStorage.removeItem('userInfo');
+                localStorage.removeItem('participatedProjectIds');
+                localStorage.removeItem('piUid');
+                // 关键：强制刷新页面，彻底恢复未登录界面
+                window.location.reload();
+              }
+            });
+        };
+
+        const handleWithdraw = async () => {
+            // 统一设置提现手续费为3%
+            const feeRate = 0.03;
+            const feePercentage = 3;
+            
+            // 创建提现表单对话框
+            const withdrawFormHtml = `
+                <div style="padding: 8px; box-sizing: border-box;">
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: #fbbf24; font-size: 14px; text-align: left;">提现金额（积分）</label>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <input type="number" id="withdrawAmount" min="1" max="999999" step="1" 
+                                   style="width: 100%; padding: 8px; border: 2px solid #a855f7; border-radius: 6px; font-size: 16px; text-align: center; background: rgba(255,255,255,0.9); color: #1f2937; box-sizing: border-box;" 
+                                   placeholder="请输入提现金额" maxlength="6" />
+                            <span style="color: #e5e7eb; font-size: 12px; text-align: center; line-height: 1.3;">可用积分：${Number(userInfo.points).toFixed(2).replace(/\.?0+$/, '')} | 手续费：3%</span>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: #fbbf24; font-size: 14px; text-align: left;">收币地址</label>
+                        <input type="text" id="withdrawAddress" 
+                               style="width: 100%; padding: 8px; border: 2px solid #a855f7; border-radius: 6px; font-size: 14px; background: rgba(255,255,255,0.9); color: #1f2937; box-sizing: border-box; overflow: visible; text-overflow: clip; white-space: nowrap;" 
+                               placeholder="请输入您的Pi钱包地址" 
+                               value="${userInfo.defaultWalletAddress || ''}" />
+                        <small style="color: #e5e7eb; margin-top: 4px; display: block; font-size: 11px; text-align: center; line-height: 1.3;">${userInfo.defaultWalletAddress ? '已自动填充默认地址' : '请确保地址正确'}</small>
+                        <small style="color: #fbbf24; margin-top: 4px; display: block; font-size: 11px; text-align: center; line-height: 1.3;">💡 管理员审核通过后转账到您的Pi钱包地址</small>
+                    </div>
+                </div>
+            `;
+            
+            // 不再需要实际到账预览功能
+            
+            // 不需要创建临时容器，ConfirmDialog现在可以直接渲染HTML
+            
+            showConfirm({
+                title: '申请提现',
+                content: withdrawFormHtml,
+                confirmText: '提交申请',
+                cancelText: '取消',
+                onConfirm: async () => {
+                    const amount = parseInt(document.getElementById('withdrawAmount').value);
+                    const address = document.getElementById('withdrawAddress').value.trim();
+                    
+                    if (!amount || amount <= 0) {
+                        showConfirm({
+                            title: '输入错误',
+                            content: '请输入有效的提现金额！',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                        return;
+                    }
+                    
+                    if (!address) {
+                        showConfirm({
+                            title: '输入错误',
+                            content: '请输入收币地址！',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                        return;
+                    }
+                    
+                    if (amount > userInfo.points) {
+                        showConfirm({
+                            title: '余额不足',
+                            content: '您的可用积分不足！',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                        return;
+                    }
+                    
+                    try {
+                        // 获取Pi用户ID用于提现
+                        let piUid = '';
+                        if (typeof window.Pi !== 'undefined') {
+                            try {
+                                const authResult = await window.Pi.authenticate(['username', 'payments']);
+                                if (authResult && authResult.user) {
+                                    piUid = authResult.user.uid || authResult.user.username;
+                                }
+                            } catch (error) {
+                                console.log('获取Pi用户ID失败，使用空值:', error);
+                            }
+                        }
+                        
+                        await userAPI.withdraw(userInfo.username, amount, address, piUid, feeRate);
+                        // 提现后刷新用户信息
+                        const userData = await userAPI.getInfo(userInfo.username);
+                        setUserInfo(userData);
+                        showConfirm({
+                            title: '提现申请成功',
+                            content: `已申请提现 ${amount} 积分到地址<br><span style="word-break: break-all; line-height: 1.4; display: block; margin: 8px 0; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; font-family: monospace;">${address}</span>请等待管理员审核！`,
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                    } catch (error) {
+                        showConfirm({
+                            title: '提现失败',
+                            content: error.message || '提现失败，请重试',
+                            confirmText: '确定',
+                            cancelText: '',
+                            onCancel: undefined
+                        });
+                    }
+                },
+                onCancel: () => {
+                    // 用户取消提现操作
+                    console.log('用户取消提现操作');
+                }
+            });
+        };
+
+
+
+        const handleProjectInputChange = (e) => {
+            const { name, value } = e.target;
+            setNewProjectData(prev => ({ ...prev, [name]: value }));
+        };
+
+        const handleCreateProject = async (e) => {
+            e.preventDefault();
+            if (!newProjectData.title || !newProjectData.deadline || !newProjectData.maxPoints) {
+                alert('请填写所有必填字段！');
+                return;
+            }
+            
+            if (Number(newProjectData.maxPoints) < 100) {
+                showConfirm({
+                  title: '积分设置错误',
+                  content: '单项最高可投票积分数不能少于100！',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+            }
+            
+            if (userInfo.points < Number(newProjectData.maxPoints)) {
+                showConfirm({
+                  title: '积分不足',
+                  content: `您的可用积分不足，无法创建该项目！`,
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+            }
+            
+            showConfirm({
+              title: '冻结积分确认',
+              content: `将冻结${newProjectData.maxPoints}积分，冻结后不可用，待项目结算后自动返还或扣除。是否继续？`,
+              confirmText: '继续',
+              cancelText: '取消',
+              onConfirm: () => {
+                showConfirm({
+                  title: '创建项目',
+                  content: '确定要创建该项目吗？',
+                  onConfirm: async () => {
+                    try {
+                      await projectAPI.create(
+                        userInfo.username,
+                        newProjectData.title,
+                        newProjectData.description,
+                        newProjectData.deadline,
+                        Number(newProjectData.maxPoints)
+                      );
+                      
+                      // 只刷新用户信息，项目列表会通过WebSocket自动更新
+                      const userData = await userAPI.getInfo(userInfo.username);
+                      setUserInfo(userData);
+                      
+                      setNewProjectData({
+                        title: '',
+                        description: '',
+                        deadline: '',
+                        maxPoints: 100,
+                      });
+                      setOpenAccordion('all_projects');
+                      
+                      showConfirm({
+                        title: '创建成功',
+                        content: '项目创建成功！',
+                        confirmText: '确定',
+                        cancelText: '',
+                        onCancel: undefined
+                      });
+                    } catch (error) {
+                      showConfirm({
+                        title: '创建失败',
+                        content: error.message || '创建项目失败，请重试',
+                        confirmText: '确定',
+                        cancelText: '',
+                        onCancel: undefined
+                      });
+                    }
+                  },
+                  cancelText: '取消',
+                });
+              },
+              onCancel: undefined
+            });
+        };
+
+        const handleDeleteProject = async (projectId) => {
+            try {
+              await projectAPI.remove(projectId, userInfo.username);
+              // 立即从项目列表中移除该项目（只影响当前用户）
+              setProjects(prev => prev.filter(p => p._id !== projectId));
+              // 删除后刷新用户信息，确保积分明细和余额实时更新
+              const userData = await userAPI.getInfo(userInfo.username);
+              setUserInfo(userData);
+              showConfirm({
+                title: '删除成功',
+                content: '项目已成功删除',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+            } catch (error) {
+              showConfirm({
+                title: '删除失败',
+                content: error.message || '删除项目失败，请重试',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+            }
+        };
+
+        const handleSubmitReview = async (projectId, pendingOption) => {
+            try {
+              await projectAPI.publish(projectId, userInfo.username, pendingOption);
+              // 项目列表会通过WebSocket自动更新
+              setPublishDialog({ open: false, projectId: null, votes: { '是': 0, '否': 0 } }); // 只在成功后关闭弹窗
+              showConfirm({
+                title: '提交成功',
+                content: '项目结果已提交审核，请等待管理员操作。',
+                confirmText: '确定',
+                cancelText: '',
+                onConfirm: undefined,
+                onCancel: undefined
+              });
+            } catch (error) {
+              showConfirm({
+                title: '提交失败',
+                content: error.message || '提交失败，请重试',
+                confirmText: '确定',
+                cancelText: '',
+                onConfirm: undefined,
+                onCancel: undefined
+              });
+            }
+        };
+
+
+
+        const handleTogglePauseProject = async (projectId) => {
+            try {
+              const project = projects.find(p => p._id === projectId);
+              if (project.status === 'paused') {
+                await projectAPI.resume(projectId, userInfo.username);
+              } else {
+                await projectAPI.pause(projectId, userInfo.username);
+              }
+              // 项目列表会通过WebSocket自动更新
+              // 暂停/重启项目后刷新用户信息
+              const userData = await userAPI.getInfo(userInfo.username);
+              setUserInfo(userData);
+            } catch (error) {
+              showConfirm({
+                title: '操作失败',
+                content: error.message || '操作失败，请重试',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+            }
+        };
+
+        const handleVoteSubmit = async (projectId, choice, points) => {
+            if (points > userInfo.points) {
+                showConfirm({
+                  title: '积分不足',
+                  content: '您的可用积分不足，无法投票！',
+                  confirmText: '确定',
+                  cancelText: '',
+                  onCancel: undefined
+                });
+                return;
+            }
+            
+            try {
+              await projectAPI.vote(projectId, userInfo.username, choice, points);
+              
+              // 只刷新用户信息，项目列表会通过WebSocket自动更新
+              const userData = await userAPI.getInfo(userInfo.username);
+              setUserInfo(userData);
+              
+              showConfirm({
+                title: '投票成功',
+                content: `您对项目投了 "${choice}"，冻结了 ${points} 积分。`,
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+            } catch (error) {
+              showConfirm({
+                title: '投票失败',
+                content: error.message || '投票失败，请重试',
+                confirmText: '确定',
+                cancelText: '',
+                onCancel: undefined
+              });
+            }
+        };
+
+        // 修复：所有项目列表只显示进行中且可以正常投票的项目
+        const activeProjects = projects.filter(p => {
+          const deadlineDate = p.deadline ? new Date(p.deadline) : null;
+          const now = new Date();
+          
+          // 只包含进行中的项目
+          if (p.status !== 'inprogress') {
+            return false;
+          }
+          
+          // 检查是否未到截止时间
+          if (!deadlineDate || now > deadlineDate) {
+            return false;
+          }
+          
+          // 检查是否两个选项都达到最高积分上限
+          const yesVoted = (p.votes && p.votes['是']) ? p.votes['是'] : 0;
+          const noVoted = (p.votes && p.votes['否']) ? p.votes['否'] : 0;
+          const maxPoints = p.maxPoints || 0;
+          if (yesVoted >= maxPoints && noVoted >= maxPoints) {
+            return false;
+          }
+          
+          return true;
+        });
+
+        const CreateProjectForm = (
+            <form onSubmit={handleCreateProject} className="flex flex-col gap-5">
+                <div className="bg-yellow-400/20 border-l-4 border-yellow-400 text-yellow-300 font-bold p-3 rounded mb-2 text-sm flex items-center">
+                  <svg viewBox="0 0 24 24" width="28" height="28" className="mr-2 flex-shrink-0" style={{display:'inline'}}><polygon points="12,2 22,20 2,20" fill="#facc15" stroke="#f59e42" strokeWidth="2"/><text x="12" y="17" textAnchor="middle" fontSize="13" fontWeight="bold" fill="#b91c1c">!</text></svg>
+                  <span>请在创建项目前<span className="font-extrabold">务必</span>先查看 <span className="underline cursor-pointer" onClick={() => setOpenAccordion('game_rules')}>游戏规则</span>！项目一旦发布，将会严格按照规则执行！</span>
+                </div>
+                <div>
+                    <label htmlFor="title" className="block text-sm font-medium text-yellow-400/80 mb-1">项目标题 (最多15个字符)</label>
+                    <input type="text" name="title" id="title" value={newProjectData.title} onChange={handleProjectInputChange} className="w-full bg-purple-700/50 border border-purple-400/50 rounded-lg px-3 py-2 text-white focus:ring-yellow-400 focus:border-yellow-400" required maxLength="15" />
+                </div>
+                <div>
+                    <label htmlFor="description" className="block text-sm font-medium text-yellow-400/80 mb-1">项目描述 (可选, 最多40个字符)</label>
+                    <textarea name="description" id="description" rows="3" value={newProjectData.description} onChange={handleProjectInputChange} className="w-full bg-purple-700/50 border border-purple-400/50 rounded-lg px-3 py-2 text-white focus:ring-yellow-400 focus:border-yellow-400" maxLength="40"></textarea>
+                </div>
+                <div>
+                    <label htmlFor="deadline" className="block text-sm font-medium text-yellow-400/80 mb-1">截止时间</label>
+                    <input type="datetime-local" name="deadline" id="deadline" value={newProjectData.deadline} onChange={handleProjectInputChange} className="w-full bg-purple-700/50 border border-purple-400/50 rounded-lg px-3 py-2 text-white focus:ring-yellow-400 focus:border-yellow-400" style={{ colorScheme: 'dark' }} required />
+                </div>
+                <div>
+                    <label htmlFor="maxPoints" className="block text-sm font-medium text-yellow-400/80 mb-1">单项最高可投票积分数</label>
+                    <input type="number" name="maxPoints" id="maxPoints" min="100" step="1" value={newProjectData.maxPoints} onChange={handleProjectInputChange} className="w-full bg-purple-700/50 border border-purple-400/50 rounded-lg px-3 py-2 text-white focus:ring-yellow-400 focus:border-yellow-400" required />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-yellow-400/80 mb-1">投票选项</label>
+                    <div className="flex gap-4 mt-2">
+                        <div className="flex-1 text-center bg-green-500/40 text-white/90 font-semibold py-2 rounded-md border border-green-500/60 cursor-not-allowed">是</div>
+                        <div className="flex-1 text-center bg-red-500/40 text-white/90 font-semibold py-2 rounded-md border border-red-500/60 cursor-not-allowed">否</div>
+                    </div>
+                    <p className="text-xs text-purple-300/80 mt-2">投票选项固定为"是"和"否"。</p>
+                </div>
+                <div className="flex justify-center pt-2">
+                    <button type="submit" className="bg-red-600 text-white font-bold py-2 px-8 rounded-lg shadow-md hover:bg-red-700 transition-colors duration-200">
+                        创建项目
+                    </button>
+                </div>
+            </form>
+        );
+
+        // 参与的项目移除逻辑（提升到App，便于传递给MyProjectsView）
+        const handleRemoveParticipated = async (projectId) => {
+          try {
+            const response = await fetch(`${API_BASE}/projects/${projectId}/participated`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: userInfo.username })
+            });
+            if (response.ok) {
+              // 立即从项目列表中移除该项目
+              setProjects(prev => prev.filter(p => p._id !== projectId));
+              setParticipatedProjectIds(prev => {
+                const updated = prev.filter(id => id !== projectId);
+                // 同步到localStorage，防止刷新后又出现
+                localStorage.setItem('participatedProjectIds', JSON.stringify(updated));
+                return updated;
+              });
+            } else {
+              const error = await response.json();
+              alert(error.message || '删除失败');
+            }
+          } catch (error) {
+            console.error('删除项目失败:', error);
+            alert('删除失败，请重试');
+          }
+        };
+
+        // 公布结果弹窗状态
+        const [publishDialog, setPublishDialog] = useState({ open: false, projectId: null, votes: { '是': 0, '否': 0 } });
+
+        // "所有项目"统计和筛选组件
+        const [allProjectsSorted, setAllProjectsSorted] = React.useState(null);
+        const AllProjectsStatsAndFilter = ({ projects, onSort, totalCount, totalParticipants }) => {
+          const [filter, setFilter] = React.useState('default');
+          React.useEffect(() => {
+            let sorted = [...projects];
+            if (filter === 'participants') {
+              sorted.sort((a, b) => (b.participantCount || 0) - (a.participantCount || 0));
+            } else if (filter === 'latest') {
+              sorted.sort((a, b) => (b._id || 0) - (a._id || 0));
+            } else if (filter === 'points') {
+              sorted.sort((a, b) => {
+                const getPoints = p => {
+                  if (p.votes && typeof p.votes === 'object') {
+                    return Object.values(p.votes).reduce((sum, v) => sum + (parseInt(v, 10) || 0), 0);
+                  }
+                  return 0;
+                };
+                return getPoints(b) - getPoints(a);
+              });
+            }
+            onSort(sorted);
+          }, [filter, projects, onSort]);
+          return (
+            <div className="flex items-center justify-between all-projects-stats-inner text-xs">
+              <div className="flex gap-4 items-stretch">
+                <div className="flex flex-col items-center justify-center text-yellow-300 font-bold whitespace-nowrap">
+                  <div className="leading-tight">项目数量</div>
+                  <div className="text-base mt-0.5">{totalCount}</div>
+                </div>
+                <div className="w-px bg-yellow-300 mx-2 self-stretch" style={{borderRadius:'2px'}}></div>
+                <div className="flex flex-col items-center justify-center text-yellow-300 font-bold whitespace-nowrap">
+                  <div className="leading-tight">参与人数</div>
+                  <div className="text-base mt-0.5">{totalParticipants}</div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        // 在App组件内部增加分页状态
+        const [pointsPage, setPointsPage] = useState(1);
+        const pointsPageSize = 10;
+        const totalPoints = userInfo.pointDetails.length;
+        const totalPointsPages = Math.ceil(totalPoints / pointsPageSize);
+        const pointsStart = (pointsPage - 1) * pointsPageSize;
+        const pointsEnd = pointsStart + pointsPageSize;
+        const currentPoints = userInfo.pointDetails.slice(pointsStart, pointsEnd);
+
+        useEffect(() => {
+          setPointsPage(1);
+        }, [userInfo.pointDetails]);
+
         // 在App组件内部添加全新充值支付逻辑
         const handleChargeNew = async () => {
           debugLog('点击充值按钮');
@@ -1319,7 +1892,7 @@
             }
             // 发起支付
             window.Pi.createPayment(paymentData, {
-              onIncompletePaymentFound: window.onIncompletePaymentFound,
+              onIncompletePaymentFound: onIncompletePaymentFound,
               onReadyForServerApproval: async function(paymentId) {
                 debugLog('onReadyForServerApproval触发, paymentId=' + paymentId);
                 try {
